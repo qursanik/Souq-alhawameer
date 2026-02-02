@@ -1,0 +1,2636 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>سوق الهوامير - النسخة المتطورة</title>
+    <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@300;400;500;700;800&family=Cairo:wght@300;400;600;700;900&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root {
+            --primary: #0a4d3c;
+            --primary-light: #0f6b52;
+            --secondary: #d4af37;
+            --success: #2ecc71;
+            --danger: #e74c3c;
+            --warning: #f39c12;
+        }
+
+        /* Dark Theme */
+        [data-theme="dark"] {
+            --bg-primary: #0a0f0d;
+            --bg-secondary: #121a16;
+            --bg-card: #1a2621;
+            --text-primary: #e8f1ed;
+            --text-secondary: #a8c5b8;
+            --border: #2d4438;
+        }
+
+        /* Light Theme */
+        [data-theme="light"] {
+            --bg-primary: #f5f7f6;
+            --bg-secondary: #ffffff;
+            --bg-card: #ffffff;
+            --text-primary: #0a0f0d;
+            --text-secondary: #5a6b62;
+            --border: #d4dcd8;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Tajawal', sans-serif;
+            background: linear-gradient(135deg, var(--bg-primary) 0%, var(--bg-secondary) 100%);
+            color: var(--text-primary);
+            min-height: 100vh;
+            transition: all 0.3s ease;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 1rem;
+        }
+
+        /* Animations */
+        @keyframes slideUp {
+            from { opacity: 0; transform: translateY(30px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        @keyframes slideInRight {
+            from { opacity: 0; transform: translateX(-20px); }
+            to { opacity: 1; transform: translateX(0); }
+        }
+
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        .animate-slide-up {
+            animation: slideUp 0.6s ease-out;
+        }
+
+        .animate-fade-in {
+            animation: fadeIn 0.3s ease-out;
+        }
+
+        /* Card Styles */
+        .card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            padding: 2rem;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+            transition: all 0.3s ease;
+        }
+
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 15px 50px rgba(0,0,0,0.3);
+        }
+
+        /* Form Styles */
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+            font-weight: 500;
+        }
+
+        .form-group input, .form-group select, .form-group textarea {
+            width: 100%;
+            padding: 1rem;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            color: var(--text-primary);
+            font-family: 'Tajawal', sans-serif;
+            font-size: 1rem;
+            transition: all 0.3s ease;
+        }
+
+        .form-group input:focus, .form-group select:focus, .form-group textarea:focus {
+            outline: none;
+            border-color: var(--primary-light);
+            box-shadow: 0 0 0 3px rgba(15, 107, 82, 0.1);
+        }
+
+        /* Button Styles */
+        .btn {
+            padding: 1rem 2rem;
+            border: none;
+            border-radius: 12px;
+            font-family: 'Cairo', sans-serif;
+            font-size: 1rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: inline-block;
+            text-align: center;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, var(--primary), var(--primary-light));
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 30px rgba(15, 107, 82, 0.3);
+        }
+
+        .btn-secondary {
+            background: transparent;
+            border: 1px solid var(--border);
+            color: var(--text-secondary);
+        }
+
+        .btn-secondary:hover {
+            background: var(--bg-secondary);
+            color: var(--text-primary);
+        }
+
+        .btn-success {
+            background: linear-gradient(135deg, var(--success), #27ae60);
+            color: white;
+        }
+
+        .btn-danger {
+            background: linear-gradient(135deg, var(--danger), #c0392b);
+            color: white;
+        }
+
+        .btn-small {
+            padding: 0.5rem 1rem;
+            font-size: 0.85rem;
+        }
+
+        /* Header */
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1.5rem 0;
+            margin-bottom: 2rem;
+            border-bottom: 1px solid var(--border);
+            flex-wrap: wrap;
+            gap: 1rem;
+        }
+
+        .header-title h1 {
+            font-family: 'Cairo', sans-serif;
+            font-size: 1.8rem;
+            font-weight: 900;
+            color: var(--secondary);
+        }
+
+        .header-actions {
+            display: flex;
+            gap: 1rem;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .theme-toggle {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            color: var(--text-primary);
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .theme-toggle:hover {
+            transform: rotate(180deg);
+            background: var(--primary);
+        }
+
+        .notification-btn {
+            position: relative;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            color: var(--text-primary);
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .notification-badge {
+            position: absolute;
+            top: -5px;
+            right: -5px;
+            background: var(--danger);
+            color: white;
+            border-radius: 10px;
+            padding: 2px 6px;
+            font-size: 0.7rem;
+            font-weight: bold;
+            animation: pulse 2s infinite;
+        }
+
+        .notification-dropdown {
+            position: absolute;
+            top: 60px;
+            right: 0;
+            width: 350px;
+            max-height: 500px;
+            overflow-y: auto;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 1rem;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.4);
+            z-index: 1000;
+            display: none;
+        }
+
+        .notification-dropdown.active {
+            display: block;
+            animation: slideUp 0.3s ease-out;
+        }
+
+        .notification-item {
+            padding: 1rem;
+            background: var(--bg-secondary);
+            border-radius: 12px;
+            margin-bottom: 0.5rem;
+            animation: slideInRight 0.3s ease-out;
+        }
+
+        /* Stats Grid */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .stat-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 1.5rem;
+            position: relative;
+            overflow: hidden;
+            transition: all 0.3s ease;
+        }
+
+        .stat-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            right: 0;
+            width: 100px;
+            height: 100px;
+            background: radial-gradient(circle, var(--primary-light) 0%, transparent 70%);
+            opacity: 0.1;
+        }
+
+        .stat-label {
+            color: var(--text-secondary);
+            font-size: 0.85rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .stat-value {
+            font-size: 2rem;
+            font-weight: 800;
+            font-family: 'Cairo', sans-serif;
+            color: var(--text-primary);
+        }
+
+        .stat-change {
+            font-size: 0.85rem;
+            margin-top: 0.5rem;
+        }
+
+        .stat-change.positive { color: var(--success); }
+        .stat-change.negative { color: var(--danger); }
+
+        /* Tabs */
+        .tabs {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 2rem;
+            border-bottom: 1px solid var(--border);
+            overflow-x: auto;
+        }
+
+        .tab {
+            padding: 1rem 1.5rem;
+            background: none;
+            border: none;
+            color: var(--text-secondary);
+            font-family: 'Tajawal', sans-serif;
+            font-size: 1rem;
+            cursor: pointer;
+            border-bottom: 2px solid transparent;
+            transition: all 0.3s ease;
+            white-space: nowrap;
+        }
+
+        .tab.active {
+            color: var(--secondary);
+            border-bottom-color: var(--secondary);
+            font-weight: bold;
+        }
+
+        .tab:hover {
+            color: var(--primary-light);
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+            animation: fadeIn 0.3s ease-out;
+        }
+
+        /* Stock Card */
+        .stock-card {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin-bottom: 1rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .stock-card:hover {
+            transform: translateX(-5px);
+            border-color: var(--primary-light);
+            box-shadow: 0 5px 20px rgba(0,0,0,0.2);
+        }
+
+        .stock-info h3 {
+            font-size: 1.2rem;
+            font-weight: 700;
+            margin-bottom: 0.3rem;
+        }
+
+        .stock-info p {
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+        }
+
+        .stock-price {
+            text-align: left;
+        }
+
+        .stock-price .price {
+            font-size: 1.5rem;
+            font-weight: 800;
+            font-family: 'Cairo', sans-serif;
+        }
+
+        .stock-price .change {
+            font-size: 0.9rem;
+            margin-top: 0.3rem;
+        }
+
+        /* Modal */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            backdrop-filter: blur(5px);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+            padding: 1rem;
+        }
+
+        .modal.active {
+            display: flex;
+            animation: fadeIn 0.3s ease-out;
+        }
+
+        .modal-content {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            padding: 2.5rem;
+            max-width: 600px;
+            width: 100%;
+            max-height: 90vh;
+            overflow-y: auto;
+            animation: slideUp 0.3s ease-out;
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 2rem;
+        }
+
+        .modal-close {
+            background: none;
+            border: none;
+            color: var(--danger);
+            font-size: 2rem;
+            cursor: pointer;
+            padding: 0;
+            transition: transform 0.3s ease;
+        }
+
+        .modal-close:hover {
+            transform: rotate(90deg);
+        }
+
+        /* Transaction Item */
+        .transaction-item {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin-bottom: 1rem;
+        }
+
+        .transaction-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 0.5rem;
+        }
+
+        .transaction-badge {
+            display: inline-block;
+            padding: 0.3rem 0.8rem;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-weight: bold;
+            margin-left: 0.5rem;
+        }
+
+        .transaction-badge.buy {
+            background: var(--success);
+            color: white;
+        }
+
+        .transaction-badge.sell {
+            background: var(--danger);
+            color: white;
+        }
+
+        /* Achievement Badge */
+        .achievement-card {
+            text-align: center;
+            padding: 2rem;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            transition: all 0.3s ease;
+        }
+
+        .achievement-card.unlocked {
+            border-color: var(--secondary);
+            box-shadow: 0 5px 20px rgba(212, 175, 55, 0.3);
+        }
+
+        .achievement-card.locked {
+            opacity: 0.5;
+            filter: grayscale(100%);
+        }
+
+        .achievement-icon {
+            font-size: 4rem;
+            margin-bottom: 1rem;
+        }
+
+        .achievement-name {
+            font-size: 1.2rem;
+            font-weight: bold;
+            margin-bottom: 0.5rem;
+        }
+
+        .achievement-desc {
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+        }
+
+        /* Leaderboard */
+        .leaderboard-item {
+            display: flex;
+            align-items: center;
+            padding: 1.5rem;
+            background: var(--bg-secondary);
+            border-radius: 12px;
+            margin-bottom: 1rem;
+            transition: all 0.3s ease;
+        }
+
+        .leaderboard-item:hover {
+            transform: translateX(-5px);
+        }
+
+        .leaderboard-item.rank-1 { border-right: 4px solid #ffd700; }
+        .leaderboard-item.rank-2 { border-right: 4px solid #c0c0c0; }
+        .leaderboard-item.rank-3 { border-right: 4px solid #cd7f32; }
+
+        .rank {
+            font-size: 2rem;
+            font-weight: 900;
+            font-family: 'Cairo', sans-serif;
+            min-width: 60px;
+            text-align: center;
+        }
+
+        .rank.gold { color: #ffd700; }
+        .rank.silver { color: #c0c0c0; }
+        .rank.bronze { color: #cd7f32; }
+
+        .color-dot {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            margin: 0 1rem;
+        }
+
+        .leaderboard-info {
+            flex: 1;
+        }
+
+        .leaderboard-name {
+            font-size: 1.2rem;
+            font-weight: 700;
+            margin-bottom: 0.3rem;
+        }
+
+        .leaderboard-stats {
+            color: var(--text-secondary);
+            font-size: 0.85rem;
+        }
+
+        .leaderboard-value {
+            font-size: 1.5rem;
+            font-weight: 800;
+            font-family: 'Cairo', sans-serif;
+            color: var(--secondary);
+        }
+
+        /* Chat */
+        .chat-container {
+            max-height: 500px;
+            overflow-y: auto;
+            padding: 1rem;
+            background: var(--bg-secondary);
+            border-radius: 12px;
+            margin-bottom: 1rem;
+        }
+
+        .chat-message {
+            margin-bottom: 1rem;
+            padding: 1rem;
+            border-radius: 12px;
+            max-width: 70%;
+            animation: slideInRight 0.3s ease-out;
+        }
+
+        .chat-message.own {
+            background: var(--primary);
+            color: white;
+            margin-right: 0;
+            margin-left: auto;
+        }
+
+        .chat-message.other {
+            background: var(--bg-card);
+            margin-left: 0;
+            margin-right: auto;
+        }
+
+        .chat-sender {
+            font-weight: bold;
+            margin-bottom: 0.3rem;
+            font-size: 0.9rem;
+        }
+
+        .chat-time {
+            font-size: 0.75rem;
+            opacity: 0.7;
+            margin-top: 0.3rem;
+        }
+
+        .chat-input-group {
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        .chat-input-group input {
+            flex: 1;
+        }
+
+        /* Alert */
+        .alert {
+            padding: 1rem;
+            border-radius: 12px;
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            animation: slideUp 0.3s ease-out;
+        }
+
+        .alert-success {
+            background: rgba(46, 204, 113, 0.1);
+            border: 1px solid rgba(46, 204, 113, 0.3);
+            color: var(--success);
+        }
+
+        .alert-error {
+            background: rgba(231, 76, 60, 0.1);
+            border: 1px solid rgba(231, 76, 60, 0.3);
+            color: var(--danger);
+        }
+
+        .alert-warning {
+            background: rgba(243, 156, 18, 0.1);
+            border: 1px solid rgba(243, 156, 18, 0.3);
+            color: var(--warning);
+        }
+
+        .alert-info {
+            background: rgba(15, 107, 82, 0.1);
+            border: 1px solid rgba(15, 107, 82, 0.3);
+            color: var(--primary-light);
+        }
+
+        /* Table */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th, td {
+            text-align: right;
+            padding: 1rem;
+            border-bottom: 1px solid var(--border);
+        }
+
+        th {
+            color: var(--text-secondary);
+            font-weight: 600;
+            font-size: 0.9rem;
+            background: var(--bg-secondary);
+        }
+
+        tr:hover {
+            background: var(--bg-secondary);
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .header {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+
+            .stats-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .modal-content {
+                padding: 1.5rem;
+            }
+
+            .chat-message {
+                max-width: 85%;
+            }
+
+            .notification-dropdown {
+                width: 300px;
+                right: -50px;
+            }
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        /* Loading */
+        .loading {
+            text-align: center;
+            padding: 2rem;
+            color: var(--text-secondary);
+        }
+
+        .loading::after {
+            content: '...';
+            animation: dots 1.5s steps(4, end) infinite;
+        }
+
+        @keyframes dots {
+            0%, 20% { content: '.'; }
+            40% { content: '..'; }
+            60%, 100% { content: '...'; }
+        }
+    </style>
+</head>
+<body data-theme="dark">
+    <div id="app"></div>
+    <div id="modals"></div>
+
+    <script>
+        // Global State
+        let appState = {
+            currentScreen: 'login',
+            currentUser: null,
+            theme: 'dark',
+            showNotifications: false,
+            selectedStock: null,
+            activeTab: 'portfolio',
+            activeAdminTab: 'settings'
+        };
+
+        let appData = {
+            users: [],
+            stocks: [],
+            portfolios: [],
+            transactions: [],
+            messages: [],
+            activityLog: [],
+            notifications: [],
+            settings: {
+                tradingEnabled: false,
+                chatEnabled: true,
+                lastBackup: null
+            }
+        };
+
+        const achievements = [
+            { id: 'first_trade', name: 'أول صفقة', icon: '🎯', desc: 'أكمل أول عملية شراء' },
+            { id: 'first_profit', name: 'أول ربح', icon: '💰', desc: 'حقق أول ربح من بيع سهم' },
+            { id: 'diversified', name: 'محفظة متنوعة', icon: '📊', desc: 'امتلك 3 أسهم مختلفة' },
+            { id: 'big_profit', name: 'ربح كبير', icon: '🚀', desc: 'حقق ربح 50% أو أكثر' },
+            { id: 'active_trader', name: 'متداول نشط', icon: '⚡', desc: 'نفذ 10 صفقات' },
+            { id: 'top_three', name: 'في القمة', icon: '🏆', desc: 'وصل للمراكز الثلاثة الأولى' }
+        ];
+
+        // Initialize
+        function init() {
+            loadData();
+            render();
+            startAutoBackup();
+        }
+
+        // Load data from localStorage
+        function loadData() {
+            const stored = localStorage.getItem('souqAlhawameerEnhanced');
+            if (stored) {
+                try {
+                    const parsed = JSON.parse(stored);
+                    appData = { ...appData, ...parsed };
+                } catch (e) {
+                    console.error('Failed to load data:', e);
+                }
+            }
+
+            // Initialize with demo data if empty
+            if (appData.users.length === 0) {
+                appData.users.push({
+                    username: 'admin',
+                    password: 'admin123',
+                    phone: '0500000000',
+                    role: 'admin',
+                    balance: 0,
+                    color: '#d4af37',
+                    achievements: [],
+                    suspended: false
+                });
+
+                appData.stocks = [
+                    { symbol: 'SABIC', name: 'سابك', price: 85.5, change: 2.3, history: generateHistory(85.5) },
+                    { symbol: 'ARAMCO', name: 'أرامكو', price: 32.8, change: -1.2, history: generateHistory(32.8) },
+                    { symbol: 'STC', name: 'الاتصالات', price: 45.2, change: 0.8, history: generateHistory(45.2) },
+                    { symbol: 'ALRAJHI', name: 'الراجحي', price: 88.9, change: 1.5, history: generateHistory(88.9) }
+                ];
+
+                saveData();
+            }
+        }
+
+        // Save data to localStorage
+        function saveData() {
+            try {
+                localStorage.setItem('souqAlhawameerEnhanced', JSON.stringify(appData));
+            } catch (e) {
+                console.error('Failed to save data:', e);
+                showAlert('فشل حفظ البيانات', 'error');
+            }
+        }
+
+        // Auto backup every 5 minutes
+        function startAutoBackup() {
+            setInterval(() => {
+                saveData();
+                appData.settings.lastBackup = new Date().toISOString();
+                addNotification('تم حفظ نسخة احتياطية تلقائياً ✅', 'success');
+            }, 300000);
+        }
+
+        // Generate stock history
+        function generateHistory(price) {
+            const history = [];
+            let p = price * 0.9;
+            for (let i = 0; i < 30; i++) {
+                p += (Math.random() - 0.5) * 2;
+                history.push(Math.max(p, price * 0.8));
+            }
+            return history;
+        }
+
+        // Add notification
+        function addNotification(text, type = 'info') {
+            const notification = {
+                id: Date.now(),
+                text,
+                type,
+                timestamp: new Date().toISOString(),
+                read: false
+            };
+            appData.notifications.unshift(notification);
+            appData.notifications = appData.notifications.slice(0, 50);
+            saveData();
+            render();
+        }
+
+        // Add activity log
+        function addActivityLog(action, details) {
+            const log = {
+                id: Date.now(),
+                user: appState.currentUser?.username || 'system',
+                action,
+                details,
+                timestamp: new Date().toISOString()
+            };
+            appData.activityLog.unshift(log);
+            appData.activityLog = appData.activityLog.slice(0, 100);
+            saveData();
+        }
+
+        // Show alert
+        function showAlert(text, type = 'success') {
+            const alertEl = document.createElement('div');
+            alertEl.className = `alert alert-${type}`;
+            alertEl.textContent = text;
+            
+            const container = document.getElementById('app');
+            container.insertBefore(alertEl, container.firstChild);
+            
+            setTimeout(() => alertEl.remove(), 5000);
+        }
+
+        // Check achievements
+        function checkAchievements(username) {
+            const user = appData.users.find(u => u.username === username);
+            const portfolio = appData.portfolios.find(p => p.username === username);
+            const userTxs = appData.transactions.filter(t => t.username === username);
+            
+            if (!user) return;
+
+            const newAchievements = [];
+
+            // First trade
+            if (userTxs.length >= 1 && !user.achievements.includes('first_trade')) {
+                newAchievements.push('first_trade');
+            }
+
+            // First profit
+            const profitTrades = userTxs.filter(t => t.type === 'sell' && t.profit > 0);
+            if (profitTrades.length >= 1 && !user.achievements.includes('first_profit')) {
+                newAchievements.push('first_profit');
+            }
+
+            // Diversified
+            if (portfolio && portfolio.holdings.length >= 3 && !user.achievements.includes('diversified')) {
+                newAchievements.push('diversified');
+            }
+
+            // Active trader
+            if (userTxs.length >= 10 && !user.achievements.includes('active_trader')) {
+                newAchievements.push('active_trader');
+            }
+
+            if (newAchievements.length > 0) {
+                user.achievements.push(...newAchievements);
+                newAchievements.forEach(achId => {
+                    const ach = achievements.find(a => a.id === achId);
+                    addNotification(`🎉 إنجاز جديد: ${ach.name} ${ach.icon}`, 'success');
+                });
+                saveData();
+            }
+        }
+
+        // Get portfolio value
+        function getPortfolioValue(username) {
+            const portfolio = appData.portfolios.find(p => p.username === username);
+            if (!portfolio) return 0;
+            
+            return portfolio.holdings.reduce((total, h) => {
+                const stock = appData.stocks.find(s => s.symbol === h.symbol);
+                return total + (stock ? stock.price * h.quantity : 0);
+            }, 0);
+        }
+
+        // Login
+        function handleLogin(e) {
+            e.preventDefault();
+            const username = e.target.username.value;
+            const password = e.target.password.value;
+
+            const user = appData.users.find(u => u.username === username && u.password === password);
+            
+            if (!user) {
+                showAlert('اسم المستخدم أو كلمة المرور غير صحيحة ❌', 'error');
+                return;
+            }
+
+            if (user.suspended) {
+                showAlert('تم تعليق هذا الحساب. تواصل مع الإدارة ⛔', 'error');
+                return;
+            }
+
+            appState.currentUser = user;
+            appState.currentScreen = 'dashboard';
+            addActivityLog('تسجيل دخول', `${username} سجل دخول للنظام`);
+            render();
+        }
+
+        // Register
+        let pendingRegistration = null;
+        let verificationCode = null;
+
+        function handleRegister(e) {
+            e.preventDefault();
+            const username = e.target.regUsername.value;
+            const phone = e.target.regPhone.value;
+            const password = e.target.regPassword.value;
+
+            if (appData.users.find(u => u.username === username)) {
+                showAlert('اسم المستخدم موجود مسبقاً ❌', 'error');
+                return;
+            }
+
+            if (appData.users.filter(u => u.role === 'student').length >= 25) {
+                showAlert('تم الوصول للحد الأقصى من الطلاب (25 طالب) ⛔', 'error');
+                return;
+            }
+
+            verificationCode = Math.floor(1000 + Math.random() * 9000).toString();
+            pendingRegistration = {
+                username,
+                phone,
+                password,
+                role: 'student',
+                balance: 0,
+                color: '#' + Math.floor(Math.random()*16777215).toString(16),
+                achievements: [],
+                suspended: false
+            };
+
+            appState.currentScreen = 'verify';
+            showAlert(`رمز التحقق: ${verificationCode}`, 'success');
+            render();
+        }
+
+        // Verify
+        function handleVerify(e) {
+            e.preventDefault();
+            const code = e.target.verifyCode.value;
+
+            if (code === verificationCode) {
+                appData.users.push(pendingRegistration);
+                appData.portfolios.push({
+                    username: pendingRegistration.username,
+                    holdings: []
+                });
+                addActivityLog('تسجيل جديد', `حساب جديد: ${pendingRegistration.username}`);
+                saveData();
+                showAlert('تم إنشاء الحساب بنجاح! ✅', 'success');
+                appState.currentScreen = 'login';
+                pendingRegistration = null;
+                verificationCode = null;
+                render();
+            } else {
+                showAlert('رمز التحقق غير صحيح ❌', 'error');
+            }
+        }
+
+        // Logout
+        function logout() {
+            addActivityLog('تسجيل خروج', `${appState.currentUser.username} سجل خروج`);
+            appState.currentUser = null;
+            appState.currentScreen = 'login';
+            render();
+        }
+
+        // Toggle theme
+        function toggleTheme() {
+            appState.theme = appState.theme === 'dark' ? 'light' : 'dark';
+            document.body.setAttribute('data-theme', appState.theme);
+        }
+
+        // Toggle notifications
+        function toggleNotifications() {
+            appState.showNotifications = !appState.showNotifications;
+            
+            // Mark all as read when opening
+            if (appState.showNotifications) {
+                appData.notifications.forEach(n => n.read = true);
+                saveData();
+            }
+            
+            render();
+        }
+
+        // Execute trade
+        function executeTrade(type, quantity) {
+            const stock = appState.selectedStock;
+            const portfolio = appData.portfolios.find(p => p.username === appState.currentUser.username);
+            const cost = stock.price * quantity;
+            
+            // Get fresh reference to user in appData
+            const user = appData.users.find(u => u.username === appState.currentUser.username);
+
+            if (type === 'buy') {
+                if (user.balance < cost) {
+                    showAlert(`الرصيد غير كافٍ ❌
+                    
+رصيدك الحالي: ${user.balance.toFixed(2)} ر.س
+التكلفة المطلوبة: ${cost.toFixed(2)} ر.س
+
+اطلب من الأدمن إضافة رصيد لك!`, 'error');
+                    return;
+                }
+
+                // Update balance
+                user.balance -= cost;
+                
+                const holding = portfolio.holdings.find(h => h.symbol === stock.symbol);
+                
+                if (holding) {
+                    const totalCost = (holding.avgPrice * holding.quantity) + cost;
+                    holding.quantity += quantity;
+                    holding.avgPrice = totalCost / holding.quantity;
+                } else {
+                    portfolio.holdings.push({
+                        symbol: stock.symbol,
+                        quantity: quantity,
+                        avgPrice: stock.price
+                    });
+                }
+
+                const tx = {
+                    id: Date.now(),
+                    username: user.username,
+                    symbol: stock.symbol,
+                    name: stock.name,
+                    type: 'buy',
+                    quantity,
+                    price: stock.price,
+                    total: cost,
+                    timestamp: new Date().toISOString()
+                };
+                appData.transactions.unshift(tx);
+                addActivityLog('شراء سهم', `${user.username} اشترى ${quantity} من ${stock.name} بسعر ${stock.price.toFixed(2)} ر.س`);
+                addNotification(`✅ تم شراء ${quantity} من ${stock.name}`, 'success');
+                showAlert(`تم شراء ${quantity} من ${stock.name} بنجاح ✅`, 'success');
+            } else {
+                const holding = portfolio.holdings.find(h => h.symbol === stock.symbol);
+                if (!holding || holding.quantity < quantity) {
+                    showAlert('لا تملك الكمية الكافية للبيع ❌', 'error');
+                    return;
+                }
+
+                // Update balance
+                user.balance += cost;
+                
+                const profit = (stock.price - holding.avgPrice) * quantity;
+                holding.quantity -= quantity;
+                
+                if (holding.quantity === 0) {
+                    portfolio.holdings = portfolio.holdings.filter(h => h.symbol !== stock.symbol);
+                }
+
+                const tx = {
+                    id: Date.now(),
+                    username: user.username,
+                    symbol: stock.symbol,
+                    name: stock.name,
+                    type: 'sell',
+                    quantity,
+                    price: stock.price,
+                    total: cost,
+                    profit,
+                    timestamp: new Date().toISOString()
+                };
+                appData.transactions.unshift(tx);
+                addActivityLog('بيع سهم', `${user.username} باع ${quantity} من ${stock.name} بسعر ${stock.price.toFixed(2)} ر.س (ربح: ${profit.toFixed(2)} ر.س)`);
+                addNotification(`💰 تم بيع ${quantity} من ${stock.name} بربح ${profit.toFixed(2)} ر.س`, profit >= 0 ? 'success' : 'warning');
+                showAlert(`تم بيع ${quantity} من ${stock.name} بنجاح ✅`, 'success');
+            }
+
+            checkAchievements(user.username);
+            
+            // Update currentUser reference to the fresh user data
+            appState.currentUser = user;
+            
+            saveData();
+            appState.selectedStock = null;
+            render();
+        }
+
+        // Send message
+        function sendMessage(text) {
+            if (!text.trim()) return;
+            
+            // Students need chat to be enabled
+            if (appState.currentUser.role !== 'admin' && !appData.settings.chatEnabled) {
+                showAlert('الدردشة مغلقة!', 'error');
+                return;
+            }
+
+            const message = {
+                id: Date.now(),
+                from: appState.currentUser.username,
+                text,
+                timestamp: new Date().toISOString()
+            };
+            appData.messages.push(message);
+            saveData();
+            render();
+        }
+
+        function showConfirm(message, onConfirm) {
+            confirmModal = { show: true, message, onConfirm };
+            render();
+        }
+
+        function closeConfirm() {
+            confirmModal.show = false;
+            render();
+        }
+
+        function executeConfirm() {
+            if (confirmModal.onConfirm) {
+                confirmModal.onConfirm();
+            }
+            closeConfirm();
+        }
+
+        function deleteMessage(id) {
+            showConfirm('هل تريد حذف هذه الرسالة؟', () => {
+                appData.messages = appData.messages.filter(m => m.id !== id);
+                saveData();
+                render();
+            });
+        }
+
+        function toggleChat() {
+            appData.settings.chatEnabled = !appData.settings.chatEnabled;
+            showAlert(`الدردشة ${appData.settings.chatEnabled ? 'مفتوحة' : 'مغلقة'}`, 'success');
+            saveData();
+            render();
+        }
+
+        // Toggle trading
+        function toggleTrading() {
+            appData.settings.tradingEnabled = !appData.settings.tradingEnabled;
+            addActivityLog('تغيير إعدادات', `التداول ${appData.settings.tradingEnabled ? 'مفتوح' : 'مغلق'}`);
+            addNotification(`التداول ${appData.settings.tradingEnabled ? 'مفتوح' : 'مغلق'} الآن`, 'info');
+            saveData();
+            render();
+        }
+
+        // Toggle user suspension
+        function toggleSuspension(username) {
+            const user = appData.users.find(u => u.username === username);
+            user.suspended = !user.suspended;
+            addActivityLog('تعليق/تفعيل حساب', `${username} ${user.suspended ? 'معلق' : 'مفعل'}`);
+            showAlert(`تم ${user.suspended ? 'تعليق' : 'تفعيل'} حساب ${username}`, user.suspended ? 'warning' : 'success');
+            saveData();
+            render();
+        }
+
+        // Balance Modal State
+        let balanceModalState = { show: false, username: null, balance: 0 };
+
+        function openBalanceModal(username) {
+            const user = appData.users.find(u => u.username === username);
+            balanceModalState = { show: true, username, balance: user.balance };
+            render();
+        }
+
+        function closeBalanceModal() {
+            balanceModalState.show = false;
+            render();
+        }
+
+        function addBalance() {
+            const input = document.getElementById('balanceInput');
+            const amount = parseFloat(input.value);
+            if (!amount || amount <= 0) {
+                showAlert('أدخل مبلغ صحيح!', 'error');
+                return;
+            }
+            
+            const user = appData.users.find(u => u.username === balanceModalState.username);
+            const oldBalance = user.balance;
+            user.balance += amount;
+            
+            addActivityLog('إضافة رصيد', `إضافة ${amount.toFixed(2)} ر.س لـ ${user.username}`);
+            showAlert(`✅ تمت إضافة ${amount.toFixed(2)} ر.س`, 'success');
+            saveData();
+            closeBalanceModal();
+        }
+
+        function subtractBalance() {
+            const input = document.getElementById('balanceInput');
+            const amount = parseFloat(input.value);
+            if (!amount || amount <= 0) {
+                showAlert('أدخل مبلغ صحيح!', 'error');
+                return;
+            }
+            
+            const user = appData.users.find(u => u.username === balanceModalState.username);
+            if (user.balance < amount) {
+                showAlert('المبلغ أكبر من الرصيد!', 'error');
+                return;
+            }
+            
+            user.balance -= amount;
+            addActivityLog('خصم رصيد', `خصم ${amount.toFixed(2)} ر.س من ${user.username}`);
+            showAlert(`✅ تم خصم ${amount.toFixed(2)} ر.س`, 'success');
+            saveData();
+            closeBalanceModal();
+        }
+
+        // Render functions
+        function render() {
+            const app = document.getElementById('app');
+            const modals = document.getElementById('modals');
+            
+            if (appState.currentScreen === 'login') {
+                app.innerHTML = renderLogin();
+            } else if (appState.currentScreen === 'register') {
+                app.innerHTML = renderRegister();
+            } else if (appState.currentScreen === 'verify') {
+                app.innerHTML = renderVerify();
+            } else if (appState.currentScreen === 'dashboard') {
+                app.innerHTML = renderDashboard();
+            }
+
+            // Render modals
+            let modalHTML = '';
+            if (balanceModalState.show) modalHTML = renderBalanceModal();
+            if (stockPriceModal.show) modalHTML = renderStockPriceModal();
+            if (bulkBalanceModal.show) modalHTML = renderBulkBalanceModal();
+            if (addStockModal.show) modalHTML = renderAddStockModal();
+            if (confirmModal.show) modalHTML = renderConfirmModal();
+            modals.innerHTML = modalHTML;
+
+            attachEventListeners();
+        }
+
+        function renderLogin() {
+            return `
+                <div class="container">
+                    <div class="card animate-slide-up" style="max-width: 500px; margin: 4rem auto;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
+                            <div>
+                                <h1 style="font-family: 'Cairo', sans-serif; font-size: 2.5rem; font-weight: 900; color: var(--secondary); margin-bottom: 0.5rem;">سوق الهوامير</h1>
+                                <p style="color: var(--text-secondary);">منصة التداول التعليمية - النسخة المتطورة</p>
+                            </div>
+                            <button class="theme-toggle" onclick="toggleTheme()">
+                                ${appState.theme === 'dark' ? '☀️' : '🌙'}
+                            </button>
+                        </div>
+
+                        <form id="loginForm" onsubmit="handleLogin(event)">
+                            <div class="form-group">
+                                <label>اسم المستخدم</label>
+                                <input type="text" name="username" required placeholder="أدخل اسم المستخدم">
+                            </div>
+                            <div class="form-group">
+                                <label>كلمة المرور</label>
+                                <input type="password" name="password" required placeholder="أدخل كلمة المرور">
+                            </div>
+                            <button type="submit" class="btn btn-primary" style="width: 100%; margin-bottom: 0.5rem;">
+                                تسجيل الدخول 🔐
+                            </button>
+                            <button type="button" class="btn btn-secondary" style="width: 100%;" onclick="appState.currentScreen='register'; render();">
+                                إنشاء حساب جديد ➕
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderRegister() {
+            return `
+                <div class="container">
+                    <div class="card animate-slide-up" style="max-width: 500px; margin: 4rem auto;">
+                        <h2 style="color: var(--secondary); margin-bottom: 2rem;">إنشاء حساب جديد</h2>
+                        
+                        <form id="registerForm" onsubmit="handleRegister(event)">
+                            <div class="form-group">
+                                <label>اسم المستخدم</label>
+                                <input type="text" name="regUsername" required placeholder="اختر اسم مستخدم">
+                            </div>
+                            <div class="form-group">
+                                <label>رقم الجوال</label>
+                                <input type="tel" name="regPhone" required placeholder="05xxxxxxxx" pattern="05[0-9]{8}">
+                            </div>
+                            <div class="form-group">
+                                <label>كلمة المرور</label>
+                                <input type="password" name="regPassword" required placeholder="اختر كلمة مرور قوية" minlength="6">
+                            </div>
+                            <button type="submit" class="btn btn-primary" style="width: 100%; margin-bottom: 0.5rem;">
+                                إرسال رمز التحقق 📱
+                            </button>
+                            <button type="button" class="btn btn-secondary" style="width: 100%;" onclick="appState.currentScreen='login'; render();">
+                                لديك حساب؟ تسجيل الدخول
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderVerify() {
+            return `
+                <div class="container">
+                    <div class="card animate-slide-up" style="max-width: 500px; margin: 4rem auto;">
+                        <h2 style="color: var(--secondary); margin-bottom: 2rem;">التحقق من الحساب</h2>
+                        
+                        <div style="text-align: center; padding: 2rem; background: var(--bg-secondary); border-radius: 16px; margin-bottom: 2rem;">
+                            <div style="color: var(--text-secondary); margin-bottom: 0.5rem;">رمز التحقق التجريبي:</div>
+                            <div style="font-size: 3rem; font-weight: bold; color: var(--secondary); letter-spacing: 1rem; font-family: 'Cairo', sans-serif;">
+                                ${verificationCode}
+                            </div>
+                        </div>
+
+                        <form id="verifyForm" onsubmit="handleVerify(event)">
+                            <div class="form-group">
+                                <label>أدخل رمز التحقق</label>
+                                <input type="text" name="verifyCode" required placeholder="أدخل الرمز المكون من 4 أرقام" 
+                                       maxlength="4" pattern="[0-9]{4}" 
+                                       style="font-size: 1.5rem; text-align: center; letter-spacing: 0.5rem;">
+                            </div>
+                            <button type="submit" class="btn btn-primary" style="width: 100%; margin-bottom: 0.5rem;">
+                                تأكيد الحساب ✅
+                            </button>
+                            <button type="button" class="btn btn-secondary" style="width: 100%;" onclick="appState.currentScreen='register'; render();">
+                                رجوع ⬅️
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderDashboard() {
+            const isAdmin = appState.currentUser.role === 'admin';
+            
+            return `
+                <div class="container">
+                    ${renderHeader()}
+                    ${isAdmin ? renderAdminDashboard() : renderStudentDashboard()}
+                    ${appState.selectedStock ? renderTradingModal() : ''}
+                </div>
+            `;
+        }
+
+        function renderHeader() {
+            const unreadCount = appData.notifications.filter(n => !n.read).length;
+            
+            return `
+                <div class="header">
+                    <div class="header-title">
+                        <h1>سوق الهوامير</h1>
+                    </div>
+                    <div class="header-actions">
+                        <div style="position: relative;">
+                            <button class="notification-btn" onclick="toggleNotifications()">
+                                🔔
+                                ${unreadCount > 0 ? `<span class="notification-badge">${unreadCount}</span>` : ''}
+                            </button>
+                            ${renderNotificationDropdown()}
+                        </div>
+                        <button class="theme-toggle" onclick="toggleTheme()">
+                            ${appState.theme === 'dark' ? '☀️' : '🌙'}
+                        </button>
+                        <span style="color: var(--text-secondary); font-weight: 500;">${appState.currentUser.username}</span>
+                        <button class="btn btn-danger btn-small" onclick="logout()">
+                            خروج
+                        </button>
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderNotificationDropdown() {
+            if (!appState.showNotifications) return '';
+            
+            return `
+                <div class="notification-dropdown active">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                        <h3>الإشعارات 🔔</h3>
+                        ${appData.notifications.length > 0 ? `
+                            <button class="btn btn-danger btn-small" onclick="clearAllNotifications()" style="padding: 0.3rem 0.8rem; font-size: 0.8rem;">
+                                مسح الكل 🗑️
+                            </button>
+                        ` : ''}
+                    </div>
+                    ${appData.notifications.length === 0 
+                        ? '<p style="text-align: center; color: var(--text-secondary); padding: 2rem;">لا توجد إشعارات</p>'
+                        : appData.notifications.slice(0, 10).map((n, idx) => `
+                            <div class="notification-item" style="display: flex; justify-content: space-between; align-items: flex-start; gap: 0.5rem;">
+                                <div style="flex: 1;">
+                                    <div>${n.text}</div>
+                                    <div style="font-size: 0.75rem; color: var(--text-secondary); margin-top: 0.3rem;">
+                                        ${new Date(n.timestamp).toLocaleString('ar-SA', {hour: '2-digit', minute: '2-digit'})}
+                                    </div>
+                                </div>
+                                <button onclick="deleteNotification(${idx})" style="background: none; border: none; color: var(--danger); cursor: pointer; padding: 0.2rem; font-size: 1.2rem;" title="حذف">
+                                    ×
+                                </button>
+                            </div>
+                        `).join('')
+                    }
+                </div>
+            `;
+        }
+
+        function deleteNotification(index) {
+            appData.notifications.splice(index, 1);
+            saveData();
+            render();
+        }
+
+        function clearAllNotifications() {
+            showConfirm('هل تريد مسح جميع الإشعارات؟', () => {
+                appData.notifications = [];
+                saveData();
+                render();
+            });
+        }
+
+        function renderStudentDashboard() {
+            const portfolio = appData.portfolios.find(p => p.username === appState.currentUser.username);
+            const portfolioValue = getPortfolioValue(appState.currentUser.username);
+            const totalValue = appState.currentUser.balance + portfolioValue;
+            const userTxs = appData.transactions.filter(t => t.username === appState.currentUser.username);
+
+            return `
+                <div class="tabs">
+                    <button class="tab ${appState.activeTab === 'portfolio' ? 'active' : ''}" 
+                            onclick="appState.activeTab='portfolio'; render();">
+                        📊 المحفظة
+                    </button>
+                    <button class="tab ${appState.activeTab === 'transactions' ? 'active' : ''}" 
+                            onclick="appState.activeTab='transactions'; render();">
+                        📜 السجل
+                    </button>
+                    <button class="tab ${appState.activeTab === 'achievements' ? 'active' : ''}" 
+                            onclick="appState.activeTab='achievements'; render();">
+                        🏆 الإنجازات
+                    </button>
+                    <button class="tab ${appState.activeTab === 'chat' ? 'active' : ''}" 
+                            onclick="appState.activeTab='chat'; render();">
+                        💬 الدردشة
+                    </button>
+                    <button class="tab ${appState.activeTab === 'leaderboard' ? 'active' : ''}" 
+                            onclick="appState.activeTab='leaderboard'; render();">
+                        🏅 المتصدرين
+                    </button>
+                </div>
+
+                ${appState.activeTab === 'portfolio' ? renderPortfolioTab(portfolio, portfolioValue, totalValue) : ''}
+                ${appState.activeTab === 'transactions' ? renderTransactionsTab(userTxs) : ''}
+                ${appState.activeTab === 'achievements' ? renderAchievementsTab() : ''}
+                ${appState.activeTab === 'chat' ? renderChatTab() : ''}
+                ${appState.activeTab === 'leaderboard' ? renderLeaderboardTab(false) : ''}
+            `;
+        }
+
+        function renderPortfolioTab(portfolio, portfolioValue, totalValue) {
+            return `
+                <div class="tab-content active">
+                    <div class="stats-grid animate-slide-up">
+                        <div class="stat-card">
+                            <div class="stat-label">الرصيد المتاح</div>
+                            <div class="stat-value">${appState.currentUser.balance.toFixed(2)} ر.س</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-label">قيمة المحفظة</div>
+                            <div class="stat-value">${portfolioValue.toFixed(2)} ر.س</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-label">إجمالي الأصول</div>
+                            <div class="stat-value" style="color: var(--secondary);">${totalValue.toFixed(2)} ر.س</div>
+                        </div>
+                    </div>
+
+                    <div class="card" style="margin-bottom: 2rem;">
+                        <h2 style="margin-bottom: 1.5rem;">محفظتي 📊</h2>
+                        ${portfolio && portfolio.holdings.length > 0 
+                            ? `
+                                <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 1rem;">
+                                    ${portfolio.holdings.map(h => {
+                                        const stock = appData.stocks.find(s => s.symbol === h.symbol);
+                                        if (!stock) return '';
+                                        const currentValue = stock.price * h.quantity;
+                                        const profit = (stock.price - h.avgPrice) * h.quantity;
+                                        const profitPercent = ((stock.price - h.avgPrice) / h.avgPrice) * 100;
+                                        
+                                        return `
+                                            <div style="background: linear-gradient(135deg, var(--bg-secondary), var(--bg-primary)); border: 1px solid var(--border); border-radius: 16px; padding: 1.5rem; transition: transform 0.2s, box-shadow 0.2s; cursor: ${appData.settings.tradingEnabled ? 'pointer' : 'not-allowed'}; opacity: ${appData.settings.tradingEnabled ? '1' : '0.7'};" 
+                                                 onclick="${appData.settings.tradingEnabled ? `appState.selectedStock=appData.stocks.find(s => s.symbol === '${stock.symbol}'); render();` : `showAlert('التداول مغلق حالياً ⛔', 'error');`}"
+                                                 onmouseover="${appData.settings.tradingEnabled ? `this.style.transform='translateY(-4px)'; this.style.boxShadow='0 8px 24px rgba(0,0,0,0.3)';` : ''}"
+                                                 onmouseout="${appData.settings.tradingEnabled ? `this.style.transform='translateY(0)'; this.style.boxShadow='none';` : ''}">
+                                                
+                                                ${!appData.settings.tradingEnabled ? '<div style="position: absolute; top: 1rem; left: 1rem; background: var(--danger); color: white; padding: 0.25rem 0.75rem; border-radius: 20px; font-size: 0.75rem; font-weight: bold;">🔒 مغلق</div>' : ''}
+                                                
+                                                <div style="text-align: center; margin-bottom: 1rem;">
+                                                    <div style="font-size: 1.1rem; font-weight: bold; margin-bottom: 0.25rem;">${stock.symbol}</div>
+                                                    <div style="font-size: 0.85rem; color: var(--text-secondary);">${stock.name}</div>
+                                                </div>
+                                                
+                                                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; margin-bottom: 1rem; padding: 1rem; background: var(--bg-primary); border-radius: 12px;">
+                                                    <div>
+                                                        <div style="font-size: 0.75rem; color: var(--text-secondary); margin-bottom: 0.25rem;">الكمية:</div>
+                                                        <div style="font-weight: bold; font-size: 1.1rem;">${h.quantity}</div>
+                                                    </div>
+                                                    <div>
+                                                        <div style="font-size: 0.75rem; color: var(--text-secondary); margin-bottom: 0.25rem;">متوسط الشراء:</div>
+                                                        <div style="font-weight: bold; font-size: 1.1rem;">${h.avgPrice.toFixed(2)}</div>
+                                                    </div>
+                                                    <div>
+                                                        <div style="font-size: 0.75rem; color: var(--text-secondary); margin-bottom: 0.25rem;">السعر الحالي:</div>
+                                                        <div style="font-weight: bold; font-size: 1.1rem;">${stock.price.toFixed(2)}</div>
+                                                    </div>
+                                                    <div>
+                                                        <div style="font-size: 0.75rem; color: var(--text-secondary); margin-bottom: 0.25rem;">القيمة:</div>
+                                                        <div style="font-weight: bold; font-size: 1.1rem; color: var(--secondary);">${currentValue.toFixed(2)} ر.س</div>
+                                                    </div>
+                                                </div>
+                                                
+                                                <div style="padding: 1rem; background: ${profit >= 0 ? 'rgba(46, 204, 113, 0.1)' : 'rgba(231, 76, 60, 0.1)'}; border-radius: 12px; text-align: center;">
+                                                    <div style="font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 0.35rem;">الربح/الخسارة:</div>
+                                                    <div style="font-size: 1.3rem; font-weight: 900; color: ${profit >= 0 ? '#2ecc71' : '#e74c3c'};">
+                                                        ${profit >= 0 ? '+' : ''}${profit.toFixed(2)} ر.س
+                                                    </div>
+                                                    <div style="font-size: 0.95rem; font-weight: bold; color: ${profit >= 0 ? '#2ecc71' : '#e74c3c'}; margin-top: 0.25rem;">
+                                                        (${profitPercent >= 0 ? '+' : ''}${profitPercent.toFixed(2)}%)
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        `;
+                                    }).join('')}
+                                </div>
+                            `
+                            : '<p style="text-align: center; color: var(--text-secondary); padding: 3rem; background: var(--bg-secondary); border-radius: 12px; border: 2px dashed var(--border);">📭 لا توجد أسهم في المحفظة<br><span style="font-size: 0.9rem; margin-top: 0.5rem; display: block;">ابدأ بشراء أسهم من القائمة أدناه</span></p>'
+                        }
+                    </div>
+
+                    <div class="card">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+                            <h2>الأسهم المتاحة 📈</h2>
+                            <span style="color: ${appData.settings.tradingEnabled ? 'var(--success)' : 'var(--danger)'}; font-weight: bold;">
+                                ● ${appData.settings.tradingEnabled ? 'التداول مفتوح' : 'التداول مغلق'}
+                            </span>
+                        </div>
+                        ${appData.stocks.map((stock, idx) => `
+                            <div class="stock-card" 
+                                 onclick="${appData.settings.tradingEnabled ? `appState.selectedStock=appData.stocks[${idx}]; render();` : ''}" 
+                                 style="cursor: ${appData.settings.tradingEnabled ? 'pointer' : 'default'}; opacity: ${appData.settings.tradingEnabled ? '1' : '0.6'};">
+                                <div class="stock-info">
+                                    <h3>${stock.name}</h3>
+                                    <p>${stock.symbol}</p>
+                                </div>
+                                <div class="stock-price">
+                                    <div class="price">${stock.price.toFixed(2)} ر.س</div>
+                                    <div class="change ${stock.change >= 0 ? 'positive' : 'negative'}">
+                                        ${stock.change >= 0 ? '+' : ''}${stock.change.toFixed(2)}%
+                                    </div>
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderTransactionsTab(userTxs) {
+            return `
+                <div class="tab-content active">
+                    <div class="card">
+                        <h2 style="margin-bottom: 1.5rem;">سجل المعاملات 📜</h2>
+                        ${userTxs.length === 0 
+                            ? '<p style="text-align: center; color: var(--text-secondary); padding: 2rem;">لا توجد معاملات</p>'
+                            : userTxs.map(tx => `
+                                <div class="transaction-item">
+                                    <div class="transaction-header">
+                                        <div>
+                                            <span class="transaction-badge ${tx.type}">
+                                                ${tx.type === 'buy' ? '📈 شراء' : '📉 بيع'}
+                                            </span>
+                                            <strong>${tx.name}</strong>
+                                        </div>
+                                        <div style="text-align: left;">
+                                            <div style="font-weight: bold;">${tx.total.toFixed(2)} ر.س</div>
+                                            ${tx.profit !== undefined ? `
+                                                <div style="color: ${tx.profit >= 0 ? 'var(--success)' : 'var(--danger)'}; font-size: 0.9rem;">
+                                                    ${tx.profit >= 0 ? '+' : ''}${tx.profit.toFixed(2)} ر.س
+                                                </div>
+                                            ` : ''}
+                                        </div>
+                                    </div>
+                                    <div style="display: flex; justify-content: space-between; font-size: 0.9rem; color: var(--text-secondary); margin-top: 0.5rem;">
+                                        <span>الكمية: ${tx.quantity} × ${tx.price.toFixed(2)} ر.س</span>
+                                        <span>${new Date(tx.timestamp).toLocaleString('ar-SA')}</span>
+                                    </div>
+                                </div>
+                            `).join('')
+                        }
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderAchievementsTab() {
+            return `
+                <div class="tab-content active">
+                    <div class="card">
+                        <h2 style="margin-bottom: 1.5rem;">الإنجازات 🏆</h2>
+                        <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 1.5rem;">
+                            ${achievements.map(ach => {
+                                const unlocked = appState.currentUser.achievements.includes(ach.id);
+                                return `
+                                    <div class="achievement-card ${unlocked ? 'unlocked' : 'locked'}">
+                                        <div class="achievement-icon">${ach.icon}</div>
+                                        <div class="achievement-name">${ach.name}</div>
+                                        <div class="achievement-desc">${ach.desc}</div>
+                                        ${unlocked ? '<div style="margin-top: 1rem; color: var(--success); font-weight: bold;">✓ مكتمل</div>' : ''}
+                                    </div>
+                                `;
+                            }).join('')}
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderChatTab() {
+            const isAdmin = appState.currentUser.role === 'admin';
+            const chatDisabled = !appData.settings.chatEnabled;
+            
+            return `
+                <div class="tab-content active">
+                    <div class="card">
+                        <h2 style="margin-bottom: 1.5rem;">غرفة التداول 💬</h2>
+                        
+                        ${isAdmin ? `
+                            <div style="background: var(--bg-secondary); border: 2px solid var(--border); border-radius: 12px; padding: 1.25rem; margin-bottom: 1.5rem;">
+                                <div style="display: flex; justify-content: space-between; align-items: center; gap: 1rem;">
+                                    <div>
+                                        <strong style="font-size: 1rem;">🎛️ التحكم الكامل</strong>
+                                        <p style="color: var(--text-secondary); font-size: 0.85rem; margin: 0.5rem 0 0 0;">
+                                            يمكنك الإرسال، الحذف، وإيقاف الدردشة
+                                        </p>
+                                    </div>
+                                    <button onclick="toggleChat()" class="btn ${appData.settings.chatEnabled ? 'btn-success' : 'btn-danger'} btn-small">
+                                        ${appData.settings.chatEnabled ? '🟢 مفتوحة' : '🔴 مغلقة'}
+                                    </button>
+                                </div>
+                            </div>
+                        ` : ''}
+
+                        ${chatDisabled && !isAdmin ? `
+                            <div style="text-align: center; padding: 3rem 1.5rem; background: rgba(231,76,60,0.1); border-radius: 16px; border: 2px dashed #e74c3c; margin-bottom: 1.5rem;">
+                                <div style="font-size: 3.5rem; margin-bottom: 1rem;">🔒</div>
+                                <div style="font-size: 1.2rem; font-weight: bold; color: #e74c3c; margin-bottom: 0.5rem;">
+                                    الدردشة مغلقة حالياً
+                                </div>
+                                <div style="color: var(--text-secondary);">
+                                    سيتم تفعيلها من قبل المشرف
+                                </div>
+                            </div>
+                        ` : ''}
+
+                        <div class="chat-container">
+                            ${appData.messages.length === 0 
+                                ? '<p style="text-align: center; color: var(--text-secondary); padding: 2rem;">لا توجد رسائل</p>'
+                                : appData.messages.map(msg => `
+                                    <div class="chat-message ${msg.from === appState.currentUser.username ? 'own' : 'other'}" style="position: relative;">
+                                        ${isAdmin && msg.from !== appState.currentUser.username ? `
+                                            <button onclick="deleteMessage(${msg.id})" 
+                                                    style="position: absolute; top: 0.5rem; right: 0.5rem; background: #e74c3c; color: white; border: none; border-radius: 6px; padding: 0.35rem 0.65rem; font-size: 0.75rem; cursor: pointer; font-weight: bold;">
+                                                حذف
+                                            </button>
+                                        ` : ''}
+                                        <div class="chat-sender" style="font-weight: bold; margin-bottom: 0.35rem;">
+                                            ${msg.from} ${msg.from === 'admin' ? '<span style="background: var(--secondary); color: var(--bg-primary); padding: 0.15rem 0.5rem; border-radius: 12px; font-size: 0.7rem; margin-right: 0.35rem;">👨‍💼 مشرف</span>' : ''}
+                                        </div>
+                                        <div style="word-wrap: break-word;">${msg.text}</div>
+                                        <div class="chat-time" style="font-size: 0.75rem; opacity: 0.7; margin-top: 0.35rem;">
+                                            ${new Date(msg.timestamp).toLocaleString('ar-SA', {hour: '2-digit', minute: '2-digit'})}
+                                        </div>
+                                    </div>
+                                `).join('')
+                            }
+                        </div>
+
+                        ${isAdmin || !chatDisabled ? `
+                            <form class="chat-input-group" onsubmit="event.preventDefault(); sendMessage(this.chatInput.value); this.chatInput.value='';">
+                                <input type="text" name="chatInput" placeholder="${isAdmin ? '💬 رسالة من المشرف...' : 'اكتب رسالة...'}" required>
+                                <button type="submit" class="btn btn-primary">إرسال</button>
+                            </form>
+                        ` : ''}
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderLeaderboardTab(isAdmin) {
+            const students = appData.users.filter(u => u.role === 'student');
+            const leaderboard = students.map(student => ({
+                username: student.username,
+                cash: student.balance,
+                stocks: getPortfolioValue(student.username),
+                total: student.balance + getPortfolioValue(student.username),
+                color: student.color
+            })).sort((a, b) => b.total - a.total);
+
+            return `
+                <div class="tab-content active">
+                    <div class="card">
+                        <h2 style="margin-bottom: 1.5rem;">لوحة المتصدرين 🏅</h2>
+                        ${leaderboard.length === 0 
+                            ? '<p style="text-align: center; color: var(--text-secondary); padding: 2rem;">لا يوجد طلاب مسجلين بعد</p>'
+                            : leaderboard.map((item, index) => {
+                                let rankClass = '';
+                                if (index === 0) rankClass = 'rank-1 gold';
+                                else if (index === 1) rankClass = 'rank-2 silver';
+                                else if (index === 2) rankClass = 'rank-3 bronze';
+                                
+                                return `
+                                    <div class="leaderboard-item ${rankClass}">
+                                        <div class="rank ${rankClass}">#${index + 1}</div>
+                                        <div class="color-dot" style="background: ${item.color};"></div>
+                                        <div class="leaderboard-info">
+                                            <div class="leaderboard-name">${item.username}</div>
+                                            ${isAdmin ? `<div class="leaderboard-stats">نقد: ${item.cash.toFixed(2)} ر.س | أسهم: ${item.stocks.toFixed(2)} ر.س</div>` : ''}
+                                        </div>
+                                        <div class="leaderboard-value">${item.total.toFixed(2)} ر.س</div>
+                                    </div>
+                                `;
+                            }).join('')
+                        }
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderAdminDashboard() {
+            return `
+                <div class="tabs">
+                    <button class="tab ${appState.activeAdminTab === 'settings' ? 'active' : ''}" 
+                            onclick="appState.activeAdminTab='settings'; render();">
+                        ⚙️ الإعدادات
+                    </button>
+                    <button class="tab ${appState.activeAdminTab === 'students' ? 'active' : ''}" 
+                            onclick="appState.activeAdminTab='students'; render();">
+                        👥 الطلاب
+                    </button>
+                    <button class="tab ${appState.activeAdminTab === 'stocks' ? 'active' : ''}" 
+                            onclick="appState.activeAdminTab='stocks'; render();">
+                        📈 الأسهم
+                    </button>
+                    <button class="tab ${appState.activeAdminTab === 'chat' ? 'active' : ''}" 
+                            onclick="appState.activeAdminTab='chat'; render();">
+                        💬 الدردشة
+                    </button>
+                    <button class="tab ${appState.activeAdminTab === 'leaderboard' ? 'active' : ''}" 
+                            onclick="appState.activeAdminTab='leaderboard'; render();">
+                        🏅 المتصدرين
+                    </button>
+                    <button class="tab ${appState.activeAdminTab === 'activity' ? 'active' : ''}" 
+                            onclick="appState.activeAdminTab='activity'; render();">
+                        📋 سجل النشاط
+                    </button>
+                </div>
+
+                ${appState.activeAdminTab === 'settings' ? renderAdminSettingsTab() : ''}
+                ${appState.activeAdminTab === 'students' ? renderAdminStudentsTab() : ''}
+                ${appState.activeAdminTab === 'stocks' ? renderAdminStocksTab() : ''}
+                ${appState.activeAdminTab === 'chat' ? renderChatTab() : ''}
+                ${appState.activeAdminTab === 'leaderboard' ? renderLeaderboardTab(true) : ''}
+                ${appState.activeAdminTab === 'activity' ? renderAdminActivityTab() : ''}
+            `;
+        }
+
+        function renderAdminSettingsTab() {
+            return `
+                <div class="tab-content active">
+                    <div class="card">
+                        <h3 style="margin-bottom: 1.5rem;">إعدادات التداول ⚙️</h3>
+                        
+                        <div style="background: var(--bg-secondary); padding: 1.5rem; border-radius: 12px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
+                            <div>
+                                <strong>حالة التداول</strong>
+                                <p style="color: var(--text-secondary); font-size: 0.9rem; margin-top: 0.3rem;">
+                                    السماح للطلاب بالشراء والبيع
+                                </p>
+                            </div>
+                            <button class="btn ${appData.settings.tradingEnabled ? 'btn-success' : 'btn-danger'}" 
+                                    onclick="toggleTrading()">
+                                ${appData.settings.tradingEnabled ? 'مفتوح ✓' : 'مغلق ✗'}
+                            </button>
+                        </div>
+
+                        <div style="background: var(--bg-secondary); padding: 1.5rem; border-radius: 12px; margin-bottom: 2rem;">
+                            <strong>إضافة رصيد لجميع الطلاب 💰</strong>
+                            <p style="color: var(--text-secondary); font-size: 0.9rem; margin-top: 0.3rem;">
+                                إضافة رصيد لكل الطلاب دفعة واحدة
+                            </p>
+                            <button class="btn btn-success btn-small" style="margin-top: 1rem;" 
+                                    onclick="openBulkBalanceModal()">
+                                إضافة رصيد للجميع 💵
+                            </button>
+                        </div>
+
+                        <div style="background: var(--bg-secondary); padding: 1.5rem; border-radius: 12px;">
+                            <strong>آخر نسخة احتياطية</strong>
+                            <p style="color: var(--text-secondary); font-size: 0.9rem; margin-top: 0.3rem;">
+                                ${appData.settings.lastBackup 
+                                    ? new Date(appData.settings.lastBackup).toLocaleString('ar-SA')
+                                    : 'لم يتم الحفظ بعد'
+                                }
+                            </p>
+                            <button class="btn btn-primary btn-small" style="margin-top: 1rem;" 
+                                    onclick="saveData(); appData.settings.lastBackup=new Date().toISOString(); showAlert('تم حفظ نسخة احتياطية ✅'); render();">
+                                حفظ نسخة احتياطية الآن
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function openBulkBalanceModal() {
+            bulkBalanceModal.show = true;
+            render();
+        }
+
+        function closeBulkBalanceModal() {
+            bulkBalanceModal.show = false;
+            render();
+        }
+
+        function executeBulkBalanceAdd() {
+            const input = document.getElementById('bulkBalanceInput');
+            const amount = parseFloat(input.value);
+            
+            if (!amount || amount <= 0) {
+                showAlert('أدخل مبلغ صحيح!', 'error');
+                return;
+            }
+
+            const students = appData.users.filter(u => u.role === 'student');
+            if (students.length === 0) {
+                showAlert('لا يوجد طلاب!', 'error');
+                return;
+            }
+
+            students.forEach(student => {
+                student.balance += amount;
+            });
+
+            addActivityLog('إضافة رصيد جماعي', `إضافة ${amount.toFixed(2)} ر.س لـ ${students.length} طالب`);
+            showAlert(`✅ تمت إضافة ${amount.toFixed(2)} ر.س لـ ${students.length} طالب`, 'success');
+            saveData();
+            closeBulkBalanceModal();
+        }
+
+        function renderAdminStudentsTab() {
+            const students = appData.users.filter(u => u.role === 'student');
+            
+            return `
+                <div class="tab-content active">
+                    <div class="card">
+                        <h3 style="margin-bottom: 1rem;">إدارة الطلاب 👥</h3>
+                        <p style="color: var(--text-secondary); margin-bottom: 2rem;">
+                            عدد الطلاب: ${students.length} / 25
+                        </p>
+
+                        ${students.length === 0 
+                            ? '<p style="text-align: center; color: var(--text-secondary); padding: 2rem;">لا يوجد طلاب مسجلين بعد</p>'
+                            : students.map(student => {
+                                const portfolio = appData.portfolios.find(p => p.username === student.username);
+                                const holdings = portfolio ? portfolio.holdings : [];
+                                const portfolioVal = getPortfolioValue(student.username);
+                                const total = student.balance + portfolioVal;
+                                
+                                return `
+                                    <div style="background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 12px; padding: 1.5rem; margin-bottom: 1rem; ${student.suspended ? 'opacity: 0.5;' : ''}">
+                                        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem; margin-bottom: 1rem;">
+                                            <div style="flex: 1;">
+                                                <h4>${student.username} ${student.suspended ? '🔒' : ''}</h4>
+                                                <p style="color: var(--text-secondary); font-size: 0.9rem; margin-top: 0.3rem;">
+                                                    الرصيد: ${student.balance.toFixed(2)} ر.س | 
+                                                    المحفظة: ${portfolioVal.toFixed(2)} ر.س | 
+                                                    الإجمالي: ${total.toFixed(2)} ر.س
+                                                </p>
+                                            </div>
+                                            <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+                                                <button class="btn btn-primary btn-small" 
+                                                        onclick="openBalanceModal('${student.username}')">
+                                                    💰 الرصيد
+                                                </button>
+                                                <button class="btn ${student.suspended ? 'btn-success' : 'btn-danger'} btn-small" 
+                                                        onclick="toggleSuspension('${student.username}')">
+                                                    ${student.suspended ? 'تفعيل ✓' : 'تعليق ⛔'}
+                                                </button>
+                                            </div>
+                                        </div>
+                                        
+                                        ${holdings.length > 0 ? `
+                                            <div style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--border);">
+                                                <div style="font-size: 0.85rem; font-weight: 600; color: var(--text-secondary); margin-bottom: 0.75rem;">📊 الأسهم المملوكة:</div>
+                                                <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 0.75rem;">
+                                                    ${holdings.map(holding => {
+                                                        const stock = appData.stocks.find(s => s.symbol === holding.symbol);
+                                                        if (!stock) return '';
+                                                        const currentValue = stock.price * holding.quantity;
+                                                        const profit = (stock.price - holding.avgPrice) * holding.quantity;
+                                                        const profitPercent = ((stock.price - holding.avgPrice) / holding.avgPrice) * 100;
+                                                        
+                                                        return `
+                                                            <div style="background: var(--bg-primary); padding: 0.875rem; border-radius: 8px; border: 1px solid var(--border);">
+                                                                <div style="font-weight: bold; font-size: 0.9rem; margin-bottom: 0.25rem;">${stock.symbol}</div>
+                                                                <div style="font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 0.5rem;">${stock.name}</div>
+                                                                <div style="display: flex; justify-content: space-between; font-size: 0.8rem; margin-bottom: 0.25rem;">
+                                                                    <span>الكمية:</span>
+                                                                    <strong>${holding.quantity}</strong>
+                                                                </div>
+                                                                <div style="display: flex; justify-content: space-between; font-size: 0.8rem; margin-bottom: 0.25rem;">
+                                                                    <span>متوسط الشراء:</span>
+                                                                    <span>${holding.avgPrice.toFixed(2)}</span>
+                                                                </div>
+                                                                <div style="display: flex; justify-content: space-between; font-size: 0.8rem; margin-bottom: 0.25rem;">
+                                                                    <span>السعر الحالي:</span>
+                                                                    <span>${stock.price.toFixed(2)}</span>
+                                                                </div>
+                                                                <div style="display: flex; justify-content: space-between; font-size: 0.8rem; padding-top: 0.5rem; border-top: 1px solid var(--border); margin-top: 0.5rem;">
+                                                                    <span>القيمة:</span>
+                                                                    <strong>${currentValue.toFixed(2)} ر.س</strong>
+                                                                </div>
+                                                                <div style="display: flex; justify-content: space-between; font-size: 0.8rem; margin-top: 0.25rem;">
+                                                                    <span>الربح/الخسارة:</span>
+                                                                    <strong style="color: ${profit >= 0 ? 'var(--success)' : 'var(--danger)'};">
+                                                                        ${profit >= 0 ? '+' : ''}${profit.toFixed(2)} (${profitPercent >= 0 ? '+' : ''}${profitPercent.toFixed(1)}%)
+                                                                    </strong>
+                                                                </div>
+                                                            </div>
+                                                        `;
+                                                    }).join('')}
+                                                </div>
+                                            </div>
+                                        ` : `
+                                            <div style="margin-top: 1rem; padding: 1rem; background: var(--bg-primary); border-radius: 8px; text-align: center; color: var(--text-secondary); font-size: 0.85rem;">
+                                                📭 لا يمتلك أي أسهم حالياً
+                                            </div>
+                                        `}
+                                    </div>
+                                `;
+                            }).join('')
+                        }
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderAdminStocksTab() {
+            return `
+                <div class="tab-content active">
+                    <div class="card">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+                            <h3>إدارة الأسهم 📈</h3>
+                            <button class="btn btn-success btn-small" onclick="openAddStockModal()">
+                                إضافة سهم جديد ➕
+                            </button>
+                        </div>
+
+                        ${appData.stocks.length === 0 
+                            ? '<p style="text-align: center; color: var(--text-secondary); padding: 2rem;">لا توجد أسهم</p>'
+                            : `
+                                <div style="overflow-x: auto;">
+                                    <table>
+                                        <thead>
+                                            <tr>
+                                                <th>الرمز</th>
+                                                <th>الاسم</th>
+                                                <th>السعر (ر.س)</th>
+                                                <th>التغير (%)</th>
+                                                <th>الإجراءات</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            ${appData.stocks.map((stock, idx) => `
+                                                <tr>
+                                                    <td><strong>${stock.symbol}</strong></td>
+                                                    <td>${stock.name}</td>
+                                                    <td>${stock.price.toFixed(2)}</td>
+                                                    <td style="color: ${stock.change >= 0 ? 'var(--success)' : 'var(--danger)'};">
+                                                        ${stock.change >= 0 ? '+' : ''}${stock.change.toFixed(2)}%
+                                                    </td>
+                                                    <td>
+                                                        <button class="btn btn-primary btn-small" onclick="openStockPriceModal(${idx})" style="margin-left: 0.5rem;">
+                                                            💰 السعر
+                                                        </button>
+                                                        <button class="btn btn-danger btn-small" onclick="deleteStock(${idx})">
+                                                            حذف 🗑️
+                                                        </button>
+                                                    </td>
+                                                </tr>
+                                            `).join('')}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            `
+                        }
+                    </div>
+                </div>
+            `;
+        }
+
+        function openAddStockModal() {
+            addStockModal.show = true;
+            render();
+        }
+
+        function closeAddStockModal() {
+            addStockModal.show = false;
+            render();
+        }
+
+        function executeAddStock() {
+            const symbol = document.getElementById('stockSymbolInput').value.trim();
+            const name = document.getElementById('stockNameInput').value.trim();
+            const price = parseFloat(document.getElementById('stockPriceStartInput').value);
+
+            if (!symbol) {
+                showAlert('أدخل رمز السهم!', 'error');
+                return;
+            }
+
+            if (appData.stocks.find(s => s.symbol === symbol)) {
+                showAlert('الرمز موجود مسبقاً!', 'error');
+                return;
+            }
+
+            if (!name) {
+                showAlert('أدخل اسم السهم!', 'error');
+                return;
+            }
+
+            if (!price || price <= 0) {
+                showAlert('أدخل سعر صحيح!', 'error');
+                return;
+            }
+
+            appData.stocks.push({
+                symbol,
+                name,
+                price,
+                change: 0,
+                history: generateHistory(price)
+            });
+
+            addActivityLog('إضافة سهم', `إضافة سهم ${name} (${symbol})`);
+            showAlert(`✅ تم إضافة سهم ${name}`, 'success');
+            saveData();
+            closeAddStockModal();
+        }
+
+        // Stock Price Modal State
+        let stockPriceModal = { show: false, stockIndex: null, stock: null };
+        let bulkBalanceModal = { show: false };
+        let addStockModal = { show: false };
+        let confirmModal = { show: false, message: '', onConfirm: null };
+
+        function openStockPriceModal(idx) {
+            const stock = appData.stocks[idx];
+            stockPriceModal = { show: true, stockIndex: idx, stock: {...stock} };
+            render();
+        }
+
+        function closeStockPriceModal() {
+            stockPriceModal.show = false;
+            render();
+        }
+
+        function increaseStockPrice() {
+            const input = document.getElementById('stockPriceInput');
+            const amount = parseFloat(input.value);
+            if (!amount || amount <= 0) {
+                showAlert('أدخل مبلغ صحيح!', 'error');
+                return;
+            }
+            
+            const stock = appData.stocks[stockPriceModal.stockIndex];
+            const oldPrice = stock.price;
+            stock.price += amount;
+            stock.change = ((stock.price - oldPrice) / oldPrice) * 100;
+            stock.history.push(stock.price);
+            if (stock.history.length > 30) stock.history.shift();
+            
+            addActivityLog('زيادة سعر سهم', `زيادة سعر ${stock.name} بمقدار ${amount.toFixed(2)} من ${oldPrice.toFixed(2)} إلى ${stock.price.toFixed(2)}`);
+            showAlert(`✅ تم زيادة سعر ${stock.name} بمقدار ${amount.toFixed(2)} ر.س`, 'success');
+            
+            if (Math.abs(stock.change) >= 5) {
+                addNotification(`⚠️ تغير كبير في ${stock.name}: +${stock.change.toFixed(2)}%`, 'warning');
+            }
+            
+            saveData();
+            closeStockPriceModal();
+        }
+
+        function decreaseStockPrice() {
+            const input = document.getElementById('stockPriceInput');
+            const amount = parseFloat(input.value);
+            if (!amount || amount <= 0) {
+                showAlert('أدخل مبلغ صحيح!', 'error');
+                return;
+            }
+            
+            const stock = appData.stocks[stockPriceModal.stockIndex];
+            const oldPrice = stock.price;
+            
+            if (stock.price - amount <= 0) {
+                showAlert('السعر لا يمكن أن يكون صفر أو سالب!', 'error');
+                return;
+            }
+            
+            stock.price -= amount;
+            stock.change = ((stock.price - oldPrice) / oldPrice) * 100;
+            stock.history.push(stock.price);
+            if (stock.history.length > 30) stock.history.shift();
+            
+            addActivityLog('تخفيض سعر سهم', `تخفيض سعر ${stock.name} بمقدار ${amount.toFixed(2)} من ${oldPrice.toFixed(2)} إلى ${stock.price.toFixed(2)}`);
+            showAlert(`✅ تم تخفيض سعر ${stock.name} بمقدار ${amount.toFixed(2)} ر.س`, 'success');
+            
+            if (Math.abs(stock.change) >= 5) {
+                addNotification(`⚠️ تغير كبير في ${stock.name}: ${stock.change.toFixed(2)}%`, 'warning');
+            }
+            
+            saveData();
+            closeStockPriceModal();
+        }
+
+        function deleteStock(idx) {
+            const stock = appData.stocks[idx];
+            
+            showConfirm(
+                `هل تريد حذف سهم ${stock.name} (${stock.symbol})؟<br><br><span style="color: var(--danger)">⚠️ سيتم حذفه من جميع المحافظ!</span>`,
+                () => {
+                    appData.portfolios.forEach(p => {
+                        p.holdings = p.holdings.filter(h => h.symbol !== stock.symbol);
+                    });
+
+                    appData.stocks.splice(idx, 1);
+
+                    addActivityLog('حذف سهم', `حذف سهم ${stock.name} (${stock.symbol})`);
+                    showAlert(`✅ تم حذف ${stock.name}`, 'success');
+                    saveData();
+                    render();
+                }
+            );
+        }
+
+        function renderAdminActivityTab() {
+            // Filter to show only: شراء سهم, بيع سهم, تعديل سعر سهم
+            const filteredLogs = appData.activityLog.filter(log => 
+                log.action === 'شراء سهم' || 
+                log.action === 'بيع سهم' || 
+                log.action === 'تعديل سعر سهم'
+            );
+
+            return `
+                <div class="tab-content active">
+                    <div class="card">
+                        <h3 style="margin-bottom: 1.5rem;">سجل التداول وتغيرات الأسعار 📋</h3>
+                        <p style="color: var(--text-secondary); font-size: 0.9rem; margin-bottom: 1rem;">
+                            يعرض: المشتريات، المبيعات، تغييرات الأسعار فقط
+                        </p>
+                        ${filteredLogs.length === 0 
+                            ? '<p style="text-align: center; color: var(--text-secondary); padding: 2rem;">لا يوجد نشاط</p>'
+                            : filteredLogs.map(log => {
+                                let icon = '📊';
+                                let color = 'var(--text-primary)';
+                                
+                                if (log.action === 'شراء سهم') {
+                                    icon = '📈';
+                                    color = 'var(--success)';
+                                } else if (log.action === 'بيع سهم') {
+                                    icon = '📉';
+                                    color = 'var(--warning)';
+                                } else if (log.action === 'تعديل سعر سهم') {
+                                    icon = '💱';
+                                    color = 'var(--secondary)';
+                                }
+                                
+                                return `
+                                    <div style="background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 12px; padding: 1rem; margin-bottom: 0.5rem; border-right: 3px solid ${color};">
+                                        <div style="display: flex; justify-content: space-between; margin-bottom: 0.3rem;">
+                                            <strong style="color: ${color};">${icon} ${log.action}</strong>
+                                            <span style="font-size: 0.85rem; color: var(--text-secondary);">
+                                                ${new Date(log.timestamp).toLocaleString('ar-SA', {
+                                                    day: '2-digit',
+                                                    month: '2-digit',
+                                                    hour: '2-digit',
+                                                    minute: '2-digit'
+                                                })}
+                                            </span>
+                                        </div>
+                                        <div style="font-size: 0.9rem; color: var(--text-secondary);">${log.details}</div>
+                                        <div style="font-size: 0.8rem; color: var(--text-secondary); margin-top: 0.3rem;">
+                                            بواسطة: ${log.user}
+                                        </div>
+                                    </div>
+                                `;
+                            }).join('')
+                        }
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderTradingModal() {
+            const stock = appState.selectedStock;
+            const portfolio = appData.portfolios.find(p => p.username === appState.currentUser.username);
+            const holding = portfolio ? portfolio.holdings.find(h => h.symbol === stock.symbol) : null;
+            const userBalance = appState.currentUser.balance;
+            
+            return `
+                <div style="position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.7); z-index: 9999; display: flex; align-items: center; justify-content: center; padding: 1rem;" onclick="if(event.target===this){appState.selectedStock=null; render();}">
+                    <div style="background: var(--bg-card); border-radius: 20px; max-width: 550px; width: 100%; max-height: 90vh; overflow-y: auto; box-shadow: 0 20px 60px rgba(0,0,0,0.5);" onclick="event.stopPropagation()">
+                        <div style="padding: 1.5rem; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center;">
+                            <h2 style="margin: 0;">📊 ${stock.name}</h2>
+                            <button onclick="appState.selectedStock=null; render();" style="background: none; border: none; font-size: 2rem; color: var(--danger); cursor: pointer; padding: 0; width: 40px; height: 40px;">×</button>
+                        </div>
+                        
+                        <div style="padding: 2rem;">
+                            <div style="text-align: center; padding: 2rem; background: linear-gradient(135deg, #1a1a2e, #16213e); border-radius: 16px; margin-bottom: 2rem; border: 2px solid var(--secondary);">
+                                <div style="color: rgba(255,255,255,0.7); font-size: 0.85rem; margin-bottom: 0.5rem;">السعر الحالي</div>
+                                <div style="font-size: 2.5rem; font-weight: 900; color: #d4af37;">${stock.price.toFixed(2)} <span style="font-size: 1.2rem;">ر.س</span></div>
+                                <div style="margin-top: 0.75rem; font-size: 0.95rem; color: ${stock.change >= 0 ? '#2ecc71' : '#e74c3c'}; font-weight: bold;">
+                                    ${stock.change >= 0 ? '▲' : '▼'} ${stock.change.toFixed(2)}%
+                                </div>
+                            </div>
+
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1.5rem;">
+                                <div style="text-align: center; padding: 1rem; background: var(--bg-secondary); border-radius: 12px;">
+                                    <div style="color: var(--text-secondary); font-size: 0.8rem; margin-bottom: 0.25rem;">رصيدك</div>
+                                    <div style="font-size: 1.1rem; font-weight: bold; color: var(--success);">${userBalance.toFixed(2)} ر.س</div>
+                                </div>
+                                <div style="text-align: center; padding: 1rem; background: var(--bg-secondary); border-radius: 12px;">
+                                    <div style="color: var(--text-secondary); font-size: 0.8rem; margin-bottom: 0.25rem;">تملك</div>
+                                    <div style="font-size: 1.1rem; font-weight: bold;">${holding ? holding.quantity : 0} سهم</div>
+                                </div>
+                            </div>
+
+                            <div style="margin-bottom: 1.5rem;">
+                                <label style="display: block; margin-bottom: 0.5rem; font-weight: 600;">الكمية</label>
+                                <input type="number" id="tradeQuantityInput" placeholder="أدخل الكمية..." value="1" min="1" 
+                                       style="width: 100%; padding: 1rem; font-size: 1.2rem; text-align: center; border: 2px solid var(--border); border-radius: 12px; background: var(--bg-secondary); color: var(--text-primary); font-weight: bold;">
+                            </div>
+
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                                <button onclick="executeTradeFromModal('buy')" style="padding: 1.25rem; background: #2ecc71; color: white; border: none; border-radius: 12px; font-size: 1.1rem; font-weight: 700; cursor: pointer; transition: transform 0.2s;">
+                                    <div style="font-size: 1.5rem; margin-bottom: 0.25rem;">📈</div>
+                                    <div>شراء</div>
+                                </button>
+                                <button onclick="executeTradeFromModal('sell')" style="padding: 1.25rem; background: #e74c3c; color: white; border: none; border-radius: 12px; font-size: 1.1rem; font-weight: 700; cursor: pointer; transition: transform 0.2s;">
+                                    <div style="font-size: 1.5rem; margin-bottom: 0.25rem;">📉</div>
+                                    <div>بيع</div>
+                                </button>
+                            </div>
+
+                            <div style="margin-top: 1.5rem; padding: 1rem; background: var(--bg-secondary); border-radius: 12px; border-right: 3px solid var(--secondary);">
+                                <div style="font-size: 0.85rem; color: var(--text-secondary); line-height: 1.6;">
+                                    <strong>💡 ملاحظة:</strong><br>
+                                    • شراء: يخصم من رصيدك<br>
+                                    • بيع: يضاف لرصيدك
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function executeTradeFromModal(type) {
+            const input = document.getElementById('tradeQuantityInput');
+            const quantity = parseInt(input.value);
+            
+            if (!quantity || quantity < 1) {
+                showAlert('أدخل كمية صحيحة!', 'error');
+                return;
+            }
+            
+            executeTrade(type, quantity);
+        }
+
+        function attachEventListeners() {
+            // Draw chart if modal is open
+            if (appState.selectedStock) {
+                setTimeout(drawStockChart, 100);
+            }
+        }
+
+        function drawStockChart() {
+            const canvas = document.getElementById('stockChart');
+            if (!canvas) return;
+            
+            const ctx = canvas.getContext('2d');
+            const stock = appState.selectedStock;
+            
+            new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: stock.history.map((_, i) => `${30-i}د`),
+                    datasets: [{
+                        label: 'السعر',
+                        data: stock.history,
+                        borderColor: '#d4af37',
+                        backgroundColor: 'rgba(212, 175, 55, 0.1)',
+                        tension: 0.4,
+                        fill: true,
+                        pointRadius: 0
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false }
+                    },
+                    scales: {
+                        y: {
+                            grid: { color: 'rgba(255, 255, 255, 0.05)' },
+                            ticks: { color: '#a8c5b8' }
+                        },
+                        x: {
+                            grid: { display: false },
+                            ticks: { color: '#a8c5b8', maxTicksLimit: 6 }
+                        }
+                    }
+                }
+            });
+        }
+
+        function renderBalanceModal() {
+            return `
+                <div style="position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.7); z-index: 9999; display: flex; align-items: center; justify-content: center; padding: 1rem;" onclick="if(event.target===this) closeBalanceModal()">
+                    <div style="background: var(--bg-card); border-radius: 20px; max-width: 500px; width: 100%; max-height: 90vh; overflow-y: auto; box-shadow: 0 20px 60px rgba(0,0,0,0.5);" onclick="event.stopPropagation()">
+                        <div style="padding: 1.5rem; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center;">
+                            <h2 style="margin: 0;">💰 إدارة الرصيد</h2>
+                            <button onclick="closeBalanceModal()" style="background: none; border: none; font-size: 2rem; color: var(--danger); cursor: pointer; padding: 0; width: 40px; height: 40px;">×</button>
+                        </div>
+                        
+                        <div style="padding: 2rem;">
+                            <div style="text-align: center; padding: 2rem; background: linear-gradient(135deg, #0a4d3c, #0f6b52); border-radius: 16px; margin-bottom: 2rem;">
+                                <div style="color: rgba(255,255,255,0.8); font-size: 0.9rem; margin-bottom: 0.5rem;">الطالب</div>
+                                <div style="font-size: 1.5rem; font-weight: bold; color: white; margin-bottom: 1rem;">${balanceModalState.username}</div>
+                                <div style="color: rgba(255,255,255,0.7); font-size: 0.85rem; margin-bottom: 0.5rem;">الرصيد الحالي</div>
+                                <div style="font-size: 2.5rem; font-weight: 900; color: #d4af37;">${balanceModalState.balance.toFixed(2)} <span style="font-size: 1.2rem;">ر.س</span></div>
+                            </div>
+
+                            <div style="margin-bottom: 1.5rem;">
+                                <label style="display: block; margin-bottom: 0.5rem; font-weight: 600;">المبلغ</label>
+                                <input type="number" id="balanceInput" placeholder="أدخل المبلغ..." min="0.01" step="0.01" 
+                                       style="width: 100%; padding: 1rem; font-size: 1.2rem; text-align: center; border: 2px solid var(--border); border-radius: 12px; background: var(--bg-secondary); color: var(--text-primary); font-weight: bold;">
+                            </div>
+
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                                <button onclick="addBalance()" style="padding: 1.25rem; background: #2ecc71; color: white; border: none; border-radius: 12px; font-size: 1.1rem; font-weight: 700; cursor: pointer; transition: transform 0.2s;">
+                                    <div style="font-size: 1.5rem; margin-bottom: 0.25rem;">➕</div>
+                                    <div>إضافة</div>
+                                </button>
+                                <button onclick="subtractBalance()" style="padding: 1.25rem; background: #e74c3c; color: white; border: none; border-radius: 12px; font-size: 1.1rem; font-weight: 700; cursor: pointer; transition: transform 0.2s;">
+                                    <div style="font-size: 1.5rem; margin-bottom: 0.25rem;">➖</div>
+                                    <div>خصم</div>
+                                </button>
+                            </div>
+
+                            <div style="margin-top: 1.5rem; padding: 1rem; background: var(--bg-secondary); border-radius: 12px; border-right: 3px solid var(--primary);">
+                                <div style="font-size: 0.85rem; color: var(--text-secondary); line-height: 1.6;">
+                                    <strong>💡 ملاحظة:</strong><br>
+                                    • إضافة: يضاف المبلغ للرصيد<br>
+                                    • خصم: ينقص من الرصيد
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderStockPriceModal() {
+            return `
+                <div style="position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.7); z-index: 9999; display: flex; align-items: center; justify-content: center; padding: 1rem;" onclick="if(event.target===this) closeStockPriceModal()">
+                    <div style="background: var(--bg-card); border-radius: 20px; max-width: 500px; width: 100%; max-height: 90vh; overflow-y: auto; box-shadow: 0 20px 60px rgba(0,0,0,0.5);" onclick="event.stopPropagation()">
+                        <div style="padding: 1.5rem; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center;">
+                            <h2 style="margin: 0;">📈 تعديل سعر السهم</h2>
+                            <button onclick="closeStockPriceModal()" style="background: none; border: none; font-size: 2rem; color: var(--danger); cursor: pointer; padding: 0; width: 40px; height: 40px;">×</button>
+                        </div>
+                        
+                        <div style="padding: 2rem;">
+                            <div style="text-align: center; padding: 2rem; background: linear-gradient(135deg, #1a1a2e, #16213e); border-radius: 16px; margin-bottom: 2rem; border: 2px solid var(--secondary);">
+                                <div style="color: rgba(255,255,255,0.8); font-size: 0.9rem; margin-bottom: 0.5rem;">السهم</div>
+                                <div style="font-size: 1.5rem; font-weight: bold; color: white; margin-bottom: 0.5rem;">${stockPriceModal.stock.name}</div>
+                                <div style="font-size: 0.85rem; color: rgba(255,255,255,0.6); margin-bottom: 1rem;">${stockPriceModal.stock.symbol}</div>
+                                <div style="color: rgba(255,255,255,0.7); font-size: 0.85rem; margin-bottom: 0.5rem;">السعر الحالي</div>
+                                <div style="font-size: 2.5rem; font-weight: 900; color: #d4af37;">${stockPriceModal.stock.price.toFixed(2)} <span style="font-size: 1.2rem;">ر.س</span></div>
+                                <div style="margin-top: 0.75rem; font-size: 0.95rem; color: ${stockPriceModal.stock.change >= 0 ? '#2ecc71' : '#e74c3c'}; font-weight: bold;">
+                                    ${stockPriceModal.stock.change >= 0 ? '▲' : '▼'} ${stockPriceModal.stock.change.toFixed(2)}%
+                                </div>
+                            </div>
+
+                            <div style="margin-bottom: 1.5rem;">
+                                <label style="display: block; margin-bottom: 0.5rem; font-weight: 600;">مقدار التغيير</label>
+                                <input type="number" id="stockPriceInput" placeholder="أدخل المبلغ..." min="0.01" step="0.01" 
+                                       style="width: 100%; padding: 1rem; font-size: 1.2rem; text-align: center; border: 2px solid var(--border); border-radius: 12px; background: var(--bg-secondary); color: var(--text-primary); font-weight: bold;">
+                            </div>
+
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                                <button onclick="increaseStockPrice()" style="padding: 1.25rem; background: #2ecc71; color: white; border: none; border-radius: 12px; font-size: 1.1rem; font-weight: 700; cursor: pointer; transition: transform 0.2s;">
+                                    <div style="font-size: 1.5rem; margin-bottom: 0.25rem;">📈</div>
+                                    <div>زيادة السعر</div>
+                                </button>
+                                <button onclick="decreaseStockPrice()" style="padding: 1.25rem; background: #e74c3c; color: white; border: none; border-radius: 12px; font-size: 1.1rem; font-weight: 700; cursor: pointer; transition: transform 0.2s;">
+                                    <div style="font-size: 1.5rem; margin-bottom: 0.25rem;">📉</div>
+                                    <div>تخفيض السعر</div>
+                                </button>
+                            </div>
+
+                            <div style="margin-top: 1.5rem; padding: 1rem; background: var(--bg-secondary); border-radius: 12px; border-right: 3px solid var(--secondary);">
+                                <div style="font-size: 0.85rem; color: var(--text-secondary); line-height: 1.6;">
+                                    <strong>💡 ملاحظة:</strong><br>
+                                    • زيادة: يضاف المبلغ للسعر الحالي<br>
+                                    • تخفيض: ينقص المبلغ من السعر الحالي<br>
+                                    • التغيير يحسب تلقائياً (%)
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderBulkBalanceModal() {
+            const studentCount = appData.users.filter(u => u.role === 'student').length;
+            return `
+                <div style="position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.7); z-index: 9999; display: flex; align-items: center; justify-content: center; padding: 1rem;" onclick="if(event.target===this) closeBulkBalanceModal()">
+                    <div style="background: var(--bg-card); border-radius: 20px; max-width: 500px; width: 100%; box-shadow: 0 20px 60px rgba(0,0,0,0.5);" onclick="event.stopPropagation()">
+                        <div style="padding: 1.5rem; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center;">
+                            <h2 style="margin: 0;">💰 إضافة رصيد جماعي</h2>
+                            <button onclick="closeBulkBalanceModal()" style="background: none; border: none; font-size: 2rem; color: var(--danger); cursor: pointer; padding: 0; width: 40px; height: 40px;">×</button>
+                        </div>
+                        
+                        <div style="padding: 2rem;">
+                            <div style="text-align: center; padding: 2rem; background: linear-gradient(135deg, #2ecc71, #27ae60); border-radius: 16px; margin-bottom: 2rem;">
+                                <div style="color: rgba(255,255,255,0.9); font-size: 0.9rem; margin-bottom: 0.5rem;">عدد الطلاب</div>
+                                <div style="font-size: 3rem; font-weight: 900; color: white;">${studentCount}</div>
+                                <div style="color: rgba(255,255,255,0.8); font-size: 0.85rem; margin-top: 0.5rem;">سيحصل كل طالب على نفس المبلغ</div>
+                            </div>
+
+                            <div style="margin-bottom: 1.5rem;">
+                                <label style="display: block; margin-bottom: 0.5rem; font-weight: 600;">المبلغ لكل طالب</label>
+                                <input type="number" id="bulkBalanceInput" placeholder="مثال: 10000" value="10000" min="0.01" step="0.01" 
+                                       style="width: 100%; padding: 1rem; font-size: 1.2rem; text-align: center; border: 2px solid var(--border); border-radius: 12px; background: var(--bg-secondary); color: var(--text-primary); font-weight: bold;">
+                            </div>
+
+                            <button onclick="executeBulkBalanceAdd()" style="width: 100%; padding: 1.25rem; background: #2ecc71; color: white; border: none; border-radius: 12px; font-size: 1.1rem; font-weight: 700; cursor: pointer;">
+                                ✅ إضافة للجميع
+                            </button>
+
+                            <div style="margin-top: 1.5rem; padding: 1rem; background: var(--bg-secondary); border-radius: 12px; border-right: 3px solid #2ecc71;">
+                                <div style="font-size: 0.85rem; color: var(--text-secondary); line-height: 1.6;">
+                                    <strong>💡 ملاحظة:</strong><br>
+                                    سيتم إضافة المبلغ لجميع الطلاب دفعة واحدة
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderAddStockModal() {
+            return `
+                <div style="position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.7); z-index: 9999; display: flex; align-items: center; justify-content: center; padding: 1rem;" onclick="if(event.target===this) closeAddStockModal()">
+                    <div style="background: var(--bg-card); border-radius: 20px; max-width: 500px; width: 100%; box-shadow: 0 20px 60px rgba(0,0,0,0.5);" onclick="event.stopPropagation()">
+                        <div style="padding: 1.5rem; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center;">
+                            <h2 style="margin: 0;">📈 إضافة سهم جديد</h2>
+                            <button onclick="closeAddStockModal()" style="background: none; border: none; font-size: 2rem; color: var(--danger); cursor: pointer; padding: 0; width: 40px; height: 40px;">×</button>
+                        </div>
+                        
+                        <div style="padding: 2rem;">
+                            <div style="margin-bottom: 1.25rem;">
+                                <label style="display: block; margin-bottom: 0.5rem; font-weight: 600;">رمز السهم</label>
+                                <input type="text" id="stockSymbolInput" placeholder="مثال: SABIC" 
+                                       style="width: 100%; padding: 0.875rem; font-size: 1rem; border: 2px solid var(--border); border-radius: 12px; background: var(--bg-secondary); color: var(--text-primary); text-transform: uppercase;">
+                                <div style="font-size: 0.8rem; color: var(--text-secondary); margin-top: 0.35rem;">حروف إنجليزية فقط</div>
+                            </div>
+
+                            <div style="margin-bottom: 1.25rem;">
+                                <label style="display: block; margin-bottom: 0.5rem; font-weight: 600;">اسم السهم</label>
+                                <input type="text" id="stockNameInput" placeholder="مثال: سابك" 
+                                       style="width: 100%; padding: 0.875rem; font-size: 1rem; border: 2px solid var(--border); border-radius: 12px; background: var(--bg-secondary); color: var(--text-primary);">
+                            </div>
+
+                            <div style="margin-bottom: 1.5rem;">
+                                <label style="display: block; margin-bottom: 0.5rem; font-weight: 600;">السعر الابتدائي</label>
+                                <input type="number" id="stockPriceStartInput" placeholder="مثال: 100" value="100" min="0.01" step="0.01" 
+                                       style="width: 100%; padding: 0.875rem; font-size: 1rem; border: 2px solid var(--border); border-radius: 12px; background: var(--bg-secondary); color: var(--text-primary);">
+                            </div>
+
+                            <button onclick="executeAddStock()" style="width: 100%; padding: 1.25rem; background: var(--primary); color: white; border: none; border-radius: 12px; font-size: 1.1rem; font-weight: 700; cursor: pointer;">
+                                ✅ إضافة السهم
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderConfirmModal() {
+            return `
+                <div style="position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.8); z-index: 99999; display: flex; align-items: center; justify-content: center; padding: 1rem; animation: fadeIn 0.2s;">
+                    <div style="background: var(--bg-card); border-radius: 20px; max-width: 450px; width: 100%; box-shadow: 0 20px 60px rgba(0,0,0,0.5); animation: scaleIn 0.2s;" onclick="event.stopPropagation()">
+                        <div style="padding: 2rem; text-align: center;">
+                            <div style="font-size: 4rem; margin-bottom: 1rem;">⚠️</div>
+                            <div style="font-size: 1.1rem; line-height: 1.6; color: var(--text-primary); margin-bottom: 2rem;">
+                                ${confirmModal.message}
+                            </div>
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                                <button onclick="closeConfirm()" style="padding: 1rem; background: var(--bg-secondary); border: 2px solid var(--border); border-radius: 12px; font-size: 1rem; font-weight: 600; cursor: pointer; color: var(--text-primary);">
+                                    إلغاء
+                                </button>
+                                <button onclick="executeConfirm()" style="padding: 1rem; background: var(--danger); color: white; border: none; border-radius: 12px; font-size: 1rem; font-weight: 700; cursor: pointer;">
+                                    تأكيد
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        // Initialize app
+        init();
+    </script>
+</body>
+</html>
