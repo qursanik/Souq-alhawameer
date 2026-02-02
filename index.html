@@ -1044,49 +1044,6 @@ function changePassword(form) {
     form.reset();
 }
 
-// تسجيل مع رقم الجوال
-function handleRegisterWithPhone(form) {
-    const username = form.regUsername.value.trim();
-    const phone = form.regPhone.value.trim();
-    const password = form.regPassword.value;
-    const confirmPassword = form.regConfirmPassword.value;
-    
-    if (appData.users.find(u => u.username === username)) {
-        showAlert('اسم المستخدم موجود مسبقاً ❌', 'error');
-        return;
-    }
-    
-    if (appData.users.find(u => u.phone === phone)) {
-        showAlert('رقم الجوال مسجل مسبقاً ❌\nكل رقم جوال يمكن استخدامه لحساب واحد فقط', 'error');
-        return;
-    }
-    
-    if (password !== confirmPassword) {
-        showAlert('كلمة المرور غير متطابقة ❌\nتأكد من كتابة نفس كلمة المرور في الحقلين', 'error');
-        return;
-    }
-    
-    if (appData.users.filter(u => u.role === 'student').length >= 25) {
-        showAlert('تم الوصول للحد الأقصى من الطلاب (25 طالب) ⛔', 'error');
-        return;
-    }
-
-    verificationCode = Math.floor(1000 + Math.random() * 9000).toString();
-    pendingRegistration = {
-        username,
-        phone,
-        password,
-        role: 'student',
-        balance: 0,
-        color: '#' + Math.floor(Math.random()*16777215).toString(16),
-        achievements: [],
-        suspended: false
-    };
-
-    appState.currentScreen = 'verify';
-    showAlert(`رمز التحقق: ${verificationCode}`, 'success');
-    render();
-}
         // Initialize
         function init() {
             loadData();
