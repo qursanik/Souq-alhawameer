@@ -1234,7 +1234,7 @@ function changePassword(form) {
             render();
         }
 
- let pendingRegistration = null;
+let pendingRegistration = null;
 let verificationCode = null;
 
 function handleRegister(e) {
@@ -1278,6 +1278,9 @@ function handleRegister(e) {
         achievements: [],
         suspended: false
     };
+
+    console.log('✅ Verification Code:', verificationCode);  // للتأكد
+    console.log('✅ Pending Registration:', pendingRegistration);
 
     appState.currentScreen = 'verify';
     showAlert(`رمز التحقق: ${verificationCode}`, 'success');
