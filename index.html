@@ -1234,17 +1234,25 @@ function changePassword(form) {
             render();
         }
 
-        // Register
-        let pendingRegistration = null;
-        let verificationCode = null;
+ let pendingRegistration = null;
+let verificationCode = null;
 
-        function handleRegister(e) {
-            e.preventDefault();
-            const username = e.target.regUsername.value;
-            const phone = e.target.regPhone.value;
-            const password = e.target.regPassword.value;
-if (password !== confirmPassword) {
+function handleRegister(e) {
+    e.preventDefault();
+    const username = e.target.regUsername.value.trim();
+    const phone = e.target.regPhone.value.trim();
+    const password = e.target.regPassword.value;
+    const confirmPassword = e.target.regConfirmPassword ? e.target.regConfirmPassword.value : password;
+
+    // تحقق من تطابق كلمة المرور
+    if (password !== confirmPassword) {
         showAlert('كلمة المرور غير متطابقة ❌', 'error');
+        return;
+    }
+
+    // تحقق من تكرار اسم المستخدم
+    if (appData.users.find(u => u.username === username)) {
+        showAlert('اسم المستخدم موجود مسبقاً ❌', 'error');
         return;
     }
 
@@ -1253,32 +1261,28 @@ if (password !== confirmPassword) {
         showAlert('رقم الجوال مسجل مسبقاً ❌', 'error');
         return;
     }
-            if (appData.users.find(u => u.username === username)) {
-                showAlert('اسم المستخدم موجود مسبقاً ❌', 'error');
-                return;
-            }
 
-            if (appData.users.filter(u => u.role === 'student').length >= 25) {
-                showAlert('تم الوصول للحد الأقصى من الطلاب (25 طالب) ⛔', 'error');
-                return;
-            }
+    if (appData.users.filter(u => u.role === 'student').length >= 25) {
+        showAlert('تم الوصول للحد الأقصى من الطلاب (25 طالب) ⛔', 'error');
+        return;
+    }
 
-            verificationCode = Math.floor(1000 + Math.random() * 9000).toString();
-            pendingRegistration = {
-                username,
-                phone,
-                password,
-                role: 'student',
-                balance: 0,
-                color: '#' + Math.floor(Math.random()*16777215).toString(16),
-                achievements: [],
-                suspended: false
-            };
+    verificationCode = Math.floor(1000 + Math.random() * 9000).toString();
+    pendingRegistration = {
+        username,
+        phone,
+        password,
+        role: 'student',
+        balance: 0,
+        color: '#' + Math.floor(Math.random()*16777215).toString(16),
+        achievements: [],
+        suspended: false
+    };
 
-            appState.currentScreen = 'verify';
-            showAlert(`رمز التحقق: ${verificationCode}`, 'success');
-            render();
-        }
+    appState.currentScreen = 'verify';
+    showAlert(`رمز التحقق: ${verificationCode}`, 'success');
+    render();
+}
 
         // Verify
         function handleVerify(e) {
