@@ -1269,8 +1269,9 @@ function handleRegister(e) {
     }
 
     // توليد رمز التحقق
-    verificationCode = Math.floor(1000 + Math.random() * 9000).toString();
-    window.verificationCode = verificationCode;
+    const code = Math.floor(1000 + Math.random() * 9000).toString();
+    verificationCode = code;
+    window.verificationCode = code;
     
     pendingRegistration = {
         username,
@@ -1284,63 +1285,13 @@ function handleRegister(e) {
     };
     window.pendingRegistration = pendingRegistration;
 
-    console.log('✅ Verification Code:', verificationCode);
-    console.log('✅ Pending Registration:', pendingRegistration);
+    // 🔔 رسالة SMS (للتجربة)
+    console.log(`🔐 Verification Code for ${phone}: ${code}`);
+    alert(`تم إرسال رمز التحقق إلى:\n\n${phone}\n\nالرمز (للتجربة): ${code}\n\nفي النسخة الحقيقية سيرسل عبر SMS`);
 
     appState.currentScreen = 'verify';
-    showAlert(`رمز التحقق: ${verificationCode}`, 'success');
     render();
 }
-        // Verify
-        function handleVerify(e) {
-            e.preventDefault();
-            const code = e.target.verifyCode.value;
-
-            if (code === verificationCode) {
-                appData.users.push(pendingRegistration);
-                appData.portfolios.push({
-                    username: pendingRegistration.username,
-                    holdings: []
-                });
-                addActivityLog('تسجيل جديد', `حساب جديد: ${pendingRegistration.username}`);
-                saveData();
-                showAlert('تم إنشاء الحساب بنجاح! ✅', 'success');
-                appState.currentScreen = 'login';
-                pendingRegistration = null;
-                verificationCode = null;
-                render();
-            } else {
-                showAlert('رمز التحقق غير صحيح ❌', 'error');
-            }
-        }
-
-        // Logout
-        function logout() {
-            addActivityLog('تسجيل خروج', `${appState.currentUser.username} سجل خروج`);
-            appState.currentUser = null;
-            appState.currentScreen = 'login';
-            render();
-        }
-
-        // Toggle theme
-        function toggleTheme() {
-            appState.theme = appState.theme === 'dark' ? 'light' : 'dark';
-            document.body.setAttribute('data-theme', appState.theme);
-        }
-
-        // Toggle notifications
-        function toggleNotifications() {
-            appState.showNotifications = !appState.showNotifications;
-            
-            // Mark all as read when opening
-            if (appState.showNotifications) {
-                appData.notifications.forEach(n => n.read = true);
-                saveData();
-            }
-            
-            render();
-        }
-
         // Execute trade
         function executeTrade(type, quantity) {
             const stock = appState.selectedStock;
@@ -1667,25 +1618,20 @@ function handleRegister(e) {
     `;
 }
 
-       function renderVerify() {
-    // استخدم window.verificationCode بدلاً من verificationCode
-    const code = window.verificationCode || verificationCode || '----';
+      function renderVerify() {
+    const phone = window.pendingRegistration ? window.pendingRegistration.phone : '05xxxxxxxx';
     
     return `
         <div class="container">
             <div class="card animate-slide-up" style="max-width: 500px; margin: 4rem auto;">
-                <h2 style="color: var(--secondary); margin-bottom: 2rem;">التحقق من الحساب</h2>
-                
-                <div style="text-align: center; padding: 2rem; background: var(--bg-secondary); border-radius: 16px; margin-bottom: 2rem;">
-                    <div style="color: var(--text-secondary); margin-bottom: 0.5rem;">رمز التحقق التجريبي:</div>
-                    <div style="font-size: 3rem; font-weight: bold; color: var(--secondary); letter-spacing: 1rem; font-family: 'Cairo', sans-serif;">
-                        ${code}
-                    </div>
-                </div>
+                <h2 style="color: var(--secondary); margin-bottom: 1rem;">التحقق من رقم الجوال 📱</h2>
+                <p style="color: var(--text-secondary); margin-bottom: 2rem;">
+                    تم إرسال رمز التحقق إلى: <strong>${phone}</strong>
+                </p>
 
                 <form id="verifyForm" onsubmit="handleVerify(event)">
                     <div class="form-group">
-                        <label>أدخل رمز التحقق</label>
+                        <label>رمز التحقق</label>
                         <input type="text" name="verifyCode" required placeholder="أدخل الرمز المكون من 4 أرقام" 
                                maxlength="4" pattern="[0-9]{4}" 
                                style="font-size: 1.5rem; text-align: center; letter-spacing: 0.5rem;">
@@ -1697,6 +1643,10 @@ function handleRegister(e) {
                         رجوع ⬅️
                     </button>
                 </form>
+                
+                <p style="text-align: center; margin-top: 1.5rem; font-size: 0.85rem; color: var(--text-secondary);">
+                    لم يصلك الرمز؟ <a href="#" onclick="appState.currentScreen='register'; render();">إعادة إرسال</a>
+                </p>
             </div>
         </div>
     `;
