@@ -1267,7 +1267,8 @@ function handleRegister(e) {
         return;
     }
 
-    verificationCode = Math.floor(1000 + Math.random() * 9000).toString();
+    window.verificationCode = Math.floor(1000 + Math.random() * 9000).toString();
+    verificationCode = window.verificationCode;
     pendingRegistration = {
         username,
         phone,
@@ -1652,37 +1653,40 @@ function handleRegister(e) {
             `;
         }
 
-        function renderVerify() {
-            return `
-                <div class="container">
-                    <div class="card animate-slide-up" style="max-width: 500px; margin: 4rem auto;">
-                        <h2 style="color: var(--secondary); margin-bottom: 2rem;">التحقق من الحساب</h2>
-                        
-                        <div style="text-align: center; padding: 2rem; background: var(--bg-secondary); border-radius: 16px; margin-bottom: 2rem;">
-                            <div style="color: var(--text-secondary); margin-bottom: 0.5rem;">رمز التحقق التجريبي:</div>
-                            <div style="font-size: 3rem; font-weight: bold; color: var(--secondary); letter-spacing: 1rem; font-family: 'Cairo', sans-serif;">
-                                ${verificationCode}
-                            </div>
-                        </div>
-
-                        <form id="verifyForm" onsubmit="handleVerify(event)">
-                            <div class="form-group">
-                                <label>أدخل رمز التحقق</label>
-                                <input type="text" name="verifyCode" required placeholder="أدخل الرمز المكون من 4 أرقام" 
-                                       maxlength="4" pattern="[0-9]{4}" 
-                                       style="font-size: 1.5rem; text-align: center; letter-spacing: 0.5rem;">
-                            </div>
-                            <button type="submit" class="btn btn-primary" style="width: 100%; margin-bottom: 0.5rem;">
-                                تأكيد الحساب ✅
-                            </button>
-                            <button type="button" class="btn btn-secondary" style="width: 100%;" onclick="appState.currentScreen='register'; render();">
-                                رجوع ⬅️
-                            </button>
-                        </form>
+       function renderVerify() {
+    // استخدم window.verificationCode بدلاً من verificationCode
+    const code = window.verificationCode || verificationCode || '----';
+    
+    return `
+        <div class="container">
+            <div class="card animate-slide-up" style="max-width: 500px; margin: 4rem auto;">
+                <h2 style="color: var(--secondary); margin-bottom: 2rem;">التحقق من الحساب</h2>
+                
+                <div style="text-align: center; padding: 2rem; background: var(--bg-secondary); border-radius: 16px; margin-bottom: 2rem;">
+                    <div style="color: var(--text-secondary); margin-bottom: 0.5rem;">رمز التحقق التجريبي:</div>
+                    <div style="font-size: 3rem; font-weight: bold; color: var(--secondary); letter-spacing: 1rem; font-family: 'Cairo', sans-serif;">
+                        ${code}
                     </div>
                 </div>
-            `;
-        }
+
+                <form id="verifyForm" onsubmit="handleVerify(event)">
+                    <div class="form-group">
+                        <label>أدخل رمز التحقق</label>
+                        <input type="text" name="verifyCode" required placeholder="أدخل الرمز المكون من 4 أرقام" 
+                               maxlength="4" pattern="[0-9]{4}" 
+                               style="font-size: 1.5rem; text-align: center; letter-spacing: 0.5rem;">
+                    </div>
+                    <button type="submit" class="btn btn-primary" style="width: 100%; margin-bottom: 0.5rem;">
+                        تأكيد الحساب ✅
+                    </button>
+                    <button type="button" class="btn btn-secondary" style="width: 100%;" onclick="appState.currentScreen='register'; render();">
+                        رجوع ⬅️
+                    </button>
+                </form>
+            </div>
+        </div>
+    `;
+}
 
         function renderDashboard() {
             const isAdmin = appState.currentUser.role === 'admin';
