@@ -1237,9 +1237,6 @@ function changePassword(form) {
 let pendingRegistration = null;
 let verificationCode = null;
 
-let pendingRegistration = null;
-let verificationCode = null;
-
 function handleRegister(e) {
     e.preventDefault();
     const username = e.target.regUsername.value.trim();
@@ -1628,38 +1625,39 @@ function handleRegister(e) {
         }
 
         function renderRegister() {
-            return `
-                <div class="container">
-                    <div class="card animate-slide-up" style="max-width: 500px; margin: 4rem auto;">
-                        <h2 style="color: var(--secondary); margin-bottom: 2rem;">إنشاء حساب جديد</h2>
-                        
-                        <div class="form-group">
-                            <label>تأكيد كلمة المرور</label>
-                            <input type="password" name="regConfirmPassword" required placeholder="أعد إدخال كلمة المرور" minlength="6">
-                        </div>
-                            <div class="form-group">
-                                <label>اسم المستخدم</label>
-                                <input type="text" name="regUsername" required placeholder="اختر اسم مستخدم">
-                            </div>
-                            <div class="form-group">
-                                <label>رقم الجوال</label>
-                                <input type="tel" name="regPhone" required placeholder="05xxxxxxxx" pattern="05[0-9]{8}">
-                            </div>
-                            <div class="form-group">
-                                <label>كلمة المرور</label>
-                                <input type="password" name="regPassword" required placeholder="اختر كلمة مرور قوية" minlength="6">
-                            </div>
-                            <button type="submit" class="btn btn-primary" style="width: 100%; margin-bottom: 0.5rem;">
-                                إرسال رمز التحقق 📱
-                            </button>
-                            <button type="button" class="btn btn-secondary" style="width: 100%;" onclick="appState.currentScreen='login'; render();">
-                                لديك حساب؟ تسجيل الدخول
-                            </button>
-                        </form>
+    return `
+        <div class="container">
+            <div class="card animate-slide-up" style="max-width: 500px; margin: 4rem auto;">
+                <h2 style="color: var(--secondary); margin-bottom: 2rem;">إنشاء حساب جديد</h2>
+                
+                <form id="registerForm" onsubmit="handleRegister(event)">
+                    <div class="form-group">
+                        <label>اسم المستخدم</label>
+                        <input type="text" name="regUsername" required placeholder="اختر اسم مستخدم">
                     </div>
-                </div>
-            `;
-        }
+                    <div class="form-group">
+                        <label>رقم الجوال</label>
+                        <input type="tel" name="regPhone" required placeholder="05xxxxxxxx" pattern="05[0-9]{8}">
+                    </div>
+                    <div class="form-group">
+                        <label>كلمة المرور</label>
+                        <input type="password" name="regPassword" required placeholder="اختر كلمة مرور قوية" minlength="6">
+                    </div>
+                    <div class="form-group">
+                        <label>تأكيد كلمة المرور</label>
+                        <input type="password" name="regConfirmPassword" required placeholder="أعد إدخال كلمة المرور" minlength="6">
+                    </div>
+                    <button type="submit" class="btn btn-primary" style="width: 100%; margin-bottom: 0.5rem;">
+                        إرسال رمز التحقق 📱
+                    </button>
+                    <button type="button" class="btn btn-secondary" style="width: 100%;" onclick="appState.currentScreen='login'; render();">
+                        لديك حساب؟ تسجيل الدخول
+                    </button>
+                </form>
+            </div>
+        </div>
+    `;
+}
 
        function renderVerify() {
     // استخدم window.verificationCode بدلاً من verificationCode
@@ -2960,46 +2958,6 @@ function handleRegister(e) {
         `;
     };
 
-    // 4. Override renderRegister
-    window.renderRegister = function() {
-        return `
-            <div class="container">
-                <div class="card animate-slide-up" style="max-width: 500px; margin: 4rem auto;">
-                    <h2 style="color: var(--secondary); margin-bottom: 2rem;">إنشاء حساب جديد</h2>
-                    
-                    <form onsubmit="event.preventDefault(); handleRegisterNew(this);">
-                        <div class="form-group">
-                            <label>اسم المستخدم</label>
-                            <input type="text" name="regUsername" required minlength="3">
-                        </div>
-                        <div class="form-group">
-                            <label>رقم الجوال</label>
-                            <input type="tel" name="regPhone" required pattern="05[0-9]{8}" placeholder="05xxxxxxxx">
-                        </div>
-                        <div class="form-group">
-                            <label>كلمة المرور</label>
-                            <input type="password" name="regPassword" required minlength="6">
-                        </div>
-                        <div class="form-group">
-                            <label>تأكيد كلمة المرور</label>
-                            <input type="password" name="regConfirmPassword" required minlength="6">
-                        </div>
-                        <button type="submit" class="btn btn-primary" style="width: 100%; margin-bottom: 0.5rem;">
-                            إرسال رمز التحقق 📱
-                        </button>
-                        <button type="button" class="btn btn-secondary" style="width: 100%;" onclick="appState.currentScreen='login'; render();">
-                            لديك حساب؟ تسجيل الدخول
-                        </button>
-                    </form>
-                </div>
-            </div>
-        `;
-    };
-
-        appState.currentScreen = 'verify';
-        showAlert(`رمز التحقق: ${verificationCode}`, 'success');
-        render();
-    };
 
     // 6. Forgot Password Screen
     window.renderForgotPassword = function() {
