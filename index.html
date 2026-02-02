@@ -1573,10 +1573,6 @@ function handleRegister(e) {
                 app.innerHTML = renderRegister();
             } else if (appState.currentScreen === 'verify') {
                 app.innerHTML = renderVerify();
-            } else if (appState.currentScreen === 'forgot') {
-                app.innerHTML = renderForgotPassword();
-            } else if (appState.currentScreen === 'reset') {
-                app.innerHTML = renderResetPassword();
             } else if (appState.currentScreen === 'dashboard') {
                 app.innerHTML = renderDashboard();
             }
@@ -1618,9 +1614,6 @@ function handleRegister(e) {
                             </div>
                             <button type="submit" class="btn btn-primary" style="width: 100%; margin-bottom: 0.5rem;">
                                 تسجيل الدخول 🔐
-                            </button>
-                            <button type="button" class="btn btn-secondary" style="width: 100%; margin-bottom: 0.5rem;" onclick="appState.currentScreen='forgot'; render();">
-                                نسيت كلمة المرور؟ 🔑
                             </button>
                             <button type="button" class="btn btn-secondary" style="width: 100%;" onclick="appState.currentScreen='register'; render();">
                                 إنشاء حساب جديد ➕
