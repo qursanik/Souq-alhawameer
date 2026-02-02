@@ -1237,6 +1237,9 @@ function changePassword(form) {
 let pendingRegistration = null;
 let verificationCode = null;
 
+let pendingRegistration = null;
+let verificationCode = null;
+
 function handleRegister(e) {
     e.preventDefault();
     const username = e.target.regUsername.value.trim();
@@ -1267,8 +1270,10 @@ function handleRegister(e) {
         return;
     }
 
-    window.verificationCode = Math.floor(1000 + Math.random() * 9000).toString();
-    verificationCode = window.verificationCode;
+    // توليد رمز التحقق
+    verificationCode = Math.floor(1000 + Math.random() * 9000).toString();
+    window.verificationCode = verificationCode;
+    
     pendingRegistration = {
         username,
         phone,
@@ -1279,15 +1284,15 @@ function handleRegister(e) {
         achievements: [],
         suspended: false
     };
+    window.pendingRegistration = pendingRegistration;
 
-    console.log('✅ Verification Code:', verificationCode);  // للتأكد
+    console.log('✅ Verification Code:', verificationCode);
     console.log('✅ Pending Registration:', pendingRegistration);
 
     appState.currentScreen = 'verify';
     showAlert(`رمز التحقق: ${verificationCode}`, 'success');
     render();
 }
-
         // Verify
         function handleVerify(e) {
             e.preventDefault();
@@ -1628,7 +1633,10 @@ function handleRegister(e) {
                     <div class="card animate-slide-up" style="max-width: 500px; margin: 4rem auto;">
                         <h2 style="color: var(--secondary); margin-bottom: 2rem;">إنشاء حساب جديد</h2>
                         
-                        <form id="registerForm" onsubmit="handleRegister(event)">
+                        <div class="form-group">
+                            <label>تأكيد كلمة المرور</label>
+                            <input type="password" name="regConfirmPassword" required placeholder="أعد إدخال كلمة المرور" minlength="6">
+                        </div>
                             <div class="form-group">
                                 <label>اسم المستخدم</label>
                                 <input type="text" name="regUsername" required placeholder="اختر اسم مستخدم">
@@ -2987,45 +2995,6 @@ function handleRegister(e) {
             </div>
         `;
     };
-
-    // 5. New registration handler
-    window.handleRegisterNew = function(form) {
-        const username = form.regUsername.value.trim();
-        const phone = form.regPhone.value.trim();
-        const password = form.regPassword.value;
-        const confirmPassword = form.regConfirmPassword.value;
-
-        if (appData.users.find(u => u.username === username)) {
-            showAlert('اسم المستخدم موجود مسبقاً ❌', 'error');
-            return;
-        }
-
-        if (appData.users.find(u => u.phone === phone)) {
-            showAlert('رقم الجوال مسجل مسبقاً ❌', 'error');
-            return;
-        }
-
-        if (password !== confirmPassword) {
-            showAlert('كلمة المرور غير متطابقة ❌', 'error');
-            return;
-        }
-
-        if (appData.users.filter(u => u.role === 'student').length >= 25) {
-            showAlert('تم الوصول للحد الأقصى ❌', 'error');
-            return;
-        }
-
-        window.verificationCode = Math.floor(1000 + Math.random() * 9000).toString();
-        window.pendingRegistration = {
-            username,
-            phone,
-            password,
-            role: 'student',
-            balance: 0,
-            color: '#' + Math.floor(Math.random()*16777215).toString(16),
-            achievements: [],
-            suspended: false
-        };
 
         appState.currentScreen = 'verify';
         showAlert(`رمز التحقق: ${verificationCode}`, 'success');
