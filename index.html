@@ -924,65 +924,66 @@ function handlePasswordReset(form) {
 }
 
 // إعدادات الحساب
-function renderAccountSettings() {
+function renderAdminProfileTab() {
     const user = appState.currentUser;
-    
     return `
         <div class="tab-content active">
-            <div class="card">
-                <h2 style="margin-bottom: 2rem;">⚙️ إعدادات الحساب</h2>
+            <div class="card" style="max-width: 800px; margin: 0 auto;">
+                <h2 style="margin-bottom: 2rem; border-bottom: 1px solid var(--border); padding-bottom: 1rem;">
+                    تعديل بيانات الحساب 🛠️
+                </h2>
                 
-                <div style="background: linear-gradient(135deg, var(--bg-secondary), var(--bg-primary)); padding: 1.5rem; border-radius: 16px; margin-bottom: 2rem; border: 2px solid var(--border);">
-                    <h3 style="margin-bottom: 1rem;">👤 معلومات الحساب</h3>
-                    <div style="display: grid; gap: 1rem;">
-                        <div style="display: flex; justify-content: space-between; padding: 0.75rem; background: var(--bg-primary); border-radius: 8px;">
-                            <span style="color: var(--text-secondary);">اسم المستخدم:</span>
-                            <strong style="color: var(--secondary);">${user.username}</strong>
-                        </div>
-                        <div style="display: flex; justify-content: space-between; padding: 0.75rem; background: var(--bg-primary); border-radius: 8px;">
-                            <span style="color: var(--text-secondary);">رقم الجوال:</span>
-                            <strong>${user.phone || 'غير محدد'}</strong>
-                        </div>
-                        <div style="display: flex; justify-content: space-between; padding: 0.75rem; background: var(--bg-primary); border-radius: 8px;">
-                            <span style="color: var(--text-secondary);">نوع الحساب:</span>
-                            <strong>${user.role === 'admin' ? '👨‍💼 مشرف' : '🎓 طالب'}</strong>
-                        </div>
+                <form onsubmit="event.preventDefault(); handleAdminProfileUpdate(this);">
+                    <div class="form-group">
+                        <label>اسم المستخدم الجديد</label>
+                        <input type="text" name="username" value="${user.username}" required>
                     </div>
-                </div>
-                
-                <div style="background: var(--bg-secondary); padding: 1.5rem; border-radius: 12px; margin-bottom: 1.5rem;">
-                    <h3 style="margin-bottom: 1rem;">✏️ تغيير اسم المستخدم</h3>
-                    <form onsubmit="event.preventDefault(); changeUsername(this);">
-                        <div class="form-group">
-                            <label>اسم المستخدم الجديد</label>
-                            <input type="text" name="newUsername" required minlength="3" 
-                                   placeholder="اختر اسم مستخدم جديد">
-                        </div>
-                        <button type="submit" class="btn btn-primary">تحديث اسم المستخدم</button>
-                    </form>
-                </div>
-                
-                <div style="background: var(--bg-secondary); padding: 1.5rem; border-radius: 12px;">
-                    <h3 style="margin-bottom: 1rem;">🔐 تغيير كلمة المرور</h3>
-                    <form onsubmit="event.preventDefault(); changePassword(this);">
-                        <div class="form-group">
-                            <label>كلمة المرور الحالية</label>
-                            <input type="password" name="currentPassword" required>
-                        </div>
-                        <div class="form-group">
-                            <label>كلمة المرور الجديدة</label>
-                            <input type="password" name="newPassword" required minlength="6">
-                        </div>
-                        <div class="form-group">
-                            <label>تأكيد كلمة المرور الجديدة</label>
-                            <input type="password" name="confirmPassword" required minlength="6">
-                        </div>
-                        <button type="submit" class="btn btn-primary">تحديث كلمة المرور</button>
-                    </form>
-                </div>
+                    
+                    <div class="form-group">
+                        <label>كلمة المرور الجديدة (اتركه فارغاً للبقاء على الحالية)</label>
+                        <input type="password" name="password" placeholder="••••••">
+                    </div>
+                    
+                    <div style="text-align: left; margin-top: 2rem;">
+                        <button type="submit" class="btn btn-primary" style="padding: 1rem 3rem;">
+                            حفظ التغييرات 💾
+                        </button>
+                    </div>
+                </form>
             </div>
         </div>
     `;
+}
+
+function handleAdminProfileUpdate(form) {
+    const newUsername = form.username.value.trim();
+    const newPassword = form.password.value;
+    const currentUser = appState.currentUser;
+
+    if (newUsername !== currentUser.username) {
+        if (appData.users.find(u => u.username === newUsername)) {
+            showAlert('اسم المستخدم هذا مستخدم بالفعل! ❌', 'error');
+            return;
+        }
+    }
+
+    const userIndex = appData.users.findIndex(u => u.username === currentUser.username);
+    if (userIndex !== -1) {
+        appData.users[userIndex].username = newUsername;
+        currentUser.username = newUsername; // Update session
+        
+        appData.portfolios.forEach(p => { if(p.username === currentUser.username) p.username = newUsername; });
+        appData.transactions.forEach(t => { if(t.username === currentUser.username) t.username = newUsername; });
+        
+        if (newPassword.trim() !== "") {
+            appData.users[userIndex].password = newPassword;
+            currentUser.password = newPassword;
+        }
+
+        saveData();
+        showAlert('تم تحديث البيانات بنجاح ✅', 'success');
+        render(); 
+    }
 }
 
 function changeUsername(form) {
@@ -1812,17 +1813,12 @@ function handleRegister(e) {
                             onclick="appState.activeTab='chat'; render();">
                         💬 الدردشة
                     </button>
-                    <button class="tab ${appState.activeTab === 'leaderboard' ? 'active' : ''}" 
-                            onclick="appState.activeTab='leaderboard'; render();">
-                        🏅 المتصدرين
-                    </button>
                 </div>
 
                 ${appState.activeTab === 'portfolio' ? renderPortfolioTab(portfolio, portfolioValue, totalValue) : ''}
                 ${appState.activeTab === 'transactions' ? renderTransactionsTab(userTxs) : ''}
                 ${appState.activeTab === 'achievements' ? renderAchievementsTab() : ''}
                 ${appState.activeTab === 'chat' ? renderChatTab() : ''}
-                ${appState.activeTab === 'leaderboard' ? renderLeaderboardTab(false) : ''}
             `;
         }
 
@@ -2132,6 +2128,10 @@ function handleRegister(e) {
                             onclick="appState.activeAdminTab='activity'; render();">
                         📋 سجل النشاط
                     </button>
+                    <button class="tab ${appState.activeAdminTab === 'account' ? 'active' : ''}" 
+                    onclick="appState.activeAdminTab='account'; render();">
+                        👤 حسابي
+                    </button>
                 </div>
 
                 ${appState.activeAdminTab === 'settings' ? renderAdminSettingsTab() : ''}
@@ -2140,6 +2140,7 @@ function handleRegister(e) {
                 ${appState.activeAdminTab === 'chat' ? renderChatTab() : ''}
                 ${appState.activeAdminTab === 'leaderboard' ? renderLeaderboardTab(true) : ''}
                 ${appState.activeAdminTab === 'activity' ? renderAdminActivityTab() : ''}
+                ${appState.activeAdminTab === 'account' ? renderAdminProfileTab() : ''}
             `;
         }
 
