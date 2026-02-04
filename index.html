@@ -3049,8 +3049,42 @@ return `
         `;
     }
 
+    // Error handling
+    window.addEventListener('error', function(e) {
+        console.error('JavaScript Error:', e.error);
+        const app = document.getElementById('app');
+        if (app && !app.innerHTML) {
+            app.innerHTML = `
+                <div style="padding: 2rem; text-align: center; color: #e74c3c;">
+                    <h2>حدث خطأ في تحميل التطبيق</h2>
+                    <p>يرجى تحديث الصفحة أو مسح ذاكرة التخزين المؤقت</p>
+                    <button onclick="localStorage.clear(); location.reload();" 
+                            style="padding: 1rem 2rem; background: #2ecc71; color: white; border: none; border-radius: 8px; cursor: pointer; margin-top: 1rem;">
+                        مسح البيانات وإعادة التحميل
+                    </button>
+                </div>
+            `;
+        }
+    });
+
     // Initialize app
-    init();
+    console.log('Starting app initialization...');
+    try {
+        init();
+        console.log('App initialized successfully');
+    } catch (error) {
+        console.error('Failed to initialize app:', error);
+        document.getElementById('app').innerHTML = `
+            <div style="padding: 2rem; text-align: center; color: #e74c3c;">
+                <h2>فشل تحميل التطبيق</h2>
+                <p>${error.message}</p>
+                <button onclick="localStorage.clear(); location.reload();" 
+                        style="padding: 1rem 2rem; background: #2ecc71; color: white; border: none; border-radius: 8px; cursor: pointer; margin-top: 1rem;">
+                    مسح البيانات وإعادة المحاولة
+                </button>
+            </div>
+        `;
+    }
  
 </script>
 ```
