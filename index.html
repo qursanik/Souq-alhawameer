@@ -789,6 +789,10 @@
             messages: [],
             activityLog: [],
             notifications: [],
+            weeklyStats: {
+                stockActivity: {},
+                lastReset: null
+            },
             settings: {
                 tradingEnabled: false,
                 chatEnabled: true,
@@ -1049,7 +1053,6 @@ function changePassword(form) {
         function init() {
             loadData();
             render();
-            startAutoBackup();
         }
 
         // Load data from localStorage
@@ -1098,15 +1101,6 @@ function changePassword(form) {
             }
         }
 
-        // Auto backup every 5 minutes
-        function startAutoBackup() {
-            setInterval(() => {
-                saveData();
-                appData.settings.lastBackup = new Date().toISOString();
-                addNotification('تم حفظ نسخة احتياطية تلقائياً ✅', 'success');
-            }, 300000);
-        }
-
         // Generate stock history
         function generateHistory(price) {
             const history = [];
@@ -1128,7 +1122,7 @@ function changePassword(form) {
                 read: false
             };
             appData.notifications.unshift(notification);
-            appData.notifications = appData.notifications.slice(0, 50);
+            appData.notifications = appData.notifications.slice(0, 10);
             saveData();
             render();
         }
@@ -1442,6 +1436,33 @@ function handleRegister(e) {
             render();
         }
 
+        // Logout
+        function logout() {
+            addActivityLog('تسجيل خروج', `${appState.currentUser.username} سجل خروج`);
+            appState.currentUser = null;
+            appState.currentScreen = 'login';
+            render();
+        }
+
+        // Toggle theme
+        function toggleTheme() {
+            appState.theme = appState.theme === 'dark' ? 'light' : 'dark';
+            document.body.setAttribute('data-theme', appState.theme);
+        }
+
+        // Toggle notifications
+        function toggleNotifications() {
+            appState.showNotifications = !appState.showNotifications;
+            
+            // Mark all as read when opening
+            if (appState.showNotifications) {
+                appData.notifications.forEach(n => n.read = true);
+                saveData();
+            }
+            
+            render();
+        }
+
         // Toggle trading
         function toggleTrading() {
             appData.settings.tradingEnabled = !appData.settings.tradingEnabled;
@@ -1537,7 +1558,6 @@ function handleRegister(e) {
             let modalHTML = '';
             if (balanceModalState.show) modalHTML = renderBalanceModal();
             if (stockPriceModal.show) modalHTML = renderStockPriceModal();
-            if (bulkBalanceModal.show) modalHTML = renderBulkBalanceModal();
             if (addStockModal.show) modalHTML = renderAddStockModal();
             if (confirmModal.show) modalHTML = renderConfirmModal();
             modals.innerHTML = modalHTML;
@@ -1982,7 +2002,7 @@ function handleRegister(e) {
                                 ? '<p style="text-align: center; color: var(--text-secondary); padding: 2rem;">لا توجد رسائل</p>'
                                 : appData.messages.map(msg => `
                                     <div class="chat-message ${msg.from === appState.currentUser.username ? 'own' : 'other'}" style="position: relative;">
-                                        ${isAdmin && msg.from !== appState.currentUser.username ? `
+                                        ${isAdmin ? `
                                             <button onclick="deleteMessage(${msg.id})" 
                                                     style="position: absolute; top: 0.5rem; right: 0.5rem; background: #e74c3c; color: white; border: none; border-radius: 6px; padding: 0.35rem 0.65rem; font-size: 0.75rem; cursor: pointer; font-weight: bold;">
                                                 حذف
@@ -2013,13 +2033,18 @@ function handleRegister(e) {
 
         function renderLeaderboardTab(isAdmin) {
             const students = appData.users.filter(u => u.role === 'student');
-            const leaderboard = students.map(student => ({
-                username: student.username,
-                cash: student.balance,
-                stocks: getPortfolioValue(student.username),
-                total: student.balance + getPortfolioValue(student.username),
-                color: student.color
-            })).sort((a, b) => b.total - a.total);
+            const leaderboard = students.map(student => {
+                const portfolio = appData.portfolios.find(p => p.username === student.username);
+                const stockCount = portfolio ? portfolio.holdings.reduce((sum, h) => sum + h.quantity, 0) : 0;
+                
+                return {
+                    username: student.username,
+                    balance: student.balance,
+                    stockCount: stockCount,
+                    total: student.balance + getPortfolioValue(student.username),
+                    color: student.color
+                };
+            }).sort((a, b) => b.total - a.total);
 
             return `
                 <div class="tab-content active">
@@ -2039,7 +2064,7 @@ function handleRegister(e) {
                                         <div class="color-dot" style="background: ${item.color};"></div>
                                         <div class="leaderboard-info">
                                             <div class="leaderboard-name">${item.username}</div>
-                                            ${isAdmin ? `<div class="leaderboard-stats">نقد: ${item.cash.toFixed(2)} ر.س | أسهم: ${item.stocks.toFixed(2)} ر.س</div>` : ''}
+                                            <div class="leaderboard-stats">الرصيد المتاح: ${item.balance.toFixed(2)} ر.س | يمتلك: ${item.stockCount} سهم</div>
                                         </div>
                                         <div class="leaderboard-value">${item.total.toFixed(2)} ر.س</div>
                                     </div>
@@ -2066,6 +2091,10 @@ function handleRegister(e) {
                             onclick="appState.activeAdminTab='stocks'; render();">
                         📈 الأسهم
                     </button>
+                    <button class="tab ${appState.activeAdminTab === 'weekly' ? 'active' : ''}" 
+                            onclick="appState.activeAdminTab='weekly'; render();">
+                        📊 التقرير الأسبوعي
+                    </button>
                     <button class="tab ${appState.activeAdminTab === 'chat' ? 'active' : ''}" 
                             onclick="appState.activeAdminTab='chat'; render();">
                         💬 الدردشة
@@ -2073,10 +2102,6 @@ function handleRegister(e) {
                     <button class="tab ${appState.activeAdminTab === 'leaderboard' ? 'active' : ''}" 
                             onclick="appState.activeAdminTab='leaderboard'; render();">
                         🏅 المتصدرين
-                    </button>
-                    <button class="tab ${appState.activeAdminTab === 'activity' ? 'active' : ''}" 
-                            onclick="appState.activeAdminTab='activity'; render();">
-                        📋 سجل النشاط
                     </button>
                     <button class="tab ${appState.activeAdminTab === 'account' ? 'active' : ''}" 
                     onclick="appState.activeAdminTab='account'; render();">
@@ -2087,9 +2112,9 @@ function handleRegister(e) {
                 ${appState.activeAdminTab === 'settings' ? renderAdminSettingsTab() : ''}
                 ${appState.activeAdminTab === 'students' ? renderAdminStudentsTab() : ''}
                 ${appState.activeAdminTab === 'stocks' ? renderAdminStocksTab() : ''}
+                ${appState.activeAdminTab === 'weekly' ? renderWeeklyReportTab() : ''}
                 ${appState.activeAdminTab === 'chat' ? renderChatTab() : ''}
                 ${appState.activeAdminTab === 'leaderboard' ? renderLeaderboardTab(true) : ''}
-                ${appState.activeAdminTab === 'activity' ? renderAdminActivityTab() : ''}
                 ${appState.activeAdminTab === 'account' ? renderAdminProfileTab() : ''}
             `;
         }
@@ -2112,69 +2137,9 @@ function handleRegister(e) {
                                 ${appData.settings.tradingEnabled ? 'مفتوح ✓' : 'مغلق ✗'}
                             </button>
                         </div>
-
-                        <div style="background: var(--bg-secondary); padding: 1.5rem; border-radius: 12px; margin-bottom: 2rem;">
-                            <strong>إضافة رصيد لجميع الطلاب 💰</strong>
-                            <p style="color: var(--text-secondary); font-size: 0.9rem; margin-top: 0.3rem;">
-                                إضافة رصيد لكل الطلاب دفعة واحدة
-                            </p>
-                            <button class="btn btn-success btn-small" style="margin-top: 1rem;" 
-                                    onclick="openBulkBalanceModal()">
-                                إضافة رصيد للجميع 💵
-                            </button>
-                        </div>
-
-                        <div style="background: var(--bg-secondary); padding: 1.5rem; border-radius: 12px;">
-                            <strong>آخر نسخة احتياطية</strong>
-                            <p style="color: var(--text-secondary); font-size: 0.9rem; margin-top: 0.3rem;">
-                                ${appData.settings.lastBackup 
-                                    ? new Date(appData.settings.lastBackup).toLocaleString('ar-SA')
-                                    : 'لم يتم الحفظ بعد'
-                                }
-                            </p>
-                            <button class="btn btn-primary btn-small" style="margin-top: 1rem;" 
-                                    onclick="saveData(); appData.settings.lastBackup=new Date().toISOString(); showAlert('تم حفظ نسخة احتياطية ✅'); render();">
-                                حفظ نسخة احتياطية الآن
-                            </button>
-                        </div>
                     </div>
                 </div>
             `;
-        }
-
-        function openBulkBalanceModal() {
-            bulkBalanceModal.show = true;
-            render();
-        }
-
-        function closeBulkBalanceModal() {
-            bulkBalanceModal.show = false;
-            render();
-        }
-
-        function executeBulkBalanceAdd() {
-            const input = document.getElementById('bulkBalanceInput');
-            const amount = parseFloat(input.value);
-            
-            if (!amount || amount <= 0) {
-                showAlert('أدخل مبلغ صحيح!', 'error');
-                return;
-            }
-
-            const students = appData.users.filter(u => u.role === 'student');
-            if (students.length === 0) {
-                showAlert('لا يوجد طلاب!', 'error');
-                return;
-            }
-
-            students.forEach(student => {
-                student.balance += amount;
-            });
-
-            addActivityLog('إضافة رصيد جماعي', `إضافة ${amount.toFixed(2)} ر.س لـ ${students.length} طالب`);
-            showAlert(`✅ تمت إضافة ${amount.toFixed(2)} ر.س لـ ${students.length} طالب`, 'success');
-            saveData();
-            closeBulkBalanceModal();
         }
 
         function renderAdminStudentsTab() {
@@ -2193,8 +2158,6 @@ function handleRegister(e) {
                             : students.map(student => {
                                 const portfolio = appData.portfolios.find(p => p.username === student.username);
                                 const holdings = portfolio ? portfolio.holdings : [];
-                                const portfolioVal = getPortfolioValue(student.username);
-                                const total = student.balance + portfolioVal;
                                 
                                 return `
                                     <div style="background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 12px; padding: 1.5rem; margin-bottom: 1rem; ${student.suspended ? 'opacity: 0.5;' : ''}">
@@ -2202,9 +2165,8 @@ function handleRegister(e) {
                                             <div style="flex: 1;">
                                                 <h4>${student.username} ${student.suspended ? '🔒' : ''}</h4>
                                                 <p style="color: var(--text-secondary); font-size: 0.9rem; margin-top: 0.3rem;">
-                                                    الرصيد: ${student.balance.toFixed(2)} ر.س | 
-                                                    المحفظة: ${portfolioVal.toFixed(2)} ر.س | 
-                                                    الإجمالي: ${total.toFixed(2)} ر.س
+                                                    📱 ${student.phone} | 
+                                                    💰 الرصيد المتاح: ${student.balance.toFixed(2)} ر.س
                                                 </p>
                                             </div>
                                             <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
@@ -2380,7 +2342,6 @@ function handleRegister(e) {
 
         // Stock Price Modal State
         let stockPriceModal = { show: false, stockIndex: null, stock: null };
-        let bulkBalanceModal = { show: false };
         let addStockModal = { show: false };
         let confirmModal = { show: false, message: '', onConfirm: null };
 
@@ -2473,62 +2434,236 @@ function handleRegister(e) {
             );
         }
 
-        function renderAdminActivityTab() {
-            // Filter to show only: شراء سهم, بيع سهم, تعديل سعر سهم
-            const filteredLogs = appData.activityLog.filter(log => 
-                log.action === 'شراء سهم' || 
-                log.action === 'بيع سهم' || 
-                log.action === 'تعديل سعر سهم'
-            );
-
+        function renderWeeklyReportTab() {
+            // Calculate stock statistics
+            const stockStats = {};
+            
+            // Initialize with all stocks
+            appData.stocks.forEach(stock => {
+                stockStats[stock.symbol] = {
+                    name: stock.name,
+                    symbol: stock.symbol,
+                    totalBought: 0,
+                    totalSold: 0,
+                    currentOwned: 0
+                };
+            });
+            
+            // Calculate from transactions
+            appData.transactions.forEach(tx => {
+                if (!stockStats[tx.symbol]) {
+                    stockStats[tx.symbol] = {
+                        name: tx.name,
+                        symbol: tx.symbol,
+                        totalBought: 0,
+                        totalSold: 0,
+                        currentOwned: 0
+                    };
+                }
+                
+                if (tx.type === 'buy') {
+                    stockStats[tx.symbol].totalBought += tx.quantity;
+                } else if (tx.type === 'sell') {
+                    stockStats[tx.symbol].totalSold += tx.quantity;
+                }
+            });
+            
+            // Calculate current owned from portfolios
+            appData.portfolios.forEach(portfolio => {
+                portfolio.holdings.forEach(holding => {
+                    if (stockStats[holding.symbol]) {
+                        stockStats[holding.symbol].currentOwned += holding.quantity;
+                    }
+                });
+            });
+            
+            // Calculate student statistics
+            const studentStats = {};
+            
+            appData.users.filter(u => u.role === 'student').forEach(student => {
+                studentStats[student.username] = {
+                    stocks: {}
+                };
+            });
+            
+            // Populate from transactions
+            appData.transactions.forEach(tx => {
+                if (!studentStats[tx.username]) return;
+                
+                if (!studentStats[tx.username].stocks[tx.symbol]) {
+                    studentStats[tx.username].stocks[tx.symbol] = {
+                        name: tx.name,
+                        bought: 0,
+                        sold: 0,
+                        owned: 0
+                    };
+                }
+                
+                if (tx.type === 'buy') {
+                    studentStats[tx.username].stocks[tx.symbol].bought += tx.quantity;
+                } else {
+                    studentStats[tx.username].stocks[tx.symbol].sold += tx.quantity;
+                }
+            });
+            
+            // Add current ownership from portfolios
+            appData.portfolios.forEach(portfolio => {
+                if (!studentStats[portfolio.username]) return;
+                
+                portfolio.holdings.forEach(holding => {
+                    if (!studentStats[portfolio.username].stocks[holding.symbol]) {
+                        const stock = appData.stocks.find(s => s.symbol === holding.symbol);
+                        studentStats[portfolio.username].stocks[holding.symbol] = {
+                            name: stock ? stock.name : holding.symbol,
+                            bought: 0,
+                            sold: 0,
+                            owned: 0
+                        };
+                    }
+                    studentStats[portfolio.username].stocks[holding.symbol].owned = holding.quantity;
+                });
+            });
+            
+            const lastReset = appData.weeklyStats.lastReset 
+                ? new Date(appData.weeklyStats.lastReset).toLocaleString('ar-SA')
+                : 'لم يتم الإعادة بعد';
+            
             return `
                 <div class="tab-content active">
                     <div class="card">
-                        <h3 style="margin-bottom: 1.5rem;">سجل التداول وتغيرات الأسعار 📋</h3>
-                        <p style="color: var(--text-secondary); font-size: 0.9rem; margin-bottom: 1rem;">
-                            يعرض: المشتريات، المبيعات، تغييرات الأسعار فقط
-                        </p>
-                        ${filteredLogs.length === 0 
-                            ? '<p style="text-align: center; color: var(--text-secondary); padding: 2rem;">لا يوجد نشاط</p>'
-                            : filteredLogs.map(log => {
-                                let icon = '📊';
-                                let color = 'var(--text-primary)';
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 1rem;">
+                            <div>
+                                <h2 style="margin-bottom: 0.5rem;">التقرير الأسبوعي 📊</h2>
+                                <p style="color: var(--text-secondary); font-size: 0.9rem; margin: 0;">
+                                    آخر إعادة تعيين: ${lastReset}
+                                </p>
+                            </div>
+                            <button class="btn btn-danger btn-small" onclick="resetWeeklyStats()">
+                                🔄 إعادة تعيين التقرير
+                            </button>
+                        </div>
+
+                        <!-- Stock Summary Section -->
+                        <div style="margin-bottom: 3rem;">
+                            <h3 style="font-size: 1.4rem; margin-bottom: 1.5rem; color: var(--secondary); border-bottom: 2px solid var(--border); padding-bottom: 0.75rem;">
+                                📈 ملخص الأسهم
+                            </h3>
+                            
+                            <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 1.5rem;">
+                                ${Object.values(stockStats).map(stock => {
+                                    const hasActivity = stock.totalBought > 0 || stock.totalSold > 0 || stock.currentOwned > 0;
+                                    if (!hasActivity) return '';
+                                    
+                                    return `
+                                        <div style="background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 16px; padding: 1.5rem;">
+                                            <h4 style="font-size: 1.1rem; margin-bottom: 1rem; color: var(--text-primary); text-align: center;">
+                                                ${stock.name} (${stock.symbol})
+                                            </h4>
+                                            <div style="display: grid; gap: 0.75rem;">
+                                                <div style="display: flex; justify-content: space-between; align-items: center; padding: 0.75rem; background: var(--bg-primary); border-radius: 8px;">
+                                                    <span style="color: var(--text-secondary); font-size: 0.9rem;">إجمالي المشتريات:</span>
+                                                    <span style="font-size: 1.3rem; font-weight: 900; color: var(--success);">${stock.totalBought}</span>
+                                                </div>
+                                                <div style="display: flex; justify-content: space-between; align-items: center; padding: 0.75rem; background: var(--bg-primary); border-radius: 8px;">
+                                                    <span style="color: var(--text-secondary); font-size: 0.9rem;">إجمالي المبيعات:</span>
+                                                    <span style="font-size: 1.3rem; font-weight: 900; color: var(--danger);">${stock.totalSold}</span>
+                                                </div>
+                                                <div style="display: flex; justify-content: space-between; align-items: center; padding: 0.75rem; background: var(--bg-primary); border-radius: 8px;">
+                                                    <span style="color: var(--text-secondary); font-size: 0.9rem;">الملكية الحالية:</span>
+                                                    <span style="font-size: 1.3rem; font-weight: 900; color: var(--primary);">${stock.currentOwned}</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    `;
+                                }).join('')}
+                            </div>
+                            
+                            ${Object.values(stockStats).every(s => s.totalBought === 0 && s.totalSold === 0) 
+                                ? '<p style="text-align: center; color: var(--text-secondary); padding: 2rem; background: var(--bg-secondary); border-radius: 12px; margin-top: 1rem;">لا توجد عمليات تداول بعد</p>'
+                                : ''
+                            }
+                        </div>
+
+                        <!-- Student Summary Section -->
+                        <div>
+                            <h3 style="font-size: 1.4rem; margin-bottom: 1.5rem; color: var(--secondary); border-bottom: 2px solid var(--border); padding-bottom: 0.75rem;">
+                                👥 ملخص الطلاب
+                            </h3>
+                            
+                            ${Object.entries(studentStats).map(([username, data]) => {
+                                const stockEntries = Object.entries(data.stocks);
+                                const hasActivity = stockEntries.some(([_, stock]) => stock.bought > 0 || stock.sold > 0 || stock.owned > 0);
                                 
-                                if (log.action === 'شراء سهم') {
-                                    icon = '📈';
-                                    color = 'var(--success)';
-                                } else if (log.action === 'بيع سهم') {
-                                    icon = '📉';
-                                    color = 'var(--warning)';
-                                } else if (log.action === 'تعديل سعر سهم') {
-                                    icon = '💱';
-                                    color = 'var(--secondary)';
-                                }
+                                if (!hasActivity) return '';
+                                
+                                // Get student balance
+                                const student = appData.users.find(u => u.username === username);
+                                const balance = student ? student.balance : 0;
                                 
                                 return `
-                                    <div style="background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 12px; padding: 1rem; margin-bottom: 0.5rem; border-right: 3px solid ${color};">
-                                        <div style="display: flex; justify-content: space-between; margin-bottom: 0.3rem;">
-                                            <strong style="color: ${color};">${icon} ${log.action}</strong>
-                                            <span style="font-size: 0.85rem; color: var(--text-secondary);">
-                                                ${new Date(log.timestamp).toLocaleString('ar-SA', {
-                                                    day: '2-digit',
-                                                    month: '2-digit',
-                                                    hour: '2-digit',
-                                                    minute: '2-digit'
-                                                })}
-                                            </span>
+                                    <div style="background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 16px; padding: 1.5rem; margin-bottom: 1.5rem;">
+                                        <div style="margin-bottom: 1.25rem; padding-bottom: 0.75rem; border-bottom: 1px solid var(--border);">
+                                            <h4 style="font-size: 1.2rem; margin-bottom: 0.5rem; color: var(--text-primary);">
+                                                👤 ${username}
+                                            </h4>
+                                            <p style="font-size: 0.9rem; color: var(--text-secondary); margin: 0;">
+                                                💰 الرصيد المتاح: <strong style="color: var(--success);">${balance.toFixed(2)} ر.س</strong>
+                                            </p>
                                         </div>
-                                        <div style="font-size: 0.9rem; color: var(--text-secondary);">${log.details}</div>
-                                        <div style="font-size: 0.8rem; color: var(--text-secondary); margin-top: 0.3rem;">
-                                            بواسطة: ${log.user}
+                                        
+                                        <div style="overflow-x: auto;">
+                                            <table style="width: 100%; border-collapse: collapse;">
+                                                <thead>
+                                                    <tr style="background: var(--bg-primary);">
+                                                        <th style="padding: 0.875rem; text-align: right; border-bottom: 2px solid var(--border); font-weight: 700;">السهم</th>
+                                                        <th style="padding: 0.875rem; text-align: center; border-bottom: 2px solid var(--border); font-weight: 700;">مشتريات</th>
+                                                        <th style="padding: 0.875rem; text-align: center; border-bottom: 2px solid var(--border); font-weight: 700;">مبيعات</th>
+                                                        <th style="padding: 0.875rem; text-align: center; border-bottom: 2px solid var(--border); font-weight: 700;">يمتلك</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    ${stockEntries
+                                                        .filter(([_, stock]) => stock.bought > 0 || stock.sold > 0 || stock.owned > 0)
+                                                        .map(([symbol, stock]) => `
+                                                            <tr style="border-bottom: 1px solid var(--border);">
+                                                                <td style="padding: 0.875rem; font-weight: 600;">${stock.name}</td>
+                                                                <td style="padding: 0.875rem; text-align: center; color: var(--success); font-weight: 700;">${stock.bought}</td>
+                                                                <td style="padding: 0.875rem; text-align: center; color: var(--danger); font-weight: 700;">${stock.sold}</td>
+                                                                <td style="padding: 0.875rem; text-align: center; color: var(--text-primary); font-weight: 700;">${stock.owned}</td>
+                                                            </tr>
+                                                        `).join('')}
+                                                </tbody>
+                                            </table>
                                         </div>
                                     </div>
                                 `;
-                            }).join('')
-                        }
+                            }).join('')}
+                            
+                            ${Object.values(studentStats).every(s => Object.keys(s.stocks).length === 0) 
+                                ? '<p style="text-align: center; color: var(--text-secondary); padding: 2rem; background: var(--bg-secondary); border-radius: 12px;">لا يوجد نشاط للطلاب بعد</p>'
+                                : ''
+                            }
+                        </div>
                     </div>
                 </div>
             `;
+        }
+
+        function resetWeeklyStats() {
+            showConfirm(
+                'هل تريد إعادة تعيين التقرير الأسبوعي؟<br><br><span style="color: var(--warning);">⚠️ سيتم حفظ تاريخ الإعادة فقط. جميع المعاملات ستبقى في السجل.</span>',
+                () => {
+                    appData.weeklyStats.lastReset = new Date().toISOString();
+                    
+                    // Clear all transactions for fresh start
+                    appData.transactions = [];
+                    
+                    addActivityLog('إعادة تعيين التقرير', 'تم إعادة تعيين التقرير الأسبوعي');
+                    showAlert('✅ تم إعادة تعيين التقرير الأسبوعي', 'success');
+                    saveData();
+                    render();
+                }
+            );
         }
 
         function renderTradingModal() {
@@ -2746,45 +2881,6 @@ function handleRegister(e) {
                                     • زيادة: يضاف المبلغ للسعر الحالي<br>
                                     • تخفيض: ينقص المبلغ من السعر الحالي<br>
                                     • التغيير يحسب تلقائياً (%)
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            `;
-        }
-
-        function renderBulkBalanceModal() {
-            const studentCount = appData.users.filter(u => u.role === 'student').length;
-            return `
-                <div style="position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.7); z-index: 9999; display: flex; align-items: center; justify-content: center; padding: 1rem;" onclick="if(event.target===this) closeBulkBalanceModal()">
-                    <div style="background: var(--bg-card); border-radius: 20px; max-width: 500px; width: 100%; box-shadow: 0 20px 60px rgba(0,0,0,0.5);" onclick="event.stopPropagation()">
-                        <div style="padding: 1.5rem; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center;">
-                            <h2 style="margin: 0;">💰 إضافة رصيد جماعي</h2>
-                            <button onclick="closeBulkBalanceModal()" style="background: none; border: none; font-size: 2rem; color: var(--danger); cursor: pointer; padding: 0; width: 40px; height: 40px;">×</button>
-                        </div>
-                        
-                        <div style="padding: 2rem;">
-                            <div style="text-align: center; padding: 2rem; background: linear-gradient(135deg, #2ecc71, #27ae60); border-radius: 16px; margin-bottom: 2rem;">
-                                <div style="color: rgba(255,255,255,0.9); font-size: 0.9rem; margin-bottom: 0.5rem;">عدد الطلاب</div>
-                                <div style="font-size: 3rem; font-weight: 900; color: white;">${studentCount}</div>
-                                <div style="color: rgba(255,255,255,0.8); font-size: 0.85rem; margin-top: 0.5rem;">سيحصل كل طالب على نفس المبلغ</div>
-                            </div>
-
-                            <div style="margin-bottom: 1.5rem;">
-                                <label style="display: block; margin-bottom: 0.5rem; font-weight: 600;">المبلغ لكل طالب</label>
-                                <input type="number" id="bulkBalanceInput" placeholder="مثال: 10000" value="10000" min="0.01" step="0.01" 
-                                       style="width: 100%; padding: 1rem; font-size: 1.2rem; text-align: center; border: 2px solid var(--border); border-radius: 12px; background: var(--bg-secondary); color: var(--text-primary); font-weight: bold;">
-                            </div>
-
-                            <button onclick="executeBulkBalanceAdd()" style="width: 100%; padding: 1.25rem; background: #2ecc71; color: white; border: none; border-radius: 12px; font-size: 1.1rem; font-weight: 700; cursor: pointer;">
-                                ✅ إضافة للجميع
-                            </button>
-
-                            <div style="margin-top: 1.5rem; padding: 1rem; background: var(--bg-secondary); border-radius: 12px; border-right: 3px solid #2ecc71;">
-                                <div style="font-size: 0.85rem; color: var(--text-secondary); line-height: 1.6;">
-                                    <strong>💡 ملاحظة:</strong><br>
-                                    سيتم إضافة المبلغ لجميع الطلاب دفعة واحدة
                                 </div>
                             </div>
                         </div>
