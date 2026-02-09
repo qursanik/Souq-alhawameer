@@ -812,9 +812,9 @@ function renderForgotPassword() {
     return `
         <div class="container">
             <div class="card animate-slide-up" style="max-width: 500px; margin: 4rem auto;">
-                <h2 style="color: var(--secondary); margin-bottom: 1rem;">نسيت كلمة المرور؟ 🔑</h2>
+                <h2 style="color: var(--secondary); margin-bottom: 1rem;">استعادة الحساب 🔑</h2>
                 <p style="color: var(--text-secondary); margin-bottom: 2rem;">
-                    أدخل رقم جوالك المسجل لإرسال رمز التحقق
+                    أدخل رقم جوالك المسجل لاستعادة اسم المستخدم وإعادة تعيين كلمة المرور
                 </p>
                 
                 <form onsubmit="event.preventDefault(); sendResetCode(this);">
@@ -852,9 +852,11 @@ function sendResetCode(form) {
     const code = Math.floor(1000 + Math.random() * 9000).toString();
     appState.forgotPasswordPhone = phone;
     appState.resetPasswordCode = code;
+    appState.recoveredUsername = user.username;
     
     console.log(`🔐 Reset Code for ${phone}: ${code}`);
-    alert(`رمز التحقق (للتجربة):\n\n${code}\n\nفي النسخة الحقيقية سيرسل عبر SMS`);
+    console.log(`👤 Username: ${user.username}`);
+    alert(`تم العثور على حسابك! ✅\n\n👤 اسم المستخدم: ${user.username}\n\n🔐 رمز التحقق (للتجربة): ${code}\n\nفي النسخة الحقيقية سيرسل عبر SMS`);
     
     appState.currentScreen = 'reset';
     render();
@@ -865,6 +867,14 @@ function renderResetPassword() {
         <div class="container">
             <div class="card animate-slide-up" style="max-width: 500px; margin: 4rem auto;">
                 <h2 style="color: var(--secondary); margin-bottom: 1rem;">إعادة تعيين كلمة المرور 🔐</h2>
+                
+                ${appState.recoveredUsername ? `
+                    <div style="background: var(--bg-secondary); padding: 1.25rem; border-radius: 12px; margin-bottom: 1.5rem; border-right: 4px solid var(--success);">
+                        <p style="color: var(--text-secondary); font-size: 0.9rem; margin-bottom: 0.5rem;">اسم المستخدم الخاص بك:</p>
+                        <p style="font-size: 1.4rem; font-weight: bold; color: var(--success); margin: 0;">👤 ${appState.recoveredUsername}</p>
+                    </div>
+                ` : ''}
+                
                 <p style="color: var(--text-secondary); margin-bottom: 2rem;">
                     تم إرسال رمز التحقق إلى: <strong>${appState.forgotPasswordPhone}</strong>
                 </p>
@@ -1074,7 +1084,7 @@ function changePassword(form) {
                     password: 'admin123',
                     phone: '0500000000',
                     role: 'admin',
-                    balance: 10000,
+                    balance: 0,
                     color: '#d4af37',
                     achievements: [],
                     suspended: false
@@ -1272,7 +1282,7 @@ function handleRegister(e) {
         phone,
         password,
         role: 'student',
-        balance: 10000,
+        balance: 0,
         color: '#' + Math.floor(Math.random()*16777215).toString(16),
         achievements: [],
         suspended: false
@@ -1296,16 +1306,9 @@ function handleRegister(e) {
             const user = appData.users.find(u => u.username === appState.currentUser.username);
 
             if (type === 'buy') {
-                if (user.balance < cost) {
-                    showAlert(`الرصيد غير كافٍ ❌
-                    
-رصيدك الحالي: ${user.balance.toFixed(2)} ر.س
-التكلفة المطلوبة: ${cost.toFixed(2)} ر.س
-
-اطلب من الأدمن إضافة رصيد لك!`, 'error');
-                    return;
-                }
-
+                // Allow negative balance - no balance check
+                // Removed balance check to allow margin trading
+                
                 // Update balance
                 user.balance -= cost;
                 
@@ -1559,6 +1562,7 @@ function handleRegister(e) {
             if (balanceModalState.show) modalHTML = renderBalanceModal();
             if (stockPriceModal.show) modalHTML = renderStockPriceModal();
             if (addStockModal.show) modalHTML = renderAddStockModal();
+            if (editUsernameModal.show) modalHTML = renderEditUsernameModal();
             if (confirmModal.show) modalHTML = renderConfirmModal();
             modals.innerHTML = modalHTML;
 
@@ -2197,13 +2201,52 @@ function renderVerify() {
         function renderAdminStudentsTab() {
             const students = appData.users.filter(u => u.role === 'student');
             
+            // حساب إجمالي الأموال المضافة (من سجل النشاط)
+            let totalMoneyAdded = 0;
+            appData.activityLog.forEach(log => {
+                if (log.action === 'إضافة رصيد' && log.details) {
+                    const match = log.details.match(/\+(\d+\.?\d*)/);
+                    if (match) {
+                        totalMoneyAdded += parseFloat(match[1]);
+                    }
+                }
+            });
+            
+            // حساب الرصيد الإجمالي الحالي للطلاب
+            const totalCurrentBalance = students.reduce((sum, s) => sum + s.balance, 0);
+            
+            // حساب الأرباح/الخسائر الإجمالية
+            const totalProfitsLosses = totalCurrentBalance - totalMoneyAdded;
+            
             return `
                 <div class="tab-content active">
                     <div class="card">
-                        <h3 style="margin-bottom: 1rem;">إدارة الطلاب 👥</h3>
-                        <p style="color: var(--text-secondary); margin-bottom: 2rem;">
-                            عدد الطلاب: ${students.length} / 25
-                        </p>
+                        <h3 style="margin-bottom: 1.5rem;">إدارة الطلاب 👥</h3>
+                        
+                        <!-- ملخص مالي -->
+                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-bottom: 2rem;">
+                            <div style="background: linear-gradient(135deg, #1a4540, #236b61); padding: 1.5rem; border-radius: 12px; border: 2px solid var(--secondary);">
+                                <div style="color: rgba(255,255,255,0.7); font-size: 0.85rem; margin-bottom: 0.5rem;">💰 إجمالي الأموال المضافة</div>
+                                <div style="font-size: 1.8rem; font-weight: 900; color: var(--secondary);">${totalMoneyAdded.toFixed(2)} <span style="font-size: 1rem;">ر.س</span></div>
+                            </div>
+                            
+                            <div style="background: var(--bg-secondary); padding: 1.5rem; border-radius: 12px; border: 1px solid var(--border);">
+                                <div style="color: var(--text-secondary); font-size: 0.85rem; margin-bottom: 0.5rem;">💼 الرصيد الحالي الإجمالي</div>
+                                <div style="font-size: 1.8rem; font-weight: 900; color: var(--text-primary);">${totalCurrentBalance.toFixed(2)} <span style="font-size: 1rem;">ر.س</span></div>
+                            </div>
+                            
+                            <div style="background: var(--bg-secondary); padding: 1.5rem; border-radius: 12px; border: 1px solid var(--border);">
+                                <div style="color: var(--text-secondary); font-size: 0.85rem; margin-bottom: 0.5rem;">📊 الأرباح/الخسائر الإجمالية</div>
+                                <div style="font-size: 1.8rem; font-weight: 900; color: ${totalProfitsLosses >= 0 ? 'var(--success)' : 'var(--danger)'};">
+                                    ${totalProfitsLosses >= 0 ? '+' : ''}${totalProfitsLosses.toFixed(2)} <span style="font-size: 1rem;">ر.س</span>
+                                </div>
+                            </div>
+                            
+                            <div style="background: var(--bg-secondary); padding: 1.5rem; border-radius: 12px; border: 1px solid var(--border);">
+                                <div style="color: var(--text-secondary); font-size: 0.85rem; margin-bottom: 0.5rem;">👥 عدد الطلاب</div>
+                                <div style="font-size: 1.8rem; font-weight: 900; color: var(--text-primary);">${students.length} <span style="font-size: 1rem;">/ 25</span></div>
+                            </div>
+                        </div>
 
                         ${students.length === 0 
                             ? '<p style="text-align: center; color: var(--text-secondary); padding: 2rem;">لا يوجد طلاب مسجلين بعد</p>'
@@ -2218,13 +2261,17 @@ function renderVerify() {
                                                 <h4>${student.username} ${student.suspended ? '🔒' : ''}</h4>
                                                 <p style="color: var(--text-secondary); font-size: 0.9rem; margin-top: 0.3rem;">
                                                     📱 ${student.phone} | 
-                                                    💰 الرصيد المتاح: ${student.balance.toFixed(2)} ر.س
+                                                    💰 الرصيد المتاح: <span style="color: ${student.balance >= 0 ? 'var(--success)' : 'var(--danger)'}; font-weight: bold;">${student.balance.toFixed(2)} ر.س</span>
                                                 </p>
                                             </div>
                                             <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
                                                 <button class="btn btn-primary btn-small" 
                                                         onclick="openBalanceModal('${student.username}')">
                                                     💰 الرصيد
+                                                </button>
+                                                <button class="btn btn-secondary btn-small" 
+                                                        onclick="openEditUsernameModal('${student.username}')">
+                                                    ✏️ تعديل
                                                 </button>
                                                 <button class="btn ${student.suspended ? 'btn-success' : 'btn-danger'} btn-small" 
                                                         onclick="toggleSuspension('${student.username}')">
@@ -2395,7 +2442,12 @@ function renderVerify() {
         // Stock Price Modal State
         let stockPriceModal = { show: false, stockIndex: null, stock: null };
         let addStockModal = { show: false };
-        let confirmModal = { show: false, message: '', onConfirm: null };
+        let editUsernameModal = {
+    show: false,
+    username: null
+};
+
+let confirmModal = { show: false, message: '', onConfirm: null };
 
         function openStockPriceModal(idx) {
             const stock = appData.stocks[idx];
@@ -2744,7 +2796,7 @@ function renderVerify() {
                             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1.5rem;">
                                 <div style="text-align: center; padding: 1rem; background: var(--bg-secondary); border-radius: 12px;">
                                     <div style="color: var(--text-secondary); font-size: 0.8rem; margin-bottom: 0.25rem;">رصيدك</div>
-                                    <div style="font-size: 1.1rem; font-weight: bold; color: var(--success);">${userBalance.toFixed(2)} ر.س</div>
+                                    <div style="font-size: 1.1rem; font-weight: bold; color: ${userBalance >= 0 ? 'var(--success)' : 'var(--danger)'};">${userBalance.toFixed(2)} ر.س</div>
                                 </div>
                                 <div style="text-align: center; padding: 1rem; background: var(--bg-secondary); border-radius: 12px;">
                                     <div style="color: var(--text-secondary); font-size: 0.8rem; margin-bottom: 0.25rem;">تملك</div>
@@ -2973,6 +3025,128 @@ function renderVerify() {
                             <button onclick="executeAddStock()" style="width: 100%; padding: 1.25rem; background: var(--primary); color: white; border: none; border-radius: 12px; font-size: 1.1rem; font-weight: 700; cursor: pointer;">
                                 ✅ إضافة السهم
                             </button>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        
+        // Edit Username Modal Functions
+        function openEditUsernameModal(username) {
+            editUsernameModal.show = true;
+            editUsernameModal.username = username;
+            render();
+        }
+
+        function closeEditUsernameModal() {
+            editUsernameModal.show = false;
+            editUsernameModal.username = null;
+            render();
+        }
+
+        function handleUsernameChange(form) {
+            const oldUsername = editUsernameModal.username;
+            const newUsername = form.newUsername.value.trim();
+            
+            if (!newUsername) {
+                showAlert('اسم المستخدم فارغ ❌', 'error');
+                return;
+            }
+            
+            if (newUsername === oldUsername) {
+                showAlert('اسم المستخدم لم يتغير', 'error');
+                return;
+            }
+            
+            // التحقق من عدم تكرار اسم المستخدم
+            const existingUser = appData.users.find(u => u.username === newUsername && u.username !== oldUsername);
+            if (existingUser) {
+                showAlert('اسم المستخدم موجود مسبقاً ❌', 'error');
+                return;
+            }
+            
+            // تحديث اسم المستخدم في المستخدمين
+            const user = appData.users.find(u => u.username === oldUsername);
+            if (user) {
+                user.username = newUsername;
+            }
+            
+            // تحديث اسم المستخدم في المحفظة
+            const portfolio = appData.portfolios.find(p => p.username === oldUsername);
+            if (portfolio) {
+                portfolio.username = newUsername;
+            }
+            
+            // تحديث اسم المستخدم في سجل النشاط
+            appData.activityLog.forEach(log => {
+                if (log.user === oldUsername) {
+                    log.user = newUsername;
+                }
+                if (log.details && log.details.includes(oldUsername)) {
+                    log.details = log.details.replace(new RegExp(oldUsername, 'g'), newUsername);
+                }
+            });
+            
+            // تحديث اسم المستخدم في المعاملات
+            appData.transactions.forEach(transaction => {
+                if (transaction.username === oldUsername) {
+                    transaction.username = newUsername;
+                }
+            });
+            
+            // إذا كان المستخدم الحالي هو من تم تغيير اسمه
+            if (appState.currentUser && appState.currentUser.username === oldUsername) {
+                appState.currentUser.username = newUsername;
+            }
+            
+            addActivityLog('تعديل اسم مستخدم', `تم تغيير اسم المستخدم من ${oldUsername} إلى ${newUsername}`);
+            saveData();
+            closeEditUsernameModal();
+            showAlert(`✅ تم تغيير اسم المستخدم من ${oldUsername} إلى ${newUsername}`, 'success');
+            render();
+        }
+
+        function renderEditUsernameModal() {
+            const user = appData.users.find(u => u.username === editUsernameModal.username);
+            if (!user) return '';
+            
+            return `
+                <div style="position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.7); z-index: 9999; display: flex; align-items: center; justify-content: center; padding: 1rem;" onclick="if(event.target===this) closeEditUsernameModal()">
+                    <div style="background: var(--bg-card); border-radius: 20px; max-width: 500px; width: 100%; box-shadow: 0 20px 60px rgba(0,0,0,0.5);" onclick="event.stopPropagation()">
+                        <div style="padding: 1.5rem; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center;">
+                            <h2 style="margin: 0;">✏️ تعديل اسم المستخدم</h2>
+                            <button onclick="closeEditUsernameModal()" style="background: none; border: none; font-size: 2rem; color: var(--danger); cursor: pointer; padding: 0; width: 40px; height: 40px;">×</button>
+                        </div>
+                        
+                        <div style="padding: 2rem;">
+                            <div style="background: var(--bg-secondary); padding: 1.25rem; border-radius: 12px; margin-bottom: 1.5rem; border-right: 4px solid var(--warning);">
+                                <p style="color: var(--text-secondary); font-size: 0.9rem; margin-bottom: 0.5rem;">اسم المستخدم الحالي:</p>
+                                <p style="font-size: 1.4rem; font-weight: bold; color: var(--text-primary); margin: 0;">👤 ${user.username}</p>
+                            </div>
+                            
+                            <form onsubmit="event.preventDefault(); handleUsernameChange(this);">
+                                <div class="form-group">
+                                    <label>اسم المستخدم الجديد</label>
+                                    <input type="text" name="newUsername" required 
+                                           placeholder="أدخل اسم المستخدم الجديد"
+                                           value="${user.username}"
+                                           style="width: 100%; padding: 1rem; font-size: 1.1rem; border: 2px solid var(--border); border-radius: 12px; background: var(--bg-secondary); color: var(--text-primary);">
+                                </div>
+                                
+                                <div style="background: var(--bg-secondary); padding: 1rem; border-radius: 12px; margin-bottom: 1.5rem; border-right: 3px solid var(--warning);">
+                                    <div style="font-size: 0.85rem; color: var(--text-secondary); line-height: 1.6;">
+                                        <strong>⚠️ تنبيه:</strong><br>
+                                        • سيتم تحديث الاسم في جميع السجلات<br>
+                                        • لن يستطيع الطالب تسجيل الدخول بالاسم القديم<br>
+                                        • تأكد من إخبار الطالب بالاسم الجديد
+                                    </div>
+                                </div>
+                                
+                                <button type="submit" class="btn btn-primary" style="width: 100%;">
+                                    حفظ التغييرات ✅
+                                </button>
+                            </form>
                         </div>
                     </div>
                 </div>
