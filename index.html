@@ -72,6 +72,27 @@
             50% { transform: scale(1.05); }
         }
 
+        
+        @keyframes scaleIn {
+            from { transform: scale(0.9); opacity: 0; }
+            to { transform: scale(1); opacity: 1; }
+        }
+
+        @keyframes slideInBottom {
+            from { transform: translateY(30px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+
+        @keyframes shimmer {
+            0% { background-position: -1000px 0; }
+            100% { background-position: 1000px 0; }
+        }
+
+        @keyframes bounce {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-10px); }
+        }
+
         @keyframes fadeIn {
             from { opacity: 0; }
             to { opacity: 1; }
@@ -761,7 +782,80 @@
             40% { content: '..'; }
             60%, 100% { content: '...'; }
         }
-    </style>
+    
+        /* Tooltips */
+        .tooltip {
+            position: relative;
+            display: inline-block;
+        }
+
+        .tooltip::after {
+            content: attr(data-tooltip);
+            position: absolute;
+            bottom: 125%;
+            left: 50%;
+            transform: translateX(-50%) scale(0);
+            background: rgba(0, 0, 0, 0.9);
+            color: white;
+            padding: 0.5rem 1rem;
+            border-radius: 8px;
+            font-size: 0.85rem;
+            white-space: nowrap;
+            opacity: 0;
+            pointer-events: none;
+            transition: all 0.3s ease;
+            z-index: 10000;
+        }
+
+        .tooltip::before {
+            content: '';
+            position: absolute;
+            bottom: 115%;
+            left: 50%;
+            transform: translateX(-50%) scale(0);
+            border: 6px solid transparent;
+            border-top-color: rgba(0, 0, 0, 0.9);
+            opacity: 0;
+            transition: all 0.3s ease;
+        }
+
+        .tooltip:hover::after,
+        .tooltip:hover::before {
+            opacity: 1;
+            transform: translateX(-50%) scale(1);
+        }
+
+        
+        /* Skeleton Loading */
+        @keyframes skeleton-loading {
+            0% { background-position: -200px 0; }
+            100% { background-position: calc(200px + 100%) 0; }
+        }
+
+        .skeleton {
+            background: linear-gradient(
+                90deg,
+                var(--bg-secondary) 0%,
+                var(--border) 50%,
+                var(--bg-secondary) 100%
+            );
+            background-size: 200px 100%;
+            animation: skeleton-loading 1.5s ease-in-out infinite;
+            border-radius: 8px;
+        }
+
+        .skeleton-text {
+            height: 1rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .skeleton-title {
+            height: 1.5rem;
+            width: 60%;
+            margin-bottom: 1rem;
+        }
+
+        </style>
 </head>
 <body data-theme="dark">
     <div id="app"></div>
@@ -1297,6 +1391,40 @@ function handleRegister(e) {
     render();
 }
         // Execute trade
+        
+        // Confetti effect for profits
+        function createConfetti() {
+            const colors = ['#d4af37', '#2ecc71', '#3498db', '#e74c3c', '#f39c12'];
+            const confettiCount = 50;
+            
+            for (let i = 0; i < confettiCount; i++) {
+                const confetti = document.createElement('div');
+                confetti.style.position = 'fixed';
+                confetti.style.width = '10px';
+                confetti.style.height = '10px';
+                confetti.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
+                confetti.style.left = Math.random() * 100 + '%';
+                confetti.style.top = '-10px';
+                confetti.style.opacity = '1';
+                confetti.style.borderRadius = '50%';
+                confetti.style.zIndex = '99999';
+                confetti.style.pointerEvents = 'none';
+                confetti.style.transition = 'all 3s ease-out';
+                
+                document.body.appendChild(confetti);
+                
+                setTimeout(() => {
+                    confetti.style.top = '100vh';
+                    confetti.style.opacity = '0';
+                    confetti.style.transform = `translateX(${(Math.random() - 0.5) * 200}px) rotate(${Math.random() * 720}deg)`;
+                }, 10);
+                
+                setTimeout(() => {
+                    confetti.remove();
+                }, 3000);
+            }
+        }
+
         function executeTrade(type, quantity) {
             const stock = appState.selectedStock;
             const portfolio = appData.portfolios.find(p => p.username === appState.currentUser.username);
@@ -1373,6 +1501,12 @@ function handleRegister(e) {
                 appData.transactions.unshift(tx);
                 addActivityLog('بيع سهم', `${user.username} باع ${quantity} من ${stock.name} بسعر ${stock.price.toFixed(2)} ر.س (ربح: ${profit.toFixed(2)} ر.س)`);
                 addNotification(`💰 تم بيع ${quantity} من ${stock.name} بربح ${profit.toFixed(2)} ر.س`, profit >= 0 ? 'success' : 'warning');
+                
+                // إضافة تأثير احتفالي عند الربح
+                if (profit > 0) {
+                    createConfetti();
+                }
+                
                 showAlert(`تم بيع ${quantity} من ${stock.name} بنجاح ✅`, 'success');
             }
 
@@ -2965,6 +3099,21 @@ let confirmModal = { show: false, message: '', onConfirm: null };
                 showAlert('أدخل كمية صحيحة!', 'error');
                 return;
             }
+            
+            // إضافة مؤشر تحميل
+            const buttons = document.querySelectorAll('button[onclick*="executeTradeFromModal"]');
+            buttons.forEach(btn => {
+                btn.style.opacity = '0.7';
+                btn.style.pointerEvents = 'none';
+                const originalText = btn.innerHTML;
+                btn.innerHTML = '<div style="font-size: 1.5rem;">⏳</div><div>جاري التنفيذ...</div>';
+                
+                setTimeout(() => {
+                    btn.innerHTML = originalText;
+                    btn.style.opacity = '1';
+                    btn.style.pointerEvents = 'auto';
+                }, 500);
+            });
             
             executeTrade(type, quantity);
         }
