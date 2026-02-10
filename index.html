@@ -855,6 +855,96 @@
             margin-bottom: 1rem;
         }
 
+        
+        /* Enhanced card hover effects */
+        .card {
+            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        .card:hover {
+            transform: translateY(-8px) scale(1.02);
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        }
+
+        /* Stock card animations */
+        .stock-card {
+            transition: all 0.3s ease;
+            cursor: pointer;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .stock-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(212,175,55,0.1), transparent);
+            transition: left 0.5s;
+        }
+
+        .stock-card:hover::before {
+            left: 100%;
+        }
+
+        .stock-card:hover {
+            transform: translateX(8px);
+            box-shadow: -4px 0 20px rgba(212,175,55,0.3);
+            border-right-color: var(--secondary);
+            border-right-width: 4px;
+        }
+
+        /* Button pulse animation */
+        @keyframes pulse-glow {
+            0%, 100% {
+                box-shadow: 0 0 0 0 rgba(212, 175, 55, 0.7);
+            }
+            50% {
+                box-shadow: 0 0 20px 10px rgba(212, 175, 55, 0);
+            }
+        }
+
+        .btn-primary:hover {
+            animation: pulse-glow 1.5s infinite;
+        }
+
+        /* Smooth transitions for all interactive elements */
+        button, .btn, a, input, select {
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        button:hover, .btn:hover {
+            transform: translateY(-2px);
+        }
+
+        button:active, .btn:active {
+            transform: translateY(0) scale(0.98);
+        }
+
+        /* Input focus effects */
+        input:focus, select:focus {
+            outline: none;
+            border-color: var(--secondary);
+            box-shadow: 0 0 0 3px rgba(212, 175, 55, 0.1);
+            transform: scale(1.02);
+        }
+
+        /* Glowing effect for important elements */
+        .glow {
+            animation: glow-pulse 2s ease-in-out infinite;
+        }
+
+        @keyframes glow-pulse {
+            0%, 100% {
+                filter: drop-shadow(0 0 5px var(--secondary));
+            }
+            50% {
+                filter: drop-shadow(0 0 20px var(--secondary));
+            }
+        }
+
         </style>
 </head>
 <body data-theme="dark">
@@ -1392,36 +1482,61 @@ function handleRegister(e) {
 }
         // Execute trade
         
-        // Confetti effect for profits
+        // Enhanced Confetti effect
         function createConfetti() {
-            const colors = ['#d4af37', '#2ecc71', '#3498db', '#e74c3c', '#f39c12'];
-            const confettiCount = 50;
+            const colors = ['#d4af37', '#2ecc71', '#3498db', '#e74c3c', '#f39c12', '#9b59b6'];
+            const shapes = ['circle', 'square', 'triangle'];
+            const confettiCount = 60;
             
             for (let i = 0; i < confettiCount; i++) {
                 const confetti = document.createElement('div');
+                const shape = shapes[Math.floor(Math.random() * shapes.length)];
+                const size = Math.random() * 8 + 8; // 8-16px
+                const color = colors[Math.floor(Math.random() * colors.length)];
+                
                 confetti.style.position = 'fixed';
-                confetti.style.width = '10px';
-                confetti.style.height = '10px';
-                confetti.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
+                confetti.style.width = size + 'px';
+                confetti.style.height = size + 'px';
+                confetti.style.backgroundColor = color;
                 confetti.style.left = Math.random() * 100 + '%';
-                confetti.style.top = '-10px';
+                confetti.style.top = '-20px';
                 confetti.style.opacity = '1';
-                confetti.style.borderRadius = '50%';
                 confetti.style.zIndex = '99999';
                 confetti.style.pointerEvents = 'none';
-                confetti.style.transition = 'all 3s ease-out';
+                confetti.style.boxShadow = `0 0 ${size}px ${color}`;
+                
+                // Shape styling
+                if (shape === 'circle') {
+                    confetti.style.borderRadius = '50%';
+                } else if (shape === 'triangle') {
+                    confetti.style.width = '0';
+                    confetti.style.height = '0';
+                    confetti.style.backgroundColor = 'transparent';
+                    confetti.style.borderLeft = size/2 + 'px solid transparent';
+                    confetti.style.borderRight = size/2 + 'px solid transparent';
+                    confetti.style.borderBottom = size + 'px solid ' + color;
+                } else {
+                    confetti.style.borderRadius = '2px';
+                }
                 
                 document.body.appendChild(confetti);
                 
+                // Animate with different speeds and paths
+                const duration = 2000 + Math.random() * 1000; // 2-3 seconds
+                const xMovement = (Math.random() - 0.5) * 300;
+                const rotation = Math.random() * 1080; // 0-1080 degrees
+                const delay = Math.random() * 100;
+                
                 setTimeout(() => {
+                    confetti.style.transition = `all ${duration}ms cubic-bezier(0.25, 0.46, 0.45, 0.94)`;
                     confetti.style.top = '100vh';
                     confetti.style.opacity = '0';
-                    confetti.style.transform = `translateX(${(Math.random() - 0.5) * 200}px) rotate(${Math.random() * 720}deg)`;
-                }, 10);
+                    confetti.style.transform = `translateX(${xMovement}px) rotate(${rotation}deg) scale(0.5)`;
+                }, delay);
                 
                 setTimeout(() => {
                     confetti.remove();
-                }, 3000);
+                }, duration + delay + 100);
             }
         }
 
@@ -1500,7 +1615,7 @@ function handleRegister(e) {
                 };
                 appData.transactions.unshift(tx);
                 addActivityLog('بيع سهم', `${user.username} باع ${quantity} من ${stock.name} بسعر ${stock.price.toFixed(2)} ر.س (ربح: ${profit.toFixed(2)} ر.س)`);
-                addNotification(`💰 تم بيع ${quantity} من ${stock.name} بربح ${profit.toFixed(2)} ر.س`, profit >= 0 ? 'success' : 'warning');
+                // Notification removed for cleaner UX
                 
                 // إضافة تأثير احتفالي عند الربح
                 if (profit > 0) {
@@ -2950,67 +3065,126 @@ let confirmModal = { show: false, message: '', onConfirm: null };
                         </div>
                         
                         <div style="padding: 2rem;">
-                            <!-- الرسم البياني التاريخي -->
-                            <div style="margin-bottom: 2rem; background: var(--bg-secondary); padding: 1.5rem; border-radius: 16px; border: 1px solid var(--border);">
-                                <h3 style="margin: 0 0 1rem 0; font-size: 1rem; color: var(--text-secondary); display: flex; align-items: center; gap: 0.5rem;">
-                                    <span style="font-size: 1.2rem;">📈</span>
-                                    تاريخ السعر (آخر ${stock.history.length} فترة)
-                                </h3>
-                                <div style="position: relative; height: 180px; background: linear-gradient(to bottom, var(--bg-primary), transparent); border-radius: 12px; padding: 1rem;">
-                                    <svg width="100%" height="100%" style="overflow: visible;">
-                                        <!-- خطوط الشبكة -->
-                                        <line x1="0" y1="0" x2="100%" y2="0" stroke="var(--border)" stroke-width="1" opacity="0.3"/>
-                                        <line x1="0" y1="33%" x2="100%" y2="33%" stroke="var(--border)" stroke-width="1" opacity="0.3"/>
-                                        <line x1="0" y1="66%" x2="100%" y2="66%" stroke="var(--border)" stroke-width="1" opacity="0.3"/>
-                                        <line x1="0" y1="100%" x2="100%" y2="100%" stroke="var(--border)" stroke-width="1" opacity="0.3"/>
-                                        
-                                        <!-- الخط البياني -->
-                                        <polyline
-                                            points="${stock.history.map((price, i) => {
-                                                const x = (i / (stock.history.length - 1)) * 100;
-                                                const y = 100 - ((price - minPrice) / priceRange * 100);
-                                                return `${x}%,${y}%`;
-                                            }).join(' ')}"
-                                            fill="none"
-                                            stroke="var(--secondary)"
-                                            stroke-width="3"
-                                            stroke-linecap="round"
-                                            stroke-linejoin="round"
-                                            style="filter: drop-shadow(0 0 8px rgba(212, 175, 55, 0.4));"
-                                        />
-                                        
-                                        <!-- المنطقة المظللة -->
-                                        <polygon
-                                            points="${stock.history.map((price, i) => {
-                                                const x = (i / (stock.history.length - 1)) * 100;
-                                                const y = 100 - ((price - minPrice) / priceRange * 100);
-                                                return `${x}%,${y}%`;
-                                            }).join(' ')} 100%,100% 0%,100%"
-                                            fill="url(#gradient)"
-                                            opacity="0.3"
-                                        />
-                                        
-                                        <!-- نقاط البيانات -->
-                                        ${stock.history.map((price, i) => {
-                                            const x = (i / (stock.history.length - 1)) * 100;
-                                            const y = 100 - ((price - minPrice) / priceRange * 100);
-                                            return `<circle cx="${x}%" cy="${y}%" r="4" fill="var(--secondary)" opacity="${i === stock.history.length - 1 ? '1' : '0.6'}" style="filter: drop-shadow(0 0 4px rgba(212, 175, 55, 0.6));"/>`;
-                                        }).join('')}
-                                        
+                            <!-- الرسم البياني التاريخي المتقدم -->
+                            <div style="margin-bottom: 2rem; background: linear-gradient(135deg, var(--bg-secondary) 0%, var(--bg-primary) 100%); padding: 2rem; border-radius: 20px; border: 1px solid var(--border); box-shadow: 0 8px 32px rgba(0,0,0,0.1);">
+                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+                                    <h3 style="margin: 0; font-size: 1.1rem; color: var(--text-primary); display: flex; align-items: center; gap: 0.75rem; font-weight: 700;">
+                                        <span style="font-size: 1.5rem; filter: drop-shadow(0 2px 4px rgba(212,175,55,0.3));">📊</span>
+                                        تحليل السعر التاريخي
+                                    </h3>
+                                    <div style="display: flex; gap: 1rem; font-size: 0.85rem;">
+                                        <div style="display: flex; align-items: center; gap: 0.5rem;">
+                                            <div style="width: 12px; height: 12px; background: var(--success); border-radius: 50%; box-shadow: 0 0 8px var(--success);"></div>
+                                            <span style="color: var(--text-secondary);">القمة: ${maxPrice.toFixed(2)}</span>
+                                        </div>
+                                        <div style="display: flex; align-items: center; gap: 0.5rem;">
+                                            <div style="width: 12px; height: 12px; background: var(--danger); border-radius: 50%; box-shadow: 0 0 8px var(--danger);"></div>
+                                            <span style="color: var(--text-secondary);">القاع: ${minPrice.toFixed(2)}</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <div style="position: relative; height: 220px; background: linear-gradient(to bottom, rgba(212,175,55,0.05), transparent); border-radius: 16px; padding: 1.5rem; backdrop-filter: blur(10px);">
+                                    <!-- خطوط شبكة متقدمة -->
+                                    <svg width="100%" height="100%" style="position: absolute; top: 0; left: 0; overflow: visible; opacity: 0.3;">
                                         <defs>
-                                            <linearGradient id="gradient" x1="0%" y1="0%" x2="0%" y2="100%">
-                                                <stop offset="0%" style="stop-color:var(--secondary);stop-opacity:0.8" />
-                                                <stop offset="100%" style="stop-color:var(--secondary);stop-opacity:0.1" />
-                                            </linearGradient>
+                                            <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
+                                                <path d="M 40 0 L 0 0 0 40" fill="none" stroke="var(--border)" stroke-width="0.5"/>
+                                            </pattern>
                                         </defs>
+                                        <rect width="100%" height="100%" fill="url(#grid)" />
                                     </svg>
                                     
-                                    <!-- مؤشرات السعر -->
-                                    <div style="position: absolute; top: 0.5rem; right: 0.5rem; font-size: 0.75rem; color: var(--success); background: var(--bg-card); padding: 0.25rem 0.75rem; border-radius: 6px; border: 1px solid var(--border);">
-                                        أعلى: ${maxPrice.toFixed(2)}
+                                    <svg width="100%" height="100%" style="position: relative; z-index: 2;">
+                                        <!-- التدرج للمنطقة -->
+                                        <defs>
+                                            <linearGradient id="areaGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+                                                <stop offset="0%" style="stop-color:#d4af37;stop-opacity:0.4" />
+                                                <stop offset="50%" style="stop-color:#d4af37;stop-opacity:0.2" />
+                                                <stop offset="100%" style="stop-color:#d4af37;stop-opacity:0.05" />
+                                            </linearGradient>
+                                            
+                                            <filter id="glow">
+                                                <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
+                                                <feMerge>
+                                                    <feMergeNode in="coloredBlur"/>
+                                                    <feMergeNode in="SourceGraphic"/>
+                                                </feMerge>
+                                            </filter>
+                                        </defs>
+                                        
+                                        <!-- المنطقة المملوءة -->
+                                        <path
+                                            d="M 0,100% ${stock.history.map((price, i) => {
+                                                const x = (i / (stock.history.length - 1)) * 100;
+                                                const y = 100 - ((price - minPrice) / priceRange * 95);
+                                                return `L ${x}%,${y}%`;
+                                            }).join(' ')} L 100%,100% Z"
+                                            fill="url(#areaGradient)"
+                                        />
+                                        
+                                        <!-- الخط الرئيسي -->
+                                        <path
+                                            d="M ${stock.history.map((price, i) => {
+                                                const x = (i / (stock.history.length - 1)) * 100;
+                                                const y = 100 - ((price - minPrice) / priceRange * 95);
+                                                return `${i === 0 ? '' : 'L '}${x}%,${y}%`;
+                                            }).join(' ')}"
+                                            fill="none"
+                                            stroke="#d4af37"
+                                            stroke-width="4"
+                                            stroke-linecap="round"
+                                            stroke-linejoin="round"
+                                            filter="url(#glow)"
+                                        />
+                                        
+                                        <!-- نقاط بيانات متقدمة -->
+                                        ${stock.history.map((price, i) => {
+                                            const x = (i / (stock.history.length - 1)) * 100;
+                                            const y = 100 - ((price - minPrice) / priceRange * 95);
+                                            const isLast = i === stock.history.length - 1;
+                                            const isMax = price === maxPrice;
+                                            const isMin = price === minPrice;
+                                            
+                                            return `
+                                                ${isLast || isMax || isMin ? `
+                                                    <circle cx="${x}%" cy="${y}%" r="8" fill="${isMax ? '#2ecc71' : isMin ? '#e74c3c' : '#d4af37'}" opacity="0.3"/>
+                                                    <circle cx="${x}%" cy="${y}%" r="5" fill="${isMax ? '#2ecc71' : isMin ? '#e74c3c' : '#d4af37'}" filter="url(#glow)"/>
+                                                    <circle cx="${x}%" cy="${y}%" r="3" fill="white"/>
+                                                ` : `
+                                                    <circle cx="${x}%" cy="${y}%" r="3" fill="#d4af37" opacity="0.7"/>
+                                                `}
+                                            `;
+                                        }).join('')}
+                                    </svg>
+                                    
+                                    <!-- مؤشر السعر الحالي -->
+                                    <div style="position: absolute; bottom: 1rem; left: 1rem; background: linear-gradient(135deg, rgba(212,175,55,0.2), rgba(212,175,55,0.1)); backdrop-filter: blur(10px); padding: 0.75rem 1.25rem; border-radius: 12px; border: 1px solid rgba(212,175,55,0.3); box-shadow: 0 4px 12px rgba(0,0,0,0.1);">
+                                        <div style="font-size: 0.75rem; color: var(--text-secondary); margin-bottom: 0.25rem;">السعر الحالي</div>
+                                        <div style="font-size: 1.3rem; font-weight: 900; color: var(--secondary);">${stock.price.toFixed(2)} <span style="font-size: 0.8rem;">ر.س</span></div>
                                     </div>
-                                    <div style="position: absolute; bottom: 0.5rem; right: 0.5rem; font-size: 0.75rem; color: var(--danger); background: var(--bg-card); padding: 0.25rem 0.75rem; border-radius: 6px; border: 1px solid var(--border);">
-                                        أدنى: ${minPrice.toFixed(2)}
+                                    
+                                    <!-- مؤشر التغير -->
+                                    <div style="position: absolute; top: 1rem; left: 1rem; background: ${stock.change >= 0 ? 'linear-gradient(135deg, rgba(46,204,113,0.2), rgba(46,204,113,0.1))' : 'linear-gradient(135deg, rgba(231,76,60,0.2), rgba(231,76,60,0.1))'}; backdrop-filter: blur(10px); padding: 0.5rem 1rem; border-radius: 10px; border: 1px solid ${stock.change >= 0 ? 'rgba(46,204,113,0.3)' : 'rgba(231,76,60,0.3)'};">
+                                        <span style="color: ${stock.change >= 0 ? '#2ecc71' : '#e74c3c'}; font-weight: 700; font-size: 1rem;">
+                                            ${stock.change >= 0 ? '▲' : '▼'} ${Math.abs(stock.change).toFixed(2)}%
+                                        </span>
+                                    </div>
+                                </div>
+                                
+                                <!-- إحصائيات سريعة -->
+                                <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; margin-top: 1.5rem;">
+                                    <div style="text-align: center; padding: 1rem; background: rgba(46,204,113,0.1); border-radius: 10px; border: 1px solid rgba(46,204,113,0.2);">
+                                        <div style="font-size: 0.75rem; color: var(--text-secondary); margin-bottom: 0.25rem;">نطاق السعر</div>
+                                        <div style="font-size: 1.1rem; font-weight: 700; color: var(--success);">${(maxPrice - minPrice).toFixed(2)}</div>
+                                    </div>
+                                    <div style="text-align: center; padding: 1rem; background: rgba(212,175,55,0.1); border-radius: 10px; border: 1px solid rgba(212,175,55,0.2);">
+                                        <div style="font-size: 0.75rem; color: var(--text-secondary); margin-bottom: 0.25rem;">متوسط السعر</div>
+                                        <div style="font-size: 1.1rem; font-weight: 700; color: var(--secondary);">${(stock.history.reduce((a,b) => a+b, 0) / stock.history.length).toFixed(2)}</div>
+                                    </div>
+                                    <div style="text-align: center; padding: 1rem; background: rgba(52,152,219,0.1); border-radius: 10px; border: 1px solid rgba(52,152,219,0.2);">
+                                        <div style="font-size: 0.75rem; color: var(--text-secondary); margin-bottom: 0.25rem;">التذبذب</div>
+                                        <div style="font-size: 1.1rem; font-weight: 700; color: #3498db;">${((maxPrice - minPrice) / minPrice * 100).toFixed(1)}%</div>
                                     </div>
                                 </div>
                             </div>
