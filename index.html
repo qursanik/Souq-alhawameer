@@ -2543,6 +2543,10 @@ function renderVerify() {
                                                         onclick="toggleSuspension('${student.username}')">
                                                     ${student.suspended ? 'تفعيل ✓' : 'تعليق ⛔'}
                                                 </button>
+                                                <button class="btn btn-danger btn-small" 
+                                                        onclick="confirmDeleteStudent('${student.username}')">
+                                                    🗑️ حذف
+                                                </button>
                                             </div>
                                         </div>
                                         
@@ -3619,6 +3623,47 @@ let confirmModal = { show: false, message: '', onConfirm: null };
                     </div>
                 </div>
             `;
+        }
+
+        
+        // Delete student confirmation
+        function confirmDeleteStudent(username) {
+            showConfirm(
+                `هل أنت متأكد من حذف الطالب "${username}"؟
+
+⚠️ سيتم حذف:
+• الحساب
+• المحفظة
+• جميع المعاملات
+• سجل النشاط
+
+هذا الإجراء لا يمكن التراجع عنه!`,
+                () => deleteStudent(username)
+            );
+        }
+
+        // Delete student function
+        function deleteStudent(username) {
+            // حذف المستخدم
+            appData.users = appData.users.filter(u => u.username !== username);
+            
+            // حذف المحفظة
+            appData.portfolios = appData.portfolios.filter(p => p.username !== username);
+            
+            // حذف المعاملات
+            appData.transactions = appData.transactions.filter(t => t.username !== username);
+            
+            // حذف من سجل النشاط
+            appData.activityLog = appData.activityLog.filter(log => 
+                !log.details || !log.details.includes(username)
+            );
+            
+            // إضافة سجل للحذف
+            addActivityLog('حذف طالب', `تم حذف الطالب ${username} ومحفظته وجميع معاملاته`);
+            
+            saveData();
+            showAlert(`✅ تم حذف الطالب ${username} بنجاح`, 'success');
+            render();
         }
 
         function renderConfirmModal() {
