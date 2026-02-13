@@ -4096,10 +4096,7 @@ let confirmModal = { show: false, message: ‘’, onConfirm: null };
             await db.collection('portfolios').doc(oldUsername).delete();
             console.log(`🗑️ تم حذف ${oldUsername} من Firebase`);
             
-            // 2. الانتظار قليلاً للتأكد من الحذف
-            await new Promise(resolve => setTimeout(resolve, 500));
-            
-            // 3. تحديث البيانات في الذاكرة
+            // 2. تحديث البيانات في الذاكرة
             const user = appData.users.find(u => u.username === oldUsername);
             if (user) {
                 user.username = newUsername;
@@ -4110,45 +4107,34 @@ let confirmModal = { show: false, message: ‘’, onConfirm: null };
                 portfolio.username = newUsername;
             }
             
-            // 4. تحديث في باقي المواقع
+            // 3. تحديث في باقي المواقع
             appData.activityLog.forEach(log => {
-                if (log.user === oldUsername) {
-                    log.user = newUsername;
-                }
+                if (log.user === oldUsername) log.user = newUsername;
                 if (log.details && log.details.includes(oldUsername)) {
                     log.details = log.details.replace(new RegExp(oldUsername, 'g'), newUsername);
                 }
             });
             
             appData.transactions.forEach(transaction => {
-                if (transaction.username === oldUsername) {
-                    transaction.username = newUsername;
-                }
+                if (transaction.username === oldUsername) transaction.username = newUsername;
             });
             
             if (appState.currentUser && appState.currentUser.username === oldUsername) {
                 appState.currentUser.username = newUsername;
             }
             
-            // 5. حفظ البيانات الجديدة
+            // 4. حفظ البيانات الجديدة
             await saveData();
             console.log(`💾 تم حفظ ${newUsername} في Firebase`);
             
             addActivityLog('تعديل اسم مستخدم', `تم تغيير اسم المستخدم من ${oldUsername} إلى ${newUsername}`);
             closeEditUsernameModal();
             showAlert(`✅ تم تغيير اسم المستخدم بنجاح`, 'success');
-            
-            // 6. إعادة تحميل البيانات من Firebase لضمان التزامن
-            await new Promise(resolve => setTimeout(resolve, 500));
-            await loadData();
             render();
             
         } catch (error) {
             console.error('❌ خطأ في التعديل:', error);
             showAlert('فشل تعديل اسم المستخدم ❌', 'error');
-            // إعادة تحميل البيانات في حالة الفشل
-            await loadData();
-            render();
         }
     }
 
