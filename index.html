@@ -1069,34 +1069,33 @@ async function sendResetCode(form) {
         return;
     }
     
-    // تنسيق رقم الجوال لـ Firebase (يجب أن يبدأ بـ +)
+    // تنسيق رقم الجوال للسعودية
     let formattedPhone = phone;
     if (!formattedPhone.startsWith('+')) {
-        if (formattedPhone.startsWith('00')) {
-            formattedPhone = '+' + formattedPhone.substring(2);
-        } else if (formattedPhone.startsWith('0')) {
-            formattedPhone = '+966' + formattedPhone.substring(1);
-        } else if (formattedPhone.startsWith('966')) {
-            formattedPhone = '+' + formattedPhone;
-        } else {
-            formattedPhone = '+966' + formattedPhone;
-        }
+        if (formattedPhone.startsWith('00')) formattedPhone = '+' + formattedPhone.substring(2);
+        else if (formattedPhone.startsWith('0')) formattedPhone = '+966' + formattedPhone.substring(1);
+        else if (formattedPhone.startsWith('966')) formattedPhone = '+' + formattedPhone;
+        else formattedPhone = '+966' + formattedPhone;
     }
     
     try {
         showAlert('جاري إرسال رمز التحقق...', 'info');
 
-        // إعداد reCAPTCHA للـ Forgot Password
-        if (!window.resetRecaptchaVerifier) {
-            window.resetRecaptchaVerifier = new firebase.auth.RecaptchaVerifier('reset-recaptcha-container', {
-                'size': 'invisible',
-                'callback': (response) => {
-                    console.log('✅ reCAPTCHA solved for reset');
-                }
-            });
+        // 1. تنظيف الـ reCAPTCHA القديم
+        if (window.resetRecaptchaVerifier) {
+            try {
+                window.resetRecaptchaVerifier.clear();
+            } catch (err) { console.log(err); }
+            window.resetRecaptchaVerifier = null;
         }
+        
+        // 2. إنشاء reCAPTCHA جديد
+        window.resetRecaptchaVerifier = new firebase.auth.RecaptchaVerifier('reset-recaptcha-container', {
+            'size': 'invisible',
+            'callback': (response) => { console.log('✅ reCAPTCHA solved for reset'); }
+        });
 
-        // إرسال SMS عبر Firebase
+        // 3. إرسال SMS
         const confirmationResult = await firebase.auth().signInWithPhoneNumber(
             formattedPhone, 
             window.resetRecaptchaVerifier
@@ -1104,35 +1103,32 @@ async function sendResetCode(form) {
 
         console.log('✅ Reset SMS sent via Firebase to:', formattedPhone);
 
-        // حفظ البيانات المؤقتة
+        // 4. حفظ البيانات المؤقتة
         window.resetConfirmationResult = confirmationResult;
         appState.forgotPasswordPhone = formattedPhone;
         appState.recoveredUsername = user.username;
         
         appState.currentScreen = 'reset';
         render();
-
         showAlert(`تم إرسال رمز التحقق إلى ${formattedPhone}`, 'success');
 
     } catch (error) {
         console.error('❌ Firebase Reset SMS error:', error);
         
-        // رسائل خطأ واضحة
         let errorMsg = 'فشل إرسال رمز التحقق';
-        
-        if (error.code === 'auth/invalid-phone-number') {
-            errorMsg = 'رقم الجوال غير صحيح';
-        } else if (error.code === 'auth/too-many-requests') {
-            errorMsg = 'تم تجاوز حد المحاولات. حاول بعد 5 دقائق';
-        } else if (error.code === 'auth/quota-exceeded') {
-            errorMsg = 'تم تجاوز الحد المجاني. تواصل مع المشرف';
-        }
+        if (error.code === 'auth/invalid-phone-number') errorMsg = 'رقم الجوال غير صحيح';
+        else if (error.code === 'auth/too-many-requests') errorMsg = 'تم تجاوز حد المحاولات. حاول بعد 5 دقائق';
+        else if (error.code === 'auth/quota-exceeded') errorMsg = 'تم تجاوز الحد المجاني. تواصل مع المشرف';
         
         showAlert(errorMsg + ' ❌', 'error');
         
-        // إعادة تعيين reCAPTCHA
+        // إعادة تهيئة عند الفشل
         if (window.resetRecaptchaVerifier) {
             window.resetRecaptchaVerifier.clear();
+            window.resetRecaptchaVerifier = null;
+        }
+    }
+}
             window.resetRecaptchaVerifier = null;
         }
     }
