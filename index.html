@@ -4122,14 +4122,25 @@ let confirmModal = { show: false, message: ‘’, onConfirm: null };
             appState.currentUser.username = newUsername;
         }
         
-        addActivityLog('تعديل اسم مستخدم', `تم تغيير اسم المستخدم من ${oldUsername} إلى ${newUsername}`);
-        
-        // انتظار حفظ البيانات
-        await saveData();
-        
-        closeEditUsernameModal();
-        showAlert(`✅ تم تغيير اسم المستخدم من ${oldUsername} إلى ${newUsername}`, 'success');
-        render();
+        try {
+            // حذف Documents القديمة من Firebase
+            await db.collection('users').doc(oldUsername).delete();
+            await db.collection('portfolios').doc(oldUsername).delete();
+            
+            console.log(`✅ تم حذف ${oldUsername} من Firebase`);
+            
+            // حفظ البيانات الجديدة
+            await saveData();
+            
+            addActivityLog('تعديل اسم مستخدم', `تم تغيير اسم المستخدم من ${oldUsername} إلى ${newUsername}`);
+            closeEditUsernameModal();
+            showAlert(`✅ تم تغيير اسم المستخدم من ${oldUsername} إلى ${newUsername}`, 'success');
+            render();
+            
+        } catch (error) {
+            console.error('❌ خطأ في التعديل:', error);
+            showAlert('فشل تعديل اسم المستخدم ❌', 'error');
+        }
     }
 
     function renderEditUsernameModal() {
