@@ -2075,49 +2075,6 @@ async function handleRegister(e) {
         }
 
         // Send message
-        async function sendMessage(text) {
-            if (!text.trim()) return;
-            
-            // Students need chat to be enabled
-            if (appState.currentUser.role !== 'admin' && !appData.settings.chatEnabled) {
-                showAlert('الدردشة مغلقة!', 'error');
-                return;
-            }
-
-            const message = {
-                id: Date.now(),
-                from: appState.currentUser.username,
-                text,
-                timestamp: new Date().toISOString(),
-                isAdmin: appState.currentUser.role === 'admin'
-            };
-            
-            appData.messages.push(message);
-            
-            // حفظ في Firebase فوراً
-            await db.collection('appData').doc('main').update({
-                messages: appData.messages
-            });
-            
-            console.log('💬 Message sent to Firebase by:', appState.currentUser.username);
-        }
-
-        function showConfirm(message, onConfirm) {
-            confirmModal = { show: true, message, onConfirm };
-            render();
-        }
-
-        function closeConfirm() {
-            confirmModal.show = false;
-            render();
-        }
-
-        function executeConfirm() {
-            if (confirmModal.onConfirm) {
-                confirmModal.onConfirm();
-            }
-            closeConfirm();
-        }
 
         async function deleteMessage(id) {
             showConfirm('هل تريد حذف هذه الرسالة؟', async () => {
