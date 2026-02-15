@@ -2092,6 +2092,37 @@ async function handleRegister(e) {
             render();
         }
 
+        
+        async function sendMessage(text) {
+            if (!text || !text.trim()) return;
+            
+            const message = {
+                id: Date.now(),
+                text: text.trim(),
+                sender: appState.currentUser.username,
+                role: appState.currentUser.role,
+                timestamp: new Date().toISOString()
+            };
+            
+            appData.messages.push(message);
+            await saveData();
+            
+            const chatMessages = document.querySelector('.chat-messages');
+            if (chatMessages) {
+                const msgEl = document.createElement('div');
+                msgEl.className = 'chat-message ' + (message.role === 'admin' ? 'admin' : 'student');
+                msgEl.innerHTML = `
+                    <div class="message-header">
+                        <strong>${message.sender || 'مجهول'}</strong>
+                        <span>${new Date(message.timestamp).toLocaleTimeString('ar-SA', {hour: '2-digit', minute: '2-digit'})}</span>
+                    </div>
+                    <div class="message-text">${message.text}</div>
+                `;
+                chatMessages.appendChild(msgEl);
+                chatMessages.scrollTop = chatMessages.scrollHeight;
+            }
+        }
+
         async function deleteMessage(id) {
             if (!window.confirm('هل تريد حذف هذه الرسالة؟')) return;
             
@@ -4165,17 +4196,10 @@ let confirmModal = { show: false, message: '', onConfirm: null };
         // Delete student confirmation
         function confirmDeleteStudent(username) {
             if (window.confirm(
-                `هل أنت متأكد من حذف الطالب "${username}"؟
-
-⚠️ سيتم حذف:
-• الحساب
-• المحفظة
-• جميع المعاملات
-• سجل النشاط
-
-هذا الإجراء لا يمكن التراجع عنه!`,
-                () => deleteStudent(username)
-            );
+                `هل أنت متأكد من حذف الطالب "${username}"?\n\n⚠️ سيتم حذف:\n• الحساب\n• المحفظة\n• جميع المعاملات\n• سجل النشاط\n\nهذا الإجراء لا يمكن التراجع عنه!`
+            )) {
+                deleteStudent(username);
+            }
         }
 
         // Delete student function
@@ -4299,39 +4323,9 @@ let confirmModal = { show: false, message: '', onConfirm: null };
     <script>
         // Wrapper functions for onclick handlers
         function deleteStockSync(idx) { deleteStock(idx); }
+        function deleteStockSync(idx) { deleteStock(idx); }
         function toggleTradingSync() { toggleTrading(); }
-        async function sendMessage(text) {
-            if (!text || !text.trim()) return;
-            
-            const message = {
-                id: Date.now(),
-                text: text.trim(),
-                sender: appState.currentUser.username,
-                role: appState.currentUser.role,
-                timestamp: new Date().toISOString()
-            };
-            
-            appData.messages.push(message);
-            await saveData();
-            
-            // تحديث الرسائل بدون refresh
-            const chatMessages = document.querySelector('.chat-messages');
-            if (chatMessages) {
-                const msgEl = document.createElement('div');
-                msgEl.className = 'chat-message ' + (message.role === 'admin' ? 'admin' : 'student');
-                msgEl.innerHTML = `
-                    <div class="message-header">
-                        <strong>${message.sender || 'مجهول'}</strong>
-                        <span>${new Date(message.timestamp).toLocaleTimeString('ar-SA', {hour: '2-digit', minute: '2-digit'})}</span>
-                    </div>
-                    <div class="message-text">${message.text}</div>
-                `;
-                chatMessages.appendChild(msgEl);
-                chatMessages.scrollTop = chatMessages.scrollHeight;
-            }
-        }
-
-        </script>
+    </script>
     <script>
         // Wrapper functions for onclick handlers
         function sendMessageSync(text) { sendMessage(text); }
