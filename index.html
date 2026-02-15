@@ -2037,6 +2037,61 @@ async function handleRegister(e) {
 
         // Send message
 
+        
+        async function setAddedBalance(username) {
+            const newAmount = prompt('أدخل إجمالي الرصيد المضاف لهذا الطالب:');
+            if (!newAmount) return;
+            
+            const amount = parseFloat(newAmount);
+            if (isNaN(amount)) {
+                showAlert('القيمة غير صحيحة', 'error');
+                return;
+            }
+            
+            // حساب الرصيد الحالي المضاف
+            let currentAdded = 0;
+            appData.activityLog.forEach(log => {
+                if (log.action === 'إضافة رصيد' && log.details && log.details.includes(username)) {
+                    const match = log.details.match(/(\d+\.?\d*)/);
+                    if (match) currentAdded += parseFloat(match[0]);
+                }
+            });
+            
+            const diff = amount - currentAdded;
+            
+            if (diff !== 0) {
+                const portfolio = appData.portfolios.find(p => p.username === username);
+                if (portfolio) {
+                    portfolio.balance += diff;
+                    addActivityLog('تعديل الرصيد المضاف', `تم تعديل الرصيد المضاف لـ ${username} إلى ${amount} ر.س (تغيير: ${diff >= 0 ? '+' : ''}${diff})`);
+                    await saveData();
+                    render();
+                    showAlert('تم تعديل الرصيد المضاف بنجاح', 'success');
+                }
+            }
+        }
+
+        
+        async function resetWeeklyData() {
+            if (!confirm('⚠️ هل أنت متأكد؟ سيتم حذف جميع:\n- المعاملات\n- سجل النشاط\n- الإحصائيات\n\nلن يتم حذف: الطلاب، الأسهم، الرسائل')) {
+                return;
+            }
+            
+            // حذف البيانات
+            appData.transactions = [];
+            appData.activityLog = [];
+            
+            // إعادة تعيين المحافظ
+            appData.portfolios.forEach(p => {
+                p.holdings = [];
+                p.balance = 10000; // الرصيد الافتراضي
+            });
+            
+            await saveData();
+            showAlert('✅ تم إعادة تعيين التقرير الأسبوعي', 'success');
+            render();
+        }
+
         async function deleteMessage(id) {
             showConfirm('هل تريد حذف هذه الرسالة؟', async () => {
                 appData.messages = appData.messages.filter(m => m.id !== id);
@@ -2174,7 +2229,7 @@ async function handleRegister(e) {
             
             // حفظ العنصر النشط حالياً (مثل صندوق الكتابة) لمنع انغلاق الكيبورد
             const activeId = document.activeElement ? document.activeElement.id : null;
-            const scrollPos = appState.activeTab === 'chat' ? document.querySelector('.chat-container')?.scrollTop : null;
+            const scrollPos = appState.activeStudentTab === 'chat' ? document.querySelector('.chat-container')?.scrollTop : null;
 
             if (appState.currentScreen === 'login') {
                 app.innerHTML = renderLogin();
@@ -2494,28 +2549,109 @@ function renderVerify() {
 
             return `
                 <div class="tabs">
-                    <button class="tab ${appState.activeTab === 'portfolio' ? 'active' : ''}" 
-                            onclick="appState.activeTab='portfolio'; render();">
-                        📊 المحفظة
+                    <button class="tab ${appState.activeStudentTab === 'market' ? 'active' : ''}" 
+                            onclick="appState.activeStudentTab='market'; render();">
+                        📊 السوق
                     </button>
-                    <button class="tab ${appState.activeTab === 'transactions' ? 'active' : ''}" 
-                            onclick="appState.activeTab='transactions'; render();">
-                        📜 السجل
+                    <button class="tab ${appState.activeStudentTab === 'wallet' ? 'active' : ''}" 
+                            onclick="appState.activeStudentTab='wallet'; render();">
+                        💼 المحفظة
                     </button>
-                    <button class="tab ${appState.activeTab === 'achievements' ? 'active' : ''}" 
-                            onclick="appState.activeTab='achievements'; render();">
-                        🏆 الإنجازات
-                    </button>
-                    <button class="tab ${appState.activeTab === 'chat' ? 'active' : ''}" 
-                            onclick="appState.activeTab='chat'; render();">
+                    <button class="tab ${appState.activeStudentTab === 'chat' ? 'active' : ''}" 
+                            onclick="appState.activeStudentTab='chat'; render();">
                         💬 الدردشة
                     </button>
                 </div>
 
-                ${appState.activeTab === 'portfolio' ? renderPortfolioTab(portfolio, portfolioValue, totalValue) : ''}
-                ${appState.activeTab === 'transactions' ? renderTransactionsTab(userTxs) : ''}
-                ${appState.activeTab === 'achievements' ? renderAchievementsTab() : ''}
-                ${appState.activeTab === 'chat' ? renderChatTab() : ''}
+                ${appState.activeStudentTab === 'market' ? renderMarketTab() : ''}
+                ${appState.activeStudentTab === 'wallet' ? renderWalletTab(portfolio, portfolioValue, totalValue, userTxs) : ''}
+                ${appState.activeStudentTab === 'chat' ? renderChatTab() : ''}
+            `;
+        }
+        
+        function renderMarketTab() {
+            return renderPortfolioTab(
+                appData.portfolios.find(p => p.username === appState.currentUser.username),
+                getPortfolioValue(appState.currentUser.username),
+                appState.currentUser.balance + getPortfolioValue(appState.currentUser.username)
+            );
+        }
+        
+        function renderWalletTab(portfolio, portfolioValue, totalValue, userTxs) {
+            return `
+                <div class="tab-content active">
+                    <div class="stats-grid animate-slide-up">
+                        <div class="stat-card">
+                            <div class="stat-label">الرصيد المتاح</div>
+                            <div class="stat-value" data-balance>${appState.currentUser.balance.toFixed(2)} ر.س</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-label">قيمة الأسهم</div>
+                            <div class="stat-value">${portfolioValue.toFixed(2)} ر.س</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-label">إجمالي المحفظة</div>
+                            <div class="stat-value" style="color: var(--secondary);">${totalValue.toFixed(2)} ر.س</div>
+                        </div>
+                    </div>
+                    
+                    <div class="card">
+                        <h3>أسهمي 📈</h3>
+                        ${portfolio && portfolio.holdings.length > 0 ? `
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>السهم</th>
+                                        <th>الكمية</th>
+                                        <th>السعر الحالي</th>
+                                        <th>القيمة</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${portfolio.holdings.map(h => {
+                                        const stock = appData.stocks.find(s => s.symbol === h.symbol);
+                                        return `
+                                            <tr>
+                                                <td><strong>${h.symbol}</strong></td>
+                                                <td>${h.quantity}</td>
+                                                <td>${stock ? stock.price.toFixed(2) : '-'} ر.س</td>
+                                                <td>${stock ? (stock.price * h.quantity).toFixed(2) : '-'} ر.س</td>
+                                            </tr>
+                                        `;
+                                    }).join('')}
+                                </tbody>
+                            </table>
+                        ` : '<p style="text-align:center;padding:2rem;color:var(--text-secondary);">لا توجد أسهم في محفظتك</p>'}
+                    </div>
+                    
+                    <div class="card">
+                        <h3>آخر العمليات 📜</h3>
+                        ${userTxs.length > 0 ? `
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>النوع</th>
+                                        <th>السهم</th>
+                                        <th>الكمية</th>
+                                        <th>السعر</th>
+                                        <th>التاريخ</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${userTxs.slice(-10).reverse().map(tx => `
+                                        <tr>
+                                            <td><span class="badge ${tx.type === 'buy' ? 'badge-success' : 'badge-danger'}">${tx.type === 'buy' ? 'شراء' : 'بيع'}</span></td>
+                                            <td>${tx.symbol}</td>
+                                            <td>${tx.quantity}</td>
+                                            <td>${tx.price.toFixed(2)} ر.س</td>
+                                            <td>${new Date(tx.timestamp).toLocaleDateString('ar-SA')}</td>
+                                        </tr>
+                                    `).join('')}
+                                </tbody>
+                            </table>
+                        ` : '<p style="text-align:center;padding:2rem;color:var(--text-secondary);">لا توجد عمليات</p>'}
+                    </div>
+                </div>
             `;
         }
 
@@ -3023,6 +3159,16 @@ function renderVerify() {
                     <div class="card">
                         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 1rem;">
                             <h3>إدارة الأسهم 📈</h3>
+                        <div style="background: var(--bg-secondary); padding: 1rem; border-radius: 8px; margin-bottom: 1rem; display: flex; justify-content: space-between; align-items: center;">
+                            <div>
+                                <strong>حالة التداول</strong>
+                                <p style="color: var(--text-secondary); font-size: 0.9rem; margin: 0.3rem 0 0 0;">السماح للطلاب بالشراء والبيع</p>
+                            </div>
+                            <button class="btn ${appData.settings.tradingEnabled ? 'btn-success' : 'btn-danger'}" 
+                                    onclick="toggleTradingSync()">
+                                ${appData.settings.tradingEnabled ? 'مفتوح ✓' : 'مغلق ✗'}
+                            </button>
+                        </div>
                             <div style="display: flex; gap: 0.5rem;">
                                 <button class="btn btn-success btn-small" onclick="openAddStockModal()">
                                     إضافة سهم جديد ➕
@@ -4221,7 +4367,7 @@ let confirmModal = { show: false, message: '', onConfirm: null };
                 msgEl.className = 'chat-message ' + (message.role === 'admin' ? 'admin' : 'student');
                 msgEl.innerHTML = `
                     <div class="message-header">
-                        <strong>${message.sender}</strong>
+                        <strong>${message.sender || 'مجهول'}</strong>
                         <span>${new Date(message.timestamp).toLocaleTimeString('ar-SA', {hour: '2-digit', minute: '2-digit'})}</span>
                     </div>
                     <div class="message-text">${message.text}</div>
@@ -4236,3 +4382,9 @@ let confirmModal = { show: false, message: '', onConfirm: null };
     </script>
 </body>
 </html>
+    <script>
+        // Additional wrapper functions
+        function deleteMessageSync(id) { deleteMessage(id); }
+        function setAddedBalanceSync(username) { setAddedBalance(username); }
+        function resetWeeklyDataSync() { resetWeeklyData(); }
+    </script>
