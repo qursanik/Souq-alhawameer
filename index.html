@@ -1400,61 +1400,144 @@ function changePassword(form) {
         }
         
         // 🟢 NEW: REAL-TIME CLOUD SYNC ENGINE
-        function setupRealtimeListeners() {
+                function setupRealtimeListeners() {
             console.log('📡 Activating Live Cloud Sync...');
             
             // 1. Listen to Main Data (Stocks, Chat, Settings, Logs)
             db.collection('appData').doc('main').onSnapshot((doc) => {
                 if (doc.exists) {
                     const data = doc.data();
-                    appData.stocks = data.stocks || [];
-                    appData.messages = data.messages || [];
-                    appData.settings = data.settings || appData.settings;
-                    appData.activityLog = data.activityLog || [];
-                    appData.notifications = data.notifications || [];
                     
-                    // تحديث الواجهة بدون "قفزة" إذا كان المستخدم يكتب
-                    if (document.activeElement.tagName !== 'INPUT' && document.activeElement.tagName !== 'TEXTAREA') {
-                        render();
-                    } else {
-                        // تحديث يدوي لبعض العناصر دون إعادة رسم كاملة
-                        // مثل تحديث أسعار الأسهم في الخلفية
+                    // Update stocks silently
+                    if (data.stocks && JSON.stringify(data.stocks) !== JSON.stringify(appData.stocks)) {
+                        appData.stocks = data.stocks;
+                        console.log('📊 Stocks updated from cloud');
+                        // Update stock displays without full render
+                        updateStockDisplays();
+                    }
+                    
+                    // Update messages silently
+                    if (data.messages && data.messages.length > appData.messages.length) {
+                        const newMessages = data.messages.slice(appData.messages.length);
+                        appData.messages = data.messages;
+                        console.log('💬 New messages from cloud');
+                        // Append new messages without refresh
+                        appendNewMessages(newMessages);
+                    }
+                    
+                    // Update settings
+                    if (data.settings) {
+                        appData.settings = data.settings;
+                    }
+                    
+                    // Update activity log
+                    if (data.activityLog) {
+                        appData.activityLog = data.activityLog;
                     }
                 }
             });
-
-            // 2. Listen to All Users (For Leaderboard & Admin View)
+            
+            // 2. Listen to Users
             db.collection('users').onSnapshot((snapshot) => {
-                appData.users = [];
-                snapshot.forEach(doc => appData.users.push(doc.data()));
-                
-                // If I am logged in, update my own local user object too
-                if(appState.currentUser) {
-                    const me = appData.users.find(u => u.username === appState.currentUser.username);
-                    if(me) {
-                        // Check if I got suspended live
-                        if(me.suspended && !appState.currentUser.suspended) {
-                            alert("⛔ تم تعليق حسابك من قبل الإدارة");
-                            location.reload();
-                        }
+                const newUsers = [];
+                snapshot.forEach(doc => newUsers.push(doc.data()));
+                if (JSON.stringify(newUsers) !== JSON.stringify(appData.users)) {
+                    appData.users = newUsers;
+                    console.log('👥 Users updated from cloud');
+                }
+            });
+            
+            // 3. Listen to Portfolios
+            db.collection('portfolios').onSnapshot((snapshot) => {
+                const newPortfolios = [];
+                snapshot.forEach(doc => newPortfolios.push(doc.data()));
+                if (JSON.stringify(newPortfolios) !== JSON.stringify(appData.portfolios)) {
+                    appData.portfolios = newPortfolios;
+                    console.log('💼 Portfolios updated from cloud');
+                    // Update portfolio displays if on market screen
+                    updatePortfolioDisplays();
+                }
+            });
+            
+            // 4. Listen to Transactions
+            db.collection('transactions').onSnapshot((snapshot) => {
+                const newTransactions = [];
+                snapshot.forEach(doc => newTransactions.push(doc.data()));
+                if (JSON.stringify(newTransactions) !== JSON.stringify(appData.transactions)) {
+                    appData.transactions = newTransactions;
+                    console.log('💰 Transactions updated from cloud');
+                }
+            });
+            
+            console.log('☁️ Live sync active - updates without refresh');
+        }
+        
+        // Helper functions for live updates
+        function appendNewMessages(newMessages) {
+            const chatMessages = document.querySelector('.chat-messages');
+            if (!chatMessages) return;
+            
+            newMessages.forEach(msg => {
+                const msgEl = document.createElement('div');
+                msgEl.className = 'chat-message ' + (msg.role === 'admin' ? 'admin' : 'student');
+                msgEl.innerHTML = `
+                    <div class="message-header">
+                        <strong>${msg.sender}</strong>
+                        <span>${new Date(msg.timestamp).toLocaleTimeString('ar-SA', {hour: '2-digit', minute: '2-digit'})}</span>
+                    </div>
+                    <div class="message-text">${msg.text}</div>
+                `;
+                chatMessages.appendChild(msgEl);
+            });
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+        
+        function updateStockDisplays() {
+            // Update stock prices in market view if visible
+            const stockElements = document.querySelectorAll('[data-stock-symbol]');
+            stockElements.forEach(el => {
+                const symbol = el.getAttribute('data-stock-symbol');
+                const stock = appData.stocks.find(s => s.symbol === symbol);
+                if (stock) {
+                    const priceEl = el.querySelector('.stock-price');
+                    const changeEl = el.querySelector('.stock-change');
+                    if (priceEl) priceEl.textContent = stock.price.toFixed(2);
+                    if (changeEl) {
+                        changeEl.textContent = stock.change >= 0 ? `+${stock.change.toFixed(2)}%` : `${stock.change.toFixed(2)}%`;
+                        changeEl.className = 'stock-change ' + (stock.change >= 0 ? 'positive' : 'negative');
+                    }
+                }
+            });
+        }
+        
+        function updatePortfolioDisplays() {
+            // Update portfolio balance if on student dashboard
+            const balanceEl = document.querySelector('[data-balance]');
+            if (balanceEl && appState.currentUser) {
+                const portfolio = appData.portfolios.find(p => p.username === appState.currentUser.username);
+                if (portfolio) {
+                    balanceEl.textContent = portfolio.balance.toLocaleString('ar-SA');
+                }
+            }
+        }
                         appState.currentUser = me;
                     }
                 }
-                render();
+                // Real-time update without render
             });
 
             // 3. Listen to Portfolios (To see other people's trades live)
             db.collection('portfolios').onSnapshot((snapshot) => {
                 appData.portfolios = [];
                 snapshot.forEach(doc => appData.portfolios.push(doc.data()));
-                render();
+                // Real-time update without render
             });
             
             // 4. Listen to Transactions
             db.collection('transactions').onSnapshot((snapshot) => {
                 appData.transactions = [];
                 snapshot.forEach(doc => appData.transactions.push(doc.data()));
-                render();
+                // Real-time update without render
             });
 
             console.log('✅ Connected to Live Global Market');
@@ -1619,49 +1702,8 @@ function changePassword(form) {
         }
 
         // Force save stocks to Firebase (overwrite)
-        async function forceSaveStocks() {
-            try {
-                showAlert('جاري فرض حفظ الأسهم...', 'info');
-                console.log('💪 Force saving stocks to Firebase...');
-                console.log('📊 Current stocks:', appData.stocks);
-                
-                await db.collection('appData').doc('main').update({
-                    stocks: appData.stocks
-                });
-                
-                console.log('✅ Stocks forcefully saved!');
-                showAlert('✅ تم فرض حفظ الأسهم في Firebase', 'success');
-                addActivityLog('فرض حفظ الأسهم', `تم فرض حفظ ${appData.stocks.length} سهم في Firebase`);
-            } catch (error) {
-                console.error('❌ Error forcing save:', error);
-                showAlert('فشل فرض الحفظ ❌', 'error');
-            }
-        }
 
         // Force save ALL data to Firebase (overwrite everything)
-        async function forceFullSave() {
-            try {
-                showAlert('جاري فرض حفظ جميع البيانات...', 'info');
-                console.log('💪 Force saving ALL data to Firebase...');
-                console.log('📊 Current data:', {
-                    stocks: appData.stocks.length,
-                    messages: appData.messages.length,
-                    users: appData.users.length,
-                    portfolios: appData.portfolios.length,
-                    transactions: appData.transactions.length
-                });
-                
-                // Force save ALL data
-                await saveData();
-                
-                console.log('✅ ALL data forcefully saved!');
-                showAlert('✅ تم فرض حفظ جميع البيانات في Firebase', 'success');
-                addActivityLog('فرض حفظ شامل', `تم فرض حفظ جميع البيانات إلى Firebase`);
-            } catch (error) {
-                console.error('❌ Error forcing full save:', error);
-                showAlert('فشل فرض الحفظ الشامل ❌', 'error');
-            }
-        }
 
         // Reload all data from Firebase
         async function reloadData() {
@@ -1670,7 +1712,7 @@ function changePassword(form) {
                 console.log('🔄 Reloading all data from Firebase...');
                 
                 await loadData();
-                render();
+                // Real-time update without render
                 
                 console.log('✅ Data reloaded successfully');
                 showAlert('✅ تم إعادة تحميل البيانات', 'success');
@@ -2115,7 +2157,7 @@ async function handleRegister(e) {
             addActivityLog('تسجيل خروج', `${appState.currentUser.username} سجل خروج`);
             appState.currentUser = null;
             appState.currentScreen = 'login';
-            render();
+            // Real-time update without render
         }
 
         // Toggle theme
@@ -2802,7 +2844,7 @@ function renderVerify() {
                         </div>
 
                         ${isAdmin || !chatDisabled ? `
-                            <form class="chat-input-group" onsubmit="event.preventDefault(); (async () => { await sendMessage(this.chatInput.value); this.chatInput.value=''; })();">
+                            <form class="chat-input-group" onsubmit="event.preventDefault(); sendMessage(this.chatInput.value); this.chatInput.value='';">
                                 <input type="text" name="chatInput" placeholder="${isAdmin ? '💬 رسالة من المشرف...' : 'اكتب رسالة...'}" required>
                                 <button type="submit" class="btn btn-primary">إرسال</button>
                             </form>
@@ -3494,7 +3536,7 @@ let confirmModal = { show: false, message: '', onConfirm: null };
                     addActivityLog('إعادة تعيين التقرير', 'تم إعادة تعيين التقرير الأسبوعي');
                     showAlert('✅ تم إعادة تعيين التقرير الأسبوعي', 'success');
                     saveData();
-                    render();
+                    // Real-time update without render
                 }
             );
         }
@@ -4145,7 +4187,7 @@ let confirmModal = { show: false, message: '', onConfirm: null };
             
             saveData();
             showAlert(`✅ تم حذف الطالب ${username} بنجاح`, 'success');
-            render();
+            // Real-time update without render
         }
 
         function renderConfirmModal() {
@@ -4246,10 +4288,40 @@ let confirmModal = { show: false, message: '', onConfirm: null };
         // Wrapper functions for onclick handlers
         function deleteStockSync(idx) { deleteStock(idx); }
         function toggleTradingSync() { toggleTrading(); }
+
+        async function sendMessage(text) {
+            if (!text || !text.trim()) return;
+            
+            const message = {
+                id: Date.now(),
+                text: text.trim(),
+                sender: appState.currentUser.username,
+                role: appState.currentUser.role,
+                timestamp: new Date().toISOString()
+            };
+            
+            appData.messages.push(message);
+            await saveData();
+            
+            // Update UI without full render
+            const chatMessages = document.querySelector('.chat-messages');
+            if (chatMessages) {
+                const msgEl = document.createElement('div');
+                msgEl.className = 'chat-message ' + (message.role === 'admin' ? 'admin' : 'student');
+                msgEl.innerHTML = `
+                    <div class="message-header">
+                        <strong>${message.sender}</strong>
+                        <span>${new Date(message.timestamp).toLocaleTimeString('ar-SA', {hour: '2-digit', minute: '2-digit'})}</span>
+                    </div>
+                    <div class="message-text">${message.text}</div>
+                `;
+                chatMessages.appendChild(msgEl);
+                chatMessages.scrollTop = chatMessages.scrollHeight;
+            }
+        }
+
         function sendMessageSync(text) { sendMessage(text); }
         function deleteMessageSync(id) { deleteMessage(id); }
-        function forceSaveStocksSync() { forceSaveStocks(); }
-        function forceFullSaveSync() { forceFullSave(); }
     </script>
 </body>
 </html>
