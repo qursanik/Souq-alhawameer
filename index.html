@@ -1490,24 +1490,32 @@ function changePassword(form) {
                 }
                 
                 // Load users
-                const usersSnapshot = await db.collection('users').get();
+               const usersSnapshot = await db.collection('users').get();
+                appData.users = []; // تصفير القائمة المحلية للبدء من جديد
+                
                 if (!usersSnapshot.empty) {
-                    appData.users = [];
                     usersSnapshot.forEach(doc => {
                         appData.users.push(doc.data());
                     });
-                } else {
-                    // Initialize default admin
-                    appData.users = [{
+                }
+
+                // التأكد من وجود المشرف (Admin) دائماً في السحابة
+                if (!appData.users.find(u => u.role === 'admin')) {
+                    const defaultAdmin = {
                         username: 'admin',
-                        passwordHash: 'c74c65774138a965d660cf541e66492c34d29c60dae0a793a96145a8c8b091c9',
+                        // كلمة المرور الافتراضية هنا هي: admin
+                        passwordHash: '8c6976e5b5410415bde908bd4dee15dfb167a9c873fc4bb8a81f6f2ab448a918',
                         phone: '0500000000',
                         role: 'admin',
                         balance: 0,
-                        color: '#d4af37',
                         achievements: [],
-                        suspended: false
-                    }];
+                        suspended: false,
+                        color: '#d4af37'
+                    };
+                    appData.users.push(defaultAdmin);
+                    // حفظ حساب المشرف في Firebase فوراً
+                    await db.collection('users').doc('admin').set(defaultAdmin);
+                    console.log('👑 تم إنشاء حساب المشرف في السحابة بنجاح');
                 }
                 
                 // Load portfolios
