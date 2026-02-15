@@ -1389,68 +1389,68 @@ function changePassword(form) {
         
         // Logout function
         function logout() {
-            localStorage.removeItem('currentUser');
             currentUser = null;
             appState.currentScreen = 'login';
             render();
             showAlert('تم تسجيل الخروج بنجاح', 'success');
         }
         
-// Setup Real-time Listeners
+        // 🟢 NEW: REAL-TIME CLOUD SYNC ENGINE
         function setupRealtimeListeners() {
-            console.log('🔄 Setting up real-time listeners...');
+            console.log('📡 Activating Live Cloud Sync...');
             
-            // Listen to settings changes ONLY
-            db.collection('appData').doc('main')
-                .onSnapshot((doc) => {
-                    if (doc.exists) {
-                        const data = doc.data();
-                        
-                        // Only update settings if changed
-                        if (data.settings && JSON.stringify(data.settings) !== JSON.stringify(appData.settings)) {
-                            console.log('⚙️ Settings updated from Firebase');
-                            appData.settings = data.settings;
-                            render();
-                        }
-                    }
-                }, (error) => {
-                    console.error('❌ Real-time listener error:', error);
-                });
-            
-            console.log('✅ Real-time listeners active (settings only)');
-        }
-        
-async function init() {
-            console.log('Starting app initialization...');
-            
-            // استعادة تسجيل الدخول
-            const savedUser = localStorage.getItem('currentUser');
-            if (savedUser) {
-                try {
-                    const userData = JSON.parse(savedUser);
-                    const user = appData.users.find(u => u.username === userData.username);
-                    if (user) {
-                        appState.currentUser = user;
-                        appState.currentScreen = user.role === 'admin' ? 'dashboard' : 'dashboard';
-                        console.log('✅ تم استعادة تسجيل الدخول:', user.username);
-                    }
-                } catch (e) {
-                    console.error('فشل استعادة الجلسة:', e);
+            // 1. Listen to Main Data (Stocks, Chat, Settings, Logs)
+            db.collection('appData').doc('main').onSnapshot((doc) => {
+                if (doc.exists) {
+                    const data = doc.data();
+                    // Merge cloud data into local appData
+                    if (data.stocks) appData.stocks = data.stocks;
+                    if (data.messages) appData.messages = data.messages;
+                    if (data.settings) appData.settings = data.settings;
+                    if (data.activityLog) appData.activityLog = data.activityLog;
+                    if (data.notifications) appData.notifications = data.notifications;
+                    if (data.weeklyStats) appData.weeklyStats = data.weeklyStats;
+                    
+                    // Refresh UI immediately when data changes
+                    render(); 
                 }
-            }
+            });
+
+            // 2. Listen to All Users (For Leaderboard & Admin View)
+            db.collection('users').onSnapshot((snapshot) => {
+                appData.users = [];
+                snapshot.forEach(doc => appData.users.push(doc.data()));
+                
+                // If I am logged in, update my own local user object too
+                if(appState.currentUser) {
+                    const me = appData.users.find(u => u.username === appState.currentUser.username);
+                    if(me) {
+                        // Check if I got suspended live
+                        if(me.suspended && !appState.currentUser.suspended) {
+                            alert("⛔ تم تعليق حسابك من قبل الإدارة");
+                            location.reload();
+                        }
+                        appState.currentUser = me;
+                    }
+                }
+                render();
+            });
+
+            // 3. Listen to Portfolios (To see other people's trades live)
+            db.collection('portfolios').onSnapshot((snapshot) => {
+                appData.portfolios = [];
+                snapshot.forEach(doc => appData.portfolios.push(doc.data()));
+                render();
+            });
             
-            await loadData();
-            
-            // Force initial save to Firebase to sync data
-            console.log('🔄 Syncing data to Firebase...');
-            await saveData();
-            
-            render();
-            
-            // تفعيل Real-time updates
-            setupRealtimeListeners();
-            
-            console.log('App initialized successfully');
+            // 4. Listen to Transactions
+            db.collection('transactions').onSnapshot((snapshot) => {
+                appData.transactions = [];
+                snapshot.forEach(doc => appData.transactions.push(doc.data()));
+                render();
+            });
+
+            console.log('✅ Connected to Live Global Market');
         }
 
         // Load data from Firebase
@@ -1532,17 +1532,6 @@ async function init() {
                 
             } catch (error) {
                 console.error('❌ Error loading from Firebase:', error);
-                
-                // Fallback to localStorage
-                const stored = localStorage.getItem('souqAlhawameerEnhanced');
-                if (stored) {
-                    try {
-                        const parsed = JSON.parse(stored);
-                        appData = { ...appData, ...parsed };
-                    } catch (e) {
-                        console.error('Failed to load from localStorage:', e);
-                    }
-                }
                 
                 // Initialize with demo data if still empty
                 if (appData.users.length === 0) {
@@ -1806,10 +1795,6 @@ async function init() {
             }
 
             appState.currentUser = user;
-            localStorage.setItem('currentUser', JSON.stringify({
-                username: user.username,
-                role: user.role
-            }));
             appState.currentScreen = 'dashboard';
             addActivityLog('تسجيل دخول', `${username} سجل دخول للنظام`);
             render();
@@ -4232,7 +4217,37 @@ let confirmModal = { show: false, message: '', onConfirm: null };
                 `;
             }
         });
-
+// 🟢 NEW: CLOUD INIT FUNCTION
+        // Paste this right before the "// Initialize app" section at the bottom
+       async function init() {
+            console.log('🚀 Starting Cloud App...');
+            
+            // 1. تحميل البيانات من Firebase (الأسهم، المستخدمين، المعاملات)
+            await loadData();
+            
+            // 2. التحقق من تسجيل الدخول
+            const savedUser = localStorage.getItem('currentUser');
+            if (savedUser) {
+                const parsedUser = JSON.parse(savedUser);
+                // جلب بيانات المستخدم المحدثة من السحابة (الرصيد الحالي)
+                const cloudUser = appData.users.find(u => u.username === parsedUser.username);
+                
+                if (cloudUser && !cloudUser.suspended) {
+                    appState.currentUser = cloudUser;
+                    appState.currentScreen = 'dashboard';
+                } else {
+                    localStorage.removeItem('currentUser');
+                }
+            }
+            
+            // 3. تشغيل نظام التحديث اللحظي (Live Sync)
+            setupRealtimeListeners();
+            
+            // 4. عرض الصفحة
+            render();
+            
+            console.log('☁️ App is now Live & Interactive');
+        }
         // Initialize app
         (async () => {
             console.log('Starting app initialization...');
