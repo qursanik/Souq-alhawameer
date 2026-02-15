@@ -2093,16 +2093,12 @@ async function handleRegister(e) {
         }
 
         async function deleteMessage(id) {
-            showConfirm('هل تريد حذف هذه الرسالة؟', async () => {
-                appData.messages = appData.messages.filter(m => m.id !== id);
-                
-                // حفظ في Firebase
-                await db.collection('appData').doc('main').update({
-                    messages: appData.messages
-                });
-                
-                console.log('🗑️ Message deleted from Firebase');
-            });
+            if (!window.confirm('هل تريد حذف هذه الرسالة؟')) return;
+            
+            appData.messages = appData.messages.filter(m => m.id !== id);
+            await saveData();
+            render();
+            showAlert('تم حذف الرسالة', 'success');
         }
 
         async function toggleChat() {
@@ -2534,11 +2530,11 @@ function renderVerify() {
         }
 
         function clearAllNotifications() {
-            showConfirm('هل تريد مسح جميع الإشعارات؟', () => {
+            if (window.confirm('هل تريد مسح جميع الإشعارات؟')) {
                 appData.notifications = [];
                 saveData();
                 render();
-            });
+            };
         }
 
         function renderStudentDashboard() {
@@ -3326,9 +3322,7 @@ let confirmModal = { show: false, message: '', onConfirm: null };
         async function deleteStock(idx) {
             const stock = appData.stocks[idx];
             
-            showConfirm(
-                `هل تريد حذف سهم ${stock.name} (${stock.symbol})؟<br><br><span style="color: var(--danger)">⚠️ سيتم حذفه من جميع المحافظ!</span>`,
-                async () => {
+            if (window.confirm(`هل تريد حذف سهم ${stock.name} (${stock.symbol})؟<br><br><span style="color: var(--danger)">⚠️ سيتم حذفه من جميع المحافظ!</span>`)) {
                     appData.portfolios.forEach(p => {
                         p.holdings = p.holdings.filter(h => h.symbol !== stock.symbol);
                     });
@@ -4170,7 +4164,7 @@ let confirmModal = { show: false, message: '', onConfirm: null };
         
         // Delete student confirmation
         function confirmDeleteStudent(username) {
-            showConfirm(
+            if (window.confirm(
                 `هل أنت متأكد من حذف الطالب "${username}"؟
 
 ⚠️ سيتم حذف:
