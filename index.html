@@ -2065,7 +2065,7 @@ async function handleRegister(e) {
                     portfolio.balance += diff;
                     addActivityLog('تعديل الرصيد المضاف', `تم تعديل الرصيد المضاف لـ ${username} إلى ${amount} ر.س (تغيير: ${diff >= 0 ? '+' : ''}${diff})`);
                     await saveData();
-                    render();
+            render();
                     showAlert('تم تعديل الرصيد المضاف بنجاح', 'success');
                 }
             }
@@ -2073,7 +2073,7 @@ async function handleRegister(e) {
 
         
         async function resetWeeklyData() {
-            if (!confirm('⚠️ هل أنت متأكد؟ سيتم حذف جميع:\n- المعاملات\n- سجل النشاط\n- الإحصائيات\n\nلن يتم حذف: الطلاب، الأسهم، الرسائل')) {
+            if (!window.confirm('⚠️ هل أنت متأكد؟ سيتم حذف جميع:\n- المعاملات\n- سجل النشاط\n- الإحصائيات\n\nلن يتم حذف: الطلاب، الأسهم، الرسائل')) {
                 return;
             }
             
@@ -2950,10 +2950,7 @@ function renderVerify() {
         function renderAdminDashboard() {
             return `
                 <div class="tabs">
-                    <button class="tab ${appState.activeAdminTab === 'settings' ? 'active' : ''}" 
-                            onclick="appState.activeAdminTab='settings'; render();">
-                        ⚙️ الإعدادات
-                    </button>
+                    
                     <button class="tab ${appState.activeAdminTab === 'students' ? 'active' : ''}" 
                             onclick="appState.activeAdminTab='students'; render();">
                         👥 الطلاب
@@ -2980,7 +2977,7 @@ function renderVerify() {
                     </button>
                 </div>
 
-                ${appState.activeAdminTab === 'settings' ? renderAdminSettingsTab() : ''}
+                
                 ${appState.activeAdminTab === 'students' ? renderAdminStudentsTab() : ''}
                 ${appState.activeAdminTab === 'stocks' ? renderAdminStocksTab() : ''}
                 ${appState.activeAdminTab === 'weekly' ? renderWeeklyReportTab() : ''}
@@ -2990,28 +2987,7 @@ function renderVerify() {
             `;
         }
 
-        function renderAdminSettingsTab() {
-            return `
-                <div class="tab-content active">
-                    <div class="card">
-                        <h3 style="margin-bottom: 1.5rem;">إعدادات التداول ⚙️</h3>
-                        
-                        <div style="background: var(--bg-secondary); padding: 1.5rem; border-radius: 12px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
-                            <div>
-                                <strong>حالة التداول</strong>
-                                <p style="color: var(--text-secondary); font-size: 0.9rem; margin-top: 0.3rem;">
-                                    السماح للطلاب بالشراء والبيع
-                                </p>
-                            </div>
-                            <button class="btn ${appData.settings.tradingEnabled ? 'btn-success' : 'btn-danger'}" 
-                                    onclick="toggleTradingSync()">
-                                ${appData.settings.tradingEnabled ? 'مفتوح ✓' : 'مغلق ✗'}
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            `;
-        }
+        
 
         function renderAdminStudentsTab() {
             const students = appData.users.filter(u => u.role === 'student');
@@ -3362,7 +3338,7 @@ let confirmModal = { show: false, message: '', onConfirm: null };
                     addActivityLog('حذف سهم', `حذف سهم ${stock.name} (${stock.symbol})`);
                     showAlert(`✅ تم حذف ${stock.name}`, 'success');
                     await saveData();
-                    render();
+            render();
                 }
             );
         }
@@ -3471,7 +3447,7 @@ let confirmModal = { show: false, message: '', onConfirm: null };
                                     آخر إعادة تعيين: ${lastReset}
                                 </p>
                             </div>
-                            <button class="btn btn-danger btn-small" onclick="resetWeeklyStats()">
+                            <button class="btn btn-danger btn-small" onclick="resetWeeklyDataSync()">
                                 🔄 إعادة تعيين التقرير
                             </button>
                         </div>
@@ -3582,22 +3558,6 @@ let confirmModal = { show: false, message: '', onConfirm: null };
             `;
         }
 
-        function resetWeeklyStats() {
-            showConfirm(
-                'هل تريد إعادة تعيين التقرير الأسبوعي؟<br><br><span style="color: var(--warning);">⚠️ سيتم حفظ تاريخ الإعادة فقط. جميع المعاملات ستبقى في السجل.</span>',
-                () => {
-                    appData.weeklyStats.lastReset = new Date().toISOString();
-                    
-                    // Clear all transactions for fresh start
-                    appData.transactions = [];
-                    
-                    addActivityLog('إعادة تعيين التقرير', 'تم إعادة تعيين التقرير الأسبوعي');
-                    showAlert('✅ تم إعادة تعيين التقرير الأسبوعي', 'success');
-                    saveData();
-                    render();
-                }
-            );
-        }
 
         function renderTradingModal() {
             const stock = appState.selectedStock;
@@ -4377,14 +4337,15 @@ let confirmModal = { show: false, message: '', onConfirm: null };
             }
         }
 
+        </script>
+    <script>
+        // Wrapper functions for onclick handlers
         function sendMessageSync(text) { sendMessage(text); }
         function deleteMessageSync(id) { deleteMessage(id); }
+        function resetWeeklyDataSync() { resetWeeklyData(); }
+        function setAddedBalanceSync(username) { setAddedBalance(username); }
+        function deleteStockSync(idx) { deleteStock(idx); }
+        function toggleTradingSync() { toggleTrading(); }
     </script>
 </body>
 </html>
-    <script>
-        // Additional wrapper functions
-        function deleteMessageSync(id) { deleteMessage(id); }
-        function setAddedBalanceSync(username) { setAddedBalance(username); }
-        function resetWeeklyDataSync() { resetWeeklyData(); }
-    </script>
