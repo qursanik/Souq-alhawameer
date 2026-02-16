@@ -2827,8 +2827,12 @@ function renderVerify() {
                         <div class="chat-container">
                             ${appData.messages.length === 0 
                                 ? '<p style="text-align: center; color: var(--text-secondary); padding: 2rem;">لا توجد رسائل</p>'
-                                : appData.messages.map(msg => `
-                                    <div class="chat-message ${(msg.sender || msg.from) === appState.currentUser.username ? 'own' : 'other'}" style="position: relative;">
+                                : appData.messages.map(msg => {
+                                    const username = msg.sender || msg.from || 'مجهول';
+                                    const isAdminMsg = username === 'admin' || msg.role === 'admin';
+                                    const isOwn = username === appState.currentUser.username;
+                                    return `
+                                    <div class="chat-message ${isOwn ? 'own' : 'other'}" style="position: relative;">
                                         ${isAdmin ? `
                                             <button onclick="deleteMessageSync(${msg.id})" 
                                                     style="position: absolute; top: 0.5rem; right: 0.5rem; background: #e74c3c; color: white; border: none; border-radius: 6px; padding: 0.35rem 0.65rem; font-size: 0.75rem; cursor: pointer; font-weight: bold;">
@@ -2836,14 +2840,14 @@ function renderVerify() {
                                             </button>
                                         ` : ''}
                                         <div class="chat-sender" style="font-weight: bold; margin-bottom: 0.35rem;">
-                                            ${msg.sender || msg.from || 'مجهول'} ${(msg.sender || msg.from) === 'admin' || (msg.role === 'admin') ? '<span style="background: var(--secondary); color: var(--bg-primary); padding: 0.15rem 0.5rem; border-radius: 12px; font-size: 0.7rem; margin-right: 0.35rem;">👨‍💼 مشرف</span>' : ''}
+                                            ${username} ${isAdminMsg ? '<span style="background: var(--secondary); color: var(--bg-primary); padding: 0.15rem 0.5rem; border-radius: 12px; font-size: 0.7rem; margin-right: 0.35rem;">👨‍💼 مشرف</span>' : ''}
                                         </div>
                                         <div style="word-wrap: break-word;">${msg.text}</div>
                                         <div class="chat-time" style="font-size: 0.75rem; opacity: 0.7; margin-top: 0.35rem;">
                                             ${new Date(msg.timestamp).toLocaleString('ar-SA', {hour: '2-digit', minute: '2-digit'})}
                                         </div>
                                     </div>
-                                `).join('')
+                                `}).join('')
                             }
                         </div>
 
@@ -4076,8 +4080,10 @@ let confirmModal = { show: false, message: '', onConfirm: null };
                 });
                 
                 appData.messages.forEach(msg => {
-                    if (msg.sender === oldUsername) msg.sender = newUsername;
-                    if (msg.from === oldUsername) msg.from = newUsername;
+                    if (msg.sender === oldUsername || msg.from === oldUsername) {
+                        msg.sender = newUsername;
+                        msg.from = newUsername;
+                    }
                 });
                 
                 if (appState.currentUser && appState.currentUser.username === oldUsername) {
