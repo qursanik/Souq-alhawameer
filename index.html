@@ -3730,9 +3730,9 @@ let confirmModal = { show: false, message: '', onConfirm: null };
                                                     <span style="color: var(--text-secondary); font-size: 0.9rem;">عدد البائعين:</span>
                                                     <span style="font-size: 1.3rem; font-weight: 900; color: var(--danger);">${sellerCount}</span>
                                                 </div>
-                                                <div style="display: flex; justify-content: space-between; align-items: center; padding: 0.75rem; background: var(--bg-primary); border-radius: 8px;">
-                                                    <span style="color: var(--text-secondary); font-size: 0.9rem;">الملكية الحالية:</span>
-                                                    <span style="font-size: 1.3rem; font-weight: 900; color: var(--primary);">${stock.currentOwned}</span>
+                                                <div style="display: flex; justify-content: space-between; align-items: center; padding: 0.75rem; background: linear-gradient(135deg, ${netColor}22, ${netColor}11); border-radius: 8px; border: 2px solid ${netColor};">
+                                                    <span style="color: var(--text-secondary); font-size: 0.9rem; font-weight: bold;">النتيجة:</span>
+                                                    <span style="font-size: 1.1rem; font-weight: 900; color: ${netColor};">${netStatus}</span>
                                                 </div>
                                             </div>
                                         </div>
@@ -3740,7 +3740,7 @@ let confirmModal = { show: false, message: '', onConfirm: null };
                                 }).join('')}
                             </div>
                             
-                            ${Object.values(stockStats).every(s => s.totalBought === 0 && s.totalSold === 0) 
+                            ${Object.values(stockStats).every(s => s.buyerStudents.size === 0 && s.sellerStudents.size === 0) 
                                 ? '<p style="text-align: center; color: var(--text-secondary); padding: 2rem; background: var(--bg-secondary); border-radius: 12px; margin-top: 1rem;">لا توجد عمليات تداول بعد</p>'
                                 : ''
                             }
