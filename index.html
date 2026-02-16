@@ -448,6 +448,19 @@
             margin-top: 0.3rem;
         }
 
+        .ownership-badge {
+            position: absolute;
+            top: 0.5rem;
+            left: 0.5rem;
+            background: var(--secondary);
+            color: var(--bg-primary);
+            padding: 0.25rem 0.75rem;
+            border-radius: 12px;
+            font-size: 0.75rem;
+            font-weight: bold;
+            box-shadow: 0 2px 8px rgba(212, 175, 55, 0.3);
+        }
+
         /* Modal */
         .modal {
             display: none;
@@ -2833,10 +2846,6 @@ function renderVerify() {
         async function deleteTransaction(transactionId, event) {
             if (event) event.stopPropagation();
             
-            if (!confirm('هل تريد حذف هذه المعاملة؟')) {
-                return;
-            }
-            
             // Find the transaction
             const txIndex = appData.transactions.findIndex(t => t.id === transactionId && t.username === appState.currentUser.username);
             if (txIndex === -1) {
@@ -2861,10 +2870,6 @@ function renderVerify() {
         // Delete all transactions for current user
         async function clearAllTransactions(event) {
             if (event) event.stopPropagation();
-            
-            if (!confirm('هل تريد حذف جميع معاملاتك؟ هذا الإجراء لا يمكن التراجع عنه.')) {
-                return;
-            }
             
             const username = appState.currentUser.username;
             const userTransactions = appData.transactions.filter(t => t.username === username);
@@ -2952,10 +2957,14 @@ function renderVerify() {
                                 ● ${tradingEnabled ? 'التداول مفتوح' : 'التداول مغلق'}
                             </span>
                         </div>
-                        ${appData.stocks.map((stock, idx) => `
+                        ${appData.stocks.map((stock, idx) => {
+                            const holding = portfolio ? portfolio.holdings.find(h => h.symbol === stock.symbol) : null;
+                            const owned = holding ? holding.quantity : 0;
+                            return `
                             <div class="stock-card" 
                                  onclick="appState.selectedStock=appData.stocks[${idx}]; render();" 
-                                 style="cursor: pointer;">
+                                 style="cursor: pointer; position: relative;">
+                                ${owned > 0 ? `<div class="ownership-badge" aria-label="أسهم مملوكة: ${owned}"><span aria-hidden="true">💼</span> ${owned}</div>` : ''}
                                 <div class="stock-info">
                                     <h3>${stock.name}</h3>
                                     <p>${stock.symbol}</p>
@@ -2967,7 +2976,7 @@ function renderVerify() {
                                     </div>
                                 </div>
                             </div>
-                        `).join('')}
+                        `}).join('')}
                     </div>
                 </div>
             `;
