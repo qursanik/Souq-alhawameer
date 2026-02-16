@@ -2599,36 +2599,72 @@ function renderVerify() {
             }
         }
 
-       function renderStudentDashboard() {
-            const portfolio = appData.portfolios.find(p => p.username === appState.currentUser.username);
-            const portfolioValue = getPortfolioValue(appState.currentUser.username);
+      function renderStudentDashboard() {
+            // 1. هذا هو الإصلاح: تحديد تبويب افتراضي إذا لم يكن محدداً
+            if (!appState.activeTab) {
+                appState.activeTab = 'portfolio';
+            }
+
+            // التأكد من وجود المستخدم
+            const username = appState.currentUser.username;
+
+            // البحث عن المحفظة بأمان (لمنع الخطأ إذا كان الطالب جديداً)
+            const portfolio = appData.portfolios.find(p => p.username === username) || { holdings: [] };
+            
+            // حساب القيم بأمان
+            let portfolioValue = 0;
+            try {
+                if (portfolio.holdings.length > 0) {
+                    portfolio.holdings.forEach(h => {
+                        const stock = appData.stocks.find(s => s.symbol === h.symbol);
+                        if (stock) portfolioValue += stock.price * h.quantity;
+                    });
+                }
+            } catch (e) { console.log('Error calc value'); }
+
             const totalValue = appState.currentUser.balance + portfolioValue;
-            const userTxs = appData.transactions.filter(t => t.username === appState.currentUser.username);
+            
+            // جلب سجل العمليات
+            const userTxs = appData.transactions.filter(t => t.username === username);
 
             return `
-                <div class="tabs">
-                    <button class="tab ${appState.activeTab === 'portfolio' ? 'active' : ''}" 
-                            onclick="appState.activeTab='portfolio'; render();">
-                        📊 السوق والمحفظة
-                    </button>
-                    <button class="tab ${appState.activeTab === 'transactions' ? 'active' : ''}" 
-                            onclick="appState.activeTab='transactions'; render();">
-                        📜 السجل
-                    </button>
-                    <button class="tab ${appState.activeTab === 'achievements' ? 'active' : ''}" 
-                            onclick="appState.activeTab='achievements'; render();">
-                        🏆 الإنجازات
-                    </button>
-                    <button class="tab ${appState.activeTab === 'chat' ? 'active' : ''}" 
-                            onclick="appState.activeTab='chat'; render();">
-                        💬 الدردشة
-                    </button>
-                </div>
+                <div class="container animate-slide-up">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+                        <div>
+                            <h2 style="margin-bottom: 0.25rem;">مرحباً، ${username} 👋</h2>
+                            <p style="color: var(--text-secondary); font-size: 0.9rem;">لوحة التحكم الطلابية</p>
+                        </div>
+                        <button class="btn btn-danger btn-small" onclick="handleLogout()">
+                            خروج 🚪
+                        </button>
+                    </div>
 
-                ${appState.activeTab === 'portfolio' ? renderPortfolioTab(portfolio, portfolioValue, totalValue) : ''}
-                ${appState.activeTab === 'transactions' ? renderTransactionsTab(userTxs) : ''}
-                ${appState.activeTab === 'achievements' ? renderAchievementsTab() : ''}
-                ${appState.activeTab === 'chat' ? renderChatTab() : ''}
+                    <div class="tabs">
+                        <button class="tab ${appState.activeTab === 'portfolio' ? 'active' : ''}" 
+                                onclick="appState.activeTab='portfolio'; render();">
+                            📊 السوق والمحفظة
+                        </button>
+                        <button class="tab ${appState.activeTab === 'transactions' ? 'active' : ''}" 
+                                onclick="appState.activeTab='transactions'; render();">
+                            📜 السجل
+                        </button>
+                        <button class="tab ${appState.activeTab === 'achievements' ? 'active' : ''}" 
+                                onclick="appState.activeTab='achievements'; render();">
+                            🏆 الإنجازات
+                        </button>
+                        <button class="tab ${appState.activeTab === 'chat' ? 'active' : ''}" 
+                                onclick="appState.activeTab='chat'; render();">
+                            💬 الدردشة
+                        </button>
+                    </div>
+
+                    <div class="tab-content-container">
+                        ${appState.activeTab === 'portfolio' ? renderPortfolioTab(portfolio, portfolioValue, totalValue) : ''}
+                        ${appState.activeTab === 'transactions' ? renderTransactionsTab(userTxs) : ''}
+                        ${appState.activeTab === 'achievements' ? renderAchievementsTab() : ''}
+                        ${appState.activeTab === 'chat' ? renderChatTab() : ''}
+                    </div>
+                </div>
             `;
         }
 
