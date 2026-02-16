@@ -1811,6 +1811,7 @@ function changePassword(form) {
 
             appState.currentUser = user;
             appState.currentScreen = 'dashboard';
+            console.log('✅ Login successful:', username, 'Role:', user.role);
             addActivityLog('تسجيل دخول', `${username} سجل دخول للنظام`);
             render();
         }
@@ -2025,7 +2026,7 @@ async function handleRegister(e) {
                 addActivityLog('شراء سهم', `${user.username} اشترى ${quantity} من ${stock.name} بسعر ${stock.price.toFixed(2)} ر.س`);
                 
                 // Notification only for admin
-                if (currentUser.role === 'admin') {
+                if (appState.currentUser.role === 'admin') {
                     addNotification(`✅ تم شراء ${quantity} من ${stock.name}`, 'success');
                 }
                 
@@ -2437,7 +2438,24 @@ function renderVerify() {
 }
 
         function renderDashboard() {
+            // Check if currentUser is loaded
+            if (!appState.currentUser) {
+                console.error('❌ renderDashboard called but currentUser is null');
+                return `
+                    <div class="container">
+                        <div class="card" style="text-align: center; padding: 3rem;">
+                            <h2>خطأ في تحميل البيانات</h2>
+                            <p style="color: var(--text-secondary); margin: 1rem 0;">لم يتم تحميل بيانات المستخدم بشكل صحيح</p>
+                            <button class="btn btn-primary" onclick="window.location.reload()" aria-label="إعادة تحميل الصفحة">
+                                إعادة تحميل الصفحة 🔄
+                            </button>
+                        </div>
+                    </div>
+                `;
+            }
+            
             const isAdmin = appState.currentUser.role === 'admin';
+            console.log('🎯 Rendering dashboard for:', appState.currentUser.username, 'Role:', appState.currentUser.role, 'isAdmin:', isAdmin);
             
             return `
                 <div class="container">
@@ -2516,13 +2534,9 @@ function renderVerify() {
         }
 
         function clearAllNotifications() {
-            if (true) {
-
-                appData.notifications = [];
-                saveData();
-                render();
-            
-            }
+            appData.notifications = [];
+            saveData();
+            render();
         }
 
         function renderStudentDashboard() {
@@ -2890,16 +2904,27 @@ function renderVerify() {
         }
 
         function renderAdminDashboard() {
+            console.log('📋 renderAdminDashboard called, activeAdminTab:', appState.activeAdminTab);
             return `
                 <div class="tabs">
-                    </div>
-                    </div>
+                    <button class="tab ${appState.activeAdminTab === 'students' ? 'active' : ''}" 
+                            onclick="appState.activeAdminTab='students'; render();">
+                        👥 الطلاب
+                    </button>
+                    <button class="tab ${appState.activeAdminTab === 'stocks' ? 'active' : ''}" 
+                            onclick="appState.activeAdminTab='stocks'; render();">
+                        📈 الأسهم
+                    </button>
                 </div>
+
+                ${appState.activeAdminTab === 'students' ? renderAdminStudentsTab() : renderAdminStocksTab()}
             `;
         }
 
         function renderAdminStudentsTab() {
+            console.log('👥 renderAdminStudentsTab called');
             const students = appData.users.filter(u => u.role === 'student');
+            console.log('Students count:', students.length);
             
             return `
                 <div class="tab-content active">
@@ -3039,6 +3064,8 @@ function renderVerify() {
         }
 
         function renderAdminStocksTab() {
+            console.log('📈 renderAdminStocksTab called');
+            console.log('Stocks count:', appData.stocks.length);
             return `
                 <div class="tab-content active">
                     <div class="card">
@@ -3057,7 +3084,6 @@ function renderVerify() {
                             </button>
                         </div>
                         
-                        <div class="card">
                         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 1rem;">
                             <h3>إدارة الأسهم 📈</h3>
                             <div style="display: flex; gap: 0.5rem;">
