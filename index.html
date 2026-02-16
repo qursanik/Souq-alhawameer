@@ -2203,7 +2203,46 @@ async function handleRegister(e) {
             saveData();
             closeBalanceModal();
         }
+            // --- دالة إرسال الرسائل المفقودة ---
+        async function sendMessage(text) {
+            if (!text || !text.trim()) return;
+            
+            // التحقق من أن الدردشة مفعلة (إلا إذا كان المستخدم مشرفاً)
+            const isAdmin = appState.currentUser.role === 'admin';
+            if (!appData.settings.chatEnabled && !isAdmin) {
+                showAlert('الدردشة مغلقة حالياً 🔒', 'error');
+                return;
+            }
 
+            const newMessage = {
+                id: Date.now(),
+                text: text.trim(),
+                from: appState.currentUser.username,
+                timestamp: new Date().toISOString()
+            };
+
+            // إضافة الرسالة
+            appData.messages.push(newMessage);
+            
+            // الاحتفاظ بآخر 100 رسالة فقط لتخفيف الحمل
+            if (appData.messages.length > 100) {
+                appData.messages.shift();
+            }
+
+            // تحديث الواجهة فوراً لكي يرى المستخدم رسالته
+            render();
+            
+            // حفظ البيانات في Firebase
+            try {
+                await db.collection('appData').doc('main').update({
+                    messages: appData.messages
+                });
+            } catch (error) {
+                console.error("Error saving message:", error);
+                // في حال الفشل، يمكن استخدام saveData الكاملة كبديل
+                saveData();
+            }
+        }
         // Render functions
       function render() {
             const app = document.getElementById('app');
@@ -3254,7 +3293,26 @@ let confirmModal = { show: false, message: '', onConfirm: null };
                 render();
             }
         }
+// --- دوال نافذة التأكيد (Confirmation Modal) ---
+        function showConfirm(message, onConfirm) {
+            confirmModal.message = message;
+            confirmModal.onConfirm = onConfirm;
+            confirmModal.show = true;
+            render();
+        }
 
+        function closeConfirm() {
+            confirmModal.show = false;
+            confirmModal.onConfirm = null;
+            render();
+        }
+
+        function executeConfirm() {
+            if (confirmModal.onConfirm) {
+                confirmModal.onConfirm();
+            }
+            closeConfirm();
+        }
         function renderWeeklyReportTab() {
             // Calculate stock statistics
             const stockStats = {};
