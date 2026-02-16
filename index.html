@@ -2964,7 +2964,7 @@ function renderVerify() {
                             <div class="stock-card" 
                                  onclick="appState.selectedStock=appData.stocks[${idx}]; render();" 
                                  style="cursor: pointer; position: relative;">
-                                ${owned > 0 ? `<div class="ownership-badge" role="status" aria-label="أسهم مملوكة: ${owned}">💼 ${owned}</div>` : ''}
+                                ${owned > 0 ? `<div class="ownership-badge" aria-label="أسهم مملوكة: ${owned}"><span aria-hidden="true">💼</span> ${owned}</div>` : ''}
                                 <div class="stock-info">
                                     <h3>${stock.name}</h3>
                                     <p>${stock.symbol}</p>
