@@ -2828,7 +2828,7 @@ function renderVerify() {
                             ${appData.messages.length === 0 
                                 ? '<p style="text-align: center; color: var(--text-secondary); padding: 2rem;">لا توجد رسائل</p>'
                                 : appData.messages.map(msg => `
-                                    <div class="chat-message ${msg.from === appState.currentUser.username ? 'own' : 'other'}" style="position: relative;">
+                                    <div class="chat-message ${(msg.sender || msg.from) === appState.currentUser.username ? 'own' : 'other'}" style="position: relative;">
                                         ${isAdmin ? `
                                             <button onclick="deleteMessageSync(${msg.id})" 
                                                     style="position: absolute; top: 0.5rem; right: 0.5rem; background: #e74c3c; color: white; border: none; border-radius: 6px; padding: 0.35rem 0.65rem; font-size: 0.75rem; cursor: pointer; font-weight: bold;">
@@ -2836,7 +2836,7 @@ function renderVerify() {
                                             </button>
                                         ` : ''}
                                         <div class="chat-sender" style="font-weight: bold; margin-bottom: 0.35rem;">
-                                            ${msg.from} ${msg.from === 'admin' ? '<span style="background: var(--secondary); color: var(--bg-primary); padding: 0.15rem 0.5rem; border-radius: 12px; font-size: 0.7rem; margin-right: 0.35rem;">👨‍💼 مشرف</span>' : ''}
+                                            ${msg.sender || msg.from || 'مجهول'} ${(msg.sender || msg.from) === 'admin' || (msg.role === 'admin') ? '<span style="background: var(--secondary); color: var(--bg-primary); padding: 0.15rem 0.5rem; border-radius: 12px; font-size: 0.7rem; margin-right: 0.35rem;">👨‍💼 مشرف</span>' : ''}
                                         </div>
                                         <div style="word-wrap: break-word;">${msg.text}</div>
                                         <div class="chat-time" style="font-size: 0.75rem; opacity: 0.7; margin-top: 0.35rem;">
@@ -2923,12 +2923,32 @@ function renderVerify() {
                             onclick="appState.activeAdminTab='weeklyReport'; render();">
                         📊 التقرير الأسبوعي
                     </button>
+                    <button class="tab ${appState.activeAdminTab === 'myStocks' ? 'active' : ''}" 
+                            onclick="appState.activeAdminTab='myStocks'; render();">
+                        📈 أسهمي
+                    </button>
+                    <button class="tab ${appState.activeAdminTab === 'achievements' ? 'active' : ''}" 
+                            onclick="appState.activeAdminTab='achievements'; render();">
+                        🏆 الإنجازات
+                    </button>
+                    <button class="tab ${appState.activeAdminTab === 'chat' ? 'active' : ''}" 
+                            onclick="appState.activeAdminTab='chat'; render();">
+                        💬 الدردشة
+                    </button>
+                    <button class="tab ${appState.activeAdminTab === 'profile' ? 'active' : ''}" 
+                            onclick="appState.activeAdminTab='profile'; render();">
+                        ⚙️ الإعدادات
+                    </button>
                 </div>
 
                 ${appState.activeAdminTab === 'students' ? renderAdminStudentsTab() : ''}
                 ${appState.activeAdminTab === 'stocks' ? renderAdminStocksTab() : ''}
                 ${appState.activeAdminTab === 'leaderboard' ? renderLeaderboardTab(true) : ''}
                 ${appState.activeAdminTab === 'weeklyReport' ? renderWeeklyReportTab() : ''}
+                ${appState.activeAdminTab === 'myStocks' ? renderStocksTab() : ''}
+                ${appState.activeAdminTab === 'achievements' ? renderAchievementsTab() : ''}
+                ${appState.activeAdminTab === 'chat' ? renderChatTab() : ''}
+                ${appState.activeAdminTab === 'profile' ? renderAdminProfileTab() : ''}
             `;
         }
 
@@ -4037,19 +4057,13 @@ let confirmModal = { show: false, message: '', onConfirm: null };
             try {
                 showAlert('جاري التعديل...', 'info');
                 
-                // 1. حذف Documents القديمة من Firebase أولاً
-                console.log('🗑️ جاري حذف من Firebase...');
-                await db.collection('users').doc(oldUsername).delete();
-                await db.collection('portfolios').doc(oldUsername).delete();
-                console.log(`✅ تم حذف ${oldUsername} من Firebase`);
-                
-                // 2. تحديث البيانات في الذاكرة
+                // 1. تحديث البيانات في الذاكرة أولاً
                 user.username = newUsername;
                 if (portfolio) {
                     portfolio.username = newUsername;
                 }
                 
-                // 3. تحديث في باقي المواقع
+                // 2. تحديث في باقي المواقع
                 appData.activityLog.forEach(log => {
                     if (log.user === oldUsername) log.user = newUsername;
                     if (log.details && log.details.includes(oldUsername)) {
@@ -4061,13 +4075,25 @@ let confirmModal = { show: false, message: '', onConfirm: null };
                     if (transaction.username === oldUsername) transaction.username = newUsername;
                 });
                 
+                appData.messages.forEach(msg => {
+                    if (msg.sender === oldUsername) msg.sender = newUsername;
+                    if (msg.from === oldUsername) msg.from = newUsername;
+                });
+                
                 if (appState.currentUser && appState.currentUser.username === oldUsername) {
                     appState.currentUser.username = newUsername;
                 }
                 
-                // 4. حفظ البيانات الجديدة
+                // 3. حفظ البيانات الجديدة في Firebase أولاً
+                console.log('💾 جاري حفظ البيانات الجديدة في Firebase...');
                 await saveData();
-                console.log(`💾 تم حفظ ${newUsername} في Firebase`);
+                console.log(`✅ تم حفظ ${newUsername} في Firebase`);
+                
+                // 4. حذف Documents القديمة من Firebase فقط بعد التأكد من الحفظ
+                console.log('🗑️ جاري حذف الوثائق القديمة من Firebase...');
+                await db.collection('users').doc(oldUsername).delete();
+                await db.collection('portfolios').doc(oldUsername).delete();
+                console.log(`✅ تم حذف ${oldUsername} من Firebase`);
                 
                 addActivityLog('تعديل اسم مستخدم', `تم تغيير اسم المستخدم من ${oldUsername} إلى ${newUsername}`);
                 closeEditUsernameModal();
@@ -4077,6 +4103,10 @@ let confirmModal = { show: false, message: '', onConfirm: null };
             } catch (error) {
                 console.error('❌ خطأ في التعديل:', error);
                 showAlert('فشل تعديل اسم المستخدم ❌', 'error');
+                // في حالة الفشل، استرجاع اسم المستخدم القديم
+                user.username = oldUsername;
+                if (portfolio) portfolio.username = oldUsername;
+                render();
             }
         }
 
