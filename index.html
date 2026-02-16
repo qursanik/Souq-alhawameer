@@ -996,7 +996,7 @@
             showNotifications: false,
             selectedStock: null,
             activeTab: 'portfolio',
-            activeAdminTab: 'settings',
+            activeAdminTab: 'stocks',
     forgotPasswordPhone: null,
     resetPasswordCode: null
         };
@@ -2892,64 +2892,7 @@ function renderVerify() {
         function renderAdminDashboard() {
             return `
                 <div class="tabs">
-                    <button class="tab ${appState.activeAdminTab === 'settings' ? 'active' : ''}" 
-                            onclick="appState.activeAdminTab='settings'; render();">
-                        ⚙️ الإعدادات
-                    </button>
-                    <button class="tab ${appState.activeAdminTab === 'students' ? 'active' : ''}" 
-                            onclick="appState.activeAdminTab='students'; render();">
-                        👥 الطلاب
-                    </button>
-                    <button class="tab ${appState.activeAdminTab === 'stocks' ? 'active' : ''}" 
-                            onclick="appState.activeAdminTab='stocks'; render();">
-                        📈 الأسهم
-                    </button>
-                    <button class="tab ${appState.activeAdminTab === 'weekly' ? 'active' : ''}" 
-                            onclick="appState.activeAdminTab='weekly'; render();">
-                        📊 التقرير الأسبوعي
-                    </button>
-                    <button class="tab ${appState.activeAdminTab === 'chat' ? 'active' : ''}" 
-                            onclick="appState.activeAdminTab='chat'; render();">
-                        💬 الدردشة
-                    </button>
-                    <button class="tab ${appState.activeAdminTab === 'leaderboard' ? 'active' : ''}" 
-                            onclick="appState.activeAdminTab='leaderboard'; render();">
-                        🏅 المتصدرين
-                    </button>
-                    <button class="tab ${appState.activeAdminTab === 'account' ? 'active' : ''}" 
-                    onclick="appState.activeAdminTab='account'; render();">
-                        👤 حسابي
-                    </button>
-                </div>
-
-                ${appState.activeAdminTab === 'settings' ? renderAdminSettingsTab() : ''}
-                ${appState.activeAdminTab === 'students' ? renderAdminStudentsTab() : ''}
-                ${appState.activeAdminTab === 'stocks' ? renderAdminStocksTab() : ''}
-                ${appState.activeAdminTab === 'weekly' ? renderWeeklyReportTab() : ''}
-                ${appState.activeAdminTab === 'chat' ? renderChatTab() : ''}
-                ${appState.activeAdminTab === 'leaderboard' ? renderLeaderboardTab(true) : ''}
-                ${appState.activeAdminTab === 'account' ? renderAdminProfileTab() : ''}
-            `;
-        }
-
-        function renderAdminSettingsTab() {
-            return `
-                <div class="tab-content active">
-                    <div class="card">
-                        <h3 style="margin-bottom: 1.5rem;">إعدادات التداول ⚙️</h3>
-                        
-                        <div style="background: var(--bg-secondary); padding: 1.5rem; border-radius: 12px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
-                            <div>
-                                <strong>حالة التداول</strong>
-                                <p style="color: var(--text-secondary); font-size: 0.9rem; margin-top: 0.3rem;">
-                                    السماح للطلاب بالشراء والبيع
-                                </p>
-                            </div>
-                            <button class="btn ${appData.settings.tradingEnabled ? 'btn-success' : 'btn-danger'}" 
-                                    onclick="toggleTradingSync()">
-                                ${appData.settings.tradingEnabled ? 'مفتوح ✓' : 'مغلق ✗'}
-                            </button>
-                        </div>
+                    </div>
                     </div>
                 </div>
             `;
@@ -3099,6 +3042,22 @@ function renderVerify() {
             return `
                 <div class="tab-content active">
                     <div class="card">
+                        <!-- Trading Control -->
+                        <div style="background: var(--bg-secondary); padding: 1rem; border-radius: 8px; margin-bottom: 1.5rem; display: flex; justify-content: space-between; align-items: center; border: 2px solid var(--border);">
+                            <div>
+                                <strong style="font-size: 1.1rem;">🏛️ حالة السوق</strong>
+                                <p style="color: var(--text-secondary); font-size: 0.9rem; margin: 0.3rem 0 0 0;">
+                                    ${appData.settings.tradingEnabled ? 'السوق مفتوح - يمكن للطلاب التداول' : 'السوق مغلق - لا يمكن التداول'}
+                                </p>
+                            </div>
+                            <button class="btn ${appData.settings.tradingEnabled ? 'btn-success' : 'btn-danger'}" 
+                                    onclick="toggleTradingSync()" 
+                                    style="min-width: 120px; font-weight: bold;">
+                                ${appData.settings.tradingEnabled ? '✅ مفتوح' : '⛔ مغلق'}
+                            </button>
+                        </div>
+                        
+                        <div class="card">
                         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 1rem;">
                             <h3>إدارة الأسهم 📈</h3>
                             <div style="display: flex; gap: 0.5rem;">
