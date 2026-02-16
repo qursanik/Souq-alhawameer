@@ -3544,7 +3544,11 @@ function renderVerify() {
                                                         <strong style="cursor: pointer; color: var(--secondary); text-decoration: underline; transition: opacity 0.2s;" 
                                                                 onclick="appState.selectedStock=appData.stocks[${idx}]; render();"
                                                                 onmouseover="this.style.opacity='0.7'" 
-                                                                onmouseout="this.style.opacity='1'">
+                                                                onmouseout="this.style.opacity='1'"
+                                                                tabindex="0"
+                                                                onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();appState.selectedStock=appData.stocks[${idx}];render();}"
+                                                                role="button"
+                                                                aria-label="عرض تفاصيل سهم ${stock.symbol}">
                                                             ${stock.symbol}
                                                         </strong>
                                                     </td>
@@ -3552,7 +3556,11 @@ function renderVerify() {
                                                         <span style="cursor: pointer; transition: color 0.2s;" 
                                                               onclick="appState.selectedStock=appData.stocks[${idx}]; render();"
                                                               onmouseover="this.style.color='var(--secondary)'" 
-                                                              onmouseout="this.style.color='var(--text-primary)'">
+                                                              onmouseout="this.style.color='var(--text-primary)'"
+                                                              tabindex="0"
+                                                              onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();appState.selectedStock=appData.stocks[${idx}];render();}"
+                                                              role="button"
+                                                              aria-label="عرض تفاصيل ${stock.name}">
                                                             ${stock.name}
                                                         </span>
                                                     </td>
