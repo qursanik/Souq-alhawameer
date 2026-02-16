@@ -4279,33 +4279,77 @@ let confirmModal = { show: false, message: '', onConfirm: null };
             
             appData.messages.push(message);
             await saveData();
-            render();
+            
+            // Update only chat container instead of full render to avoid interruption
+            const chatContainer = document.querySelector('.chat-container');
+            if (chatContainer && (appState.activeTab === 'chat' || appState.activeAdminTab === 'chat')) {
+                const isAdmin = appState.currentUser.role === 'admin';
+                const username = message.sender || message.from || 'مجهول';
+                const isAdminMsg = username === 'admin' || message.role === 'admin';
+                const isOwn = username === appState.currentUser.username;
+                
+                const messageHTML = `
+                    <div class="chat-message ${isOwn ? 'own' : 'other'}" style="position: relative;">
+                        ${isAdmin ? `
+                            <button onclick="deleteMessageSync(${message.id})" 
+                                    style="position: absolute; top: 0.5rem; right: 0.5rem; background: #e74c3c; color: white; border: none; border-radius: 6px; padding: 0.35rem 0.65rem; font-size: 0.75rem; cursor: pointer; font-weight: bold;">
+                                حذف
+                            </button>
+                        ` : ''}
+                        <div class="chat-sender" style="font-weight: bold; margin-bottom: 0.35rem;">
+                            ${username} ${isAdminMsg ? '<span style="background: var(--secondary); color: var(--bg-primary); padding: 0.15rem 0.5rem; border-radius: 12px; font-size: 0.7rem; margin-right: 0.35rem;">👨‍💼 مشرف</span>' : ''}
+                        </div>
+                        <div style="word-wrap: break-word;">${message.text}</div>
+                        <div class="chat-time" style="font-size: 0.75rem; opacity: 0.7; margin-top: 0.35rem;">
+                            ${new Date(message.timestamp).toLocaleString('ar-SA', {hour: '2-digit', minute: '2-digit'})}
+                        </div>
+                    </div>
+                `;
+                
+                chatContainer.insertAdjacentHTML('beforeend', messageHTML);
+                chatContainer.scrollTop = chatContainer.scrollHeight;
+            } else {
+                // Fallback to full render if not in chat tab
+                render();
+            }
         }
 
         async function deleteMessage(id) {
             appData.messages = appData.messages.filter(m => m.id !== id);
             await saveData();
             
-            // Update only chat messages without full render
-            const chatMessages = document.querySelector('.chat-messages');
-            if (chatMessages) {
-                chatMessages.innerHTML = appData.messages.map(msg => `
-                    <div class="chat-message ${msg.role === 'admin' ? 'admin' : 'student'}">
-                        <div class="message-header">
-                            <strong>${msg.sender || msg.username || "مجهول"}</strong>
-                            <span>${new Date(msg.timestamp).toLocaleTimeString('ar-SA', {hour: '2-digit', minute: '2-digit'})}</span>
-                        </div>
-                        <div class="message-text">${msg.text}</div>
-                        ${appState.currentUser.role === 'admin' ? `
-                            <div style="margin-top:0.8rem;text-align:left;">
-                                <button onclick="deleteMessageSync(${msg.id})" class="btn btn-danger btn-small" style="padding:0.3rem 0.8rem;font-size:0.85rem;">
-                                    🗑️ حذف
+            // Update only chat container without full render to avoid interruption
+            const chatContainer = document.querySelector('.chat-container');
+            if (chatContainer && (appState.activeTab === 'chat' || appState.activeAdminTab === 'chat')) {
+                const isAdmin = appState.currentUser.role === 'admin';
+                
+                chatContainer.innerHTML = appData.messages.length === 0 
+                    ? '<p style="text-align: center; color: var(--text-secondary); padding: 2rem;">لا توجد رسائل</p>'
+                    : appData.messages.map(msg => {
+                        const username = msg.sender || msg.from || 'مجهول';
+                        const isAdminMsg = username === 'admin' || msg.role === 'admin';
+                        const isOwn = username === appState.currentUser.username;
+                        return `
+                        <div class="chat-message ${isOwn ? 'own' : 'other'}" style="position: relative;">
+                            ${isAdmin ? `
+                                <button onclick="deleteMessageSync(${msg.id})" 
+                                        style="position: absolute; top: 0.5rem; right: 0.5rem; background: #e74c3c; color: white; border: none; border-radius: 6px; padding: 0.35rem 0.65rem; font-size: 0.75rem; cursor: pointer; font-weight: bold;">
+                                    حذف
                                 </button>
+                            ` : ''}
+                            <div class="chat-sender" style="font-weight: bold; margin-bottom: 0.35rem;">
+                                ${username} ${isAdminMsg ? '<span style="background: var(--secondary); color: var(--bg-primary); padding: 0.15rem 0.5rem; border-radius: 12px; font-size: 0.7rem; margin-right: 0.35rem;">👨‍💼 مشرف</span>' : ''}
                             </div>
-                        ` : ''}
-                    </div>
-                `).join('');
-                chatMessages.scrollTop = chatMessages.scrollHeight;
+                            <div style="word-wrap: break-word;">${msg.text}</div>
+                            <div class="chat-time" style="font-size: 0.75rem; opacity: 0.7; margin-top: 0.35rem;">
+                                ${new Date(msg.timestamp).toLocaleString('ar-SA', {hour: '2-digit', minute: '2-digit'})}
+                            </div>
+                        </div>
+                    `}).join('');
+                chatContainer.scrollTop = chatContainer.scrollHeight;
+            } else {
+                // Fallback to full render if not in chat tab
+                render();
             }
         }
 
