@@ -4091,7 +4091,7 @@ let confirmModal = { show: false, message: '', onConfirm: null };
                 
                 appData.messages.forEach(msg => {
                     if (msg.sender === oldUsername) msg.sender = newUsername;
-                    else if (msg.from === oldUsername) msg.from = newUsername;
+                    if (msg.from === oldUsername) msg.from = newUsername;
                 });
                 
                 if (appState.currentUser && appState.currentUser.username === oldUsername) {
