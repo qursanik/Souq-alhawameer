@@ -1781,6 +1781,16 @@ function changePassword(form) {
             }, 0);
         }
 
+        // Chat message helper functions
+        function getMessageUsername(msg) {
+            return msg.sender || msg.from || 'مجهول';
+        }
+
+        function isMessageFromAdmin(msg) {
+            const username = getMessageUsername(msg);
+            return username === 'admin' || msg.role === 'admin';
+        }
+
         // Login
         async function handleLogin(e) {
             e.preventDefault();
@@ -2828,8 +2838,8 @@ function renderVerify() {
                             ${appData.messages.length === 0 
                                 ? '<p style="text-align: center; color: var(--text-secondary); padding: 2rem;">لا توجد رسائل</p>'
                                 : appData.messages.map(msg => {
-                                    const username = msg.sender || msg.from || 'مجهول';
-                                    const isAdminMsg = username === 'admin' || msg.role === 'admin';
+                                    const username = getMessageUsername(msg);
+                                    const isAdminMsg = isMessageFromAdmin(msg);
                                     const isOwn = username === appState.currentUser.username;
                                     return `
                                     <div class="chat-message ${isOwn ? 'own' : 'other'}" style="position: relative;">
@@ -4080,10 +4090,8 @@ let confirmModal = { show: false, message: '', onConfirm: null };
                 });
                 
                 appData.messages.forEach(msg => {
-                    if (msg.sender === oldUsername || msg.from === oldUsername) {
-                        msg.sender = newUsername;
-                        msg.from = newUsername;
-                    }
+                    if (msg.sender === oldUsername) msg.sender = newUsername;
+                    else if (msg.from === oldUsername) msg.from = newUsername;
                 });
                 
                 if (appState.currentUser && appState.currentUser.username === oldUsername) {
@@ -4108,11 +4116,12 @@ let confirmModal = { show: false, message: '', onConfirm: null };
                 
             } catch (error) {
                 console.error('❌ خطأ في التعديل:', error);
-                showAlert('فشل تعديل اسم المستخدم ❌', 'error');
-                // في حالة الفشل، استرجاع اسم المستخدم القديم
-                user.username = oldUsername;
-                if (portfolio) portfolio.username = oldUsername;
-                render();
+                showAlert('فشل تعديل اسم المستخدم ❌ - يرجى إعادة تحميل الصفحة', 'error');
+                // في حالة الفشل، قد تكون البيانات في حالة غير متسقة
+                // الحل الأفضل هو إعادة تحميل البيانات من Firebase
+                setTimeout(() => {
+                    location.reload();
+                }, 2000);
             }
         }
 
@@ -4284,8 +4293,8 @@ let confirmModal = { show: false, message: '', onConfirm: null };
             const chatContainer = document.querySelector('.chat-container');
             if (chatContainer && (appState.activeTab === 'chat' || appState.activeAdminTab === 'chat')) {
                 const isAdmin = appState.currentUser.role === 'admin';
-                const username = message.sender || message.from || 'مجهول';
-                const isAdminMsg = username === 'admin' || message.role === 'admin';
+                const username = getMessageUsername(message);
+                const isAdminMsg = isMessageFromAdmin(message);
                 const isOwn = username === appState.currentUser.username;
                 
                 const messageHTML = `
@@ -4326,8 +4335,8 @@ let confirmModal = { show: false, message: '', onConfirm: null };
                 chatContainer.innerHTML = appData.messages.length === 0 
                     ? '<p style="text-align: center; color: var(--text-secondary); padding: 2rem;">لا توجد رسائل</p>'
                     : appData.messages.map(msg => {
-                        const username = msg.sender || msg.from || 'مجهول';
-                        const isAdminMsg = username === 'admin' || msg.role === 'admin';
+                        const username = getMessageUsername(msg);
+                        const isAdminMsg = isMessageFromAdmin(msg);
                         const isOwn = username === appState.currentUser.username;
                         return `
                         <div class="chat-message ${isOwn ? 'own' : 'other'}" style="position: relative;">
