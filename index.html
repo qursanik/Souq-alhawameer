@@ -1405,6 +1405,18 @@ function changePassword(form) {
         }
         
         // 🟢 NEW: REAL-TIME CLOUD SYNC ENGINE
+        // Debounced render to prevent excessive re-renders
+        let renderTimeout = null;
+        function debouncedRender() {
+            if (renderTimeout) clearTimeout(renderTimeout);
+            renderTimeout = setTimeout(() => {
+                // Only render if no input/textarea is focused
+                if (document.activeElement.tagName !== 'INPUT' && document.activeElement.tagName !== 'TEXTAREA') {
+                    render();
+                }
+            }, 100);
+        }
+
         function setupRealtimeListeners() {
             console.log('📡 Activating Live Cloud Sync...');
             
@@ -1418,13 +1430,8 @@ function changePassword(form) {
                     appData.activityLog = data.activityLog || [];
                     appData.notifications = data.notifications || [];
                     
-                    // تحديث الواجهة بدون "قفزة" إذا كان المستخدم يكتب
-                    if (document.activeElement.tagName !== 'INPUT' && document.activeElement.tagName !== 'TEXTAREA') {
-                        render();
-                    } else {
-                        // تحديث يدوي لبعض العناصر دون إعادة رسم كاملة
-                        // مثل تحديث أسعار الأسهم في الخلفية
-                    }
+                    // Use debounced render to prevent cutoffs
+                    debouncedRender();
                 }
             });
 
@@ -1445,21 +1452,21 @@ function changePassword(form) {
                         appState.currentUser = me;
                     }
                 }
-                render();
+                debouncedRender();
             });
 
             // 3. Listen to Portfolios (To see other people's trades live)
             db.collection('portfolios').onSnapshot((snapshot) => {
                 appData.portfolios = [];
                 snapshot.forEach(doc => appData.portfolios.push(doc.data()));
-                render();
+                debouncedRender();
             });
             
             // 4. Listen to Transactions
             db.collection('transactions').onSnapshot((snapshot) => {
                 appData.transactions = [];
                 snapshot.forEach(doc => appData.transactions.push(doc.data()));
-                render();
+                debouncedRender();
             });
 
             console.log('✅ Connected to Live Global Market');
@@ -1577,50 +1584,58 @@ function changePassword(form) {
         }
 
         // Save data to localStorage
+        // Debounced save to prevent excessive writes
+        let saveTimeout = null;
         async function saveData() {
-            console.log('💾 Saving ALL data to Firebase...');
+            // Clear existing timeout to debounce
+            if (saveTimeout) clearTimeout(saveTimeout);
             
-            try {
-                // Save main app data (INCLUDING settings and messages!)
-                await db.collection('appData').doc('main').set({
-                    stocks: appData.stocks,
-                    activityLog: appData.activityLog,
-                    settings: appData.settings,
-                    messages: appData.messages,
-                    notifications: appData.notifications,
-                    weeklyStats: appData.weeklyStats
-                });
+            // Wait 500ms before saving
+            saveTimeout = setTimeout(async () => {
+                console.log('💾 Saving ALL data to Firebase...');
                 
-                // Save users (batch)
-                const usersBatch = db.batch();
-                appData.users.forEach(user => {
-                    const userRef = db.collection('users').doc(user.username);
-                    usersBatch.set(userRef, user);
-                });
-                await usersBatch.commit();
-                
-                // Save portfolios (batch)
-                const portfoliosBatch = db.batch();
-                appData.portfolios.forEach(portfolio => {
-                    const portfolioRef = db.collection('portfolios').doc(portfolio.username);
-                    portfoliosBatch.set(portfolioRef, portfolio);
-                });
-                await portfoliosBatch.commit();
-                
-                // Save transactions (batch)
-                const txBatch = db.batch();
-                appData.transactions.forEach(tx => {
-                    const txRef = db.collection('transactions').doc(tx.id.toString());
-                    txBatch.set(txRef, tx);
-                });
-                await txBatch.commit();
-                
-                console.log('✅ ALL data saved to Firebase (Cloud Storage)');
-                
-            } catch (e) {
-                console.error('❌ Failed to save to Firebase:', e);
-                showAlert('خطأ في الحفظ السحابي', 'error');
-            }
+                try {
+                    // Save main app data (INCLUDING settings and messages!)
+                    await db.collection('appData').doc('main').set({
+                        stocks: appData.stocks,
+                        activityLog: appData.activityLog,
+                        settings: appData.settings,
+                        messages: appData.messages,
+                        notifications: appData.notifications,
+                        weeklyStats: appData.weeklyStats
+                    });
+                    
+                    // Save users (batch)
+                    const usersBatch = db.batch();
+                    appData.users.forEach(user => {
+                        const userRef = db.collection('users').doc(user.username);
+                        usersBatch.set(userRef, user);
+                    });
+                    await usersBatch.commit();
+                    
+                    // Save portfolios (batch)
+                    const portfoliosBatch = db.batch();
+                    appData.portfolios.forEach(portfolio => {
+                        const portfolioRef = db.collection('portfolios').doc(portfolio.username);
+                        portfoliosBatch.set(portfolioRef, portfolio);
+                    });
+                    await portfoliosBatch.commit();
+                    
+                    // Save transactions (batch)
+                    const txBatch = db.batch();
+                    appData.transactions.forEach(tx => {
+                        const txRef = db.collection('transactions').doc(tx.id.toString());
+                        txBatch.set(txRef, tx);
+                    });
+                    await txBatch.commit();
+                    
+                    console.log('✅ ALL data saved to Firebase (Cloud Storage)');
+                    
+                } catch (e) {
+                    console.error('❌ Failed to save to Firebase:', e);
+                    showAlert('خطأ في الحفظ السحابي', 'error');
+                }
+            }, 500);
         }
 
         // Force save stocks to Firebase (overwrite)
@@ -2298,6 +2313,48 @@ async function handleRegister(e) {
             closeBalanceModal();
         }
 
+        // Modify Added Balance Modal State
+        let modifyAddedBalanceModal = { show: false, username: null, currentAddedBalance: 0 };
+
+        function openModifyAddedBalanceModal(username, currentAdded) {
+            modifyAddedBalanceModal = { show: true, username, currentAddedBalance: currentAdded };
+            render();
+        }
+
+        function closeModifyAddedBalanceModal() {
+            modifyAddedBalanceModal.show = false;
+            render();
+        }
+
+        async function setAddedBalance() {
+            const input = document.getElementById('modifyAddedBalanceInput');
+            const newAmount = parseFloat(input.value);
+            if (isNaN(newAmount)) {
+                showAlert('أدخل مبلغ صحيح!', 'error');
+                return;
+            }
+            
+            const username = modifyAddedBalanceModal.username;
+            const oldAmount = modifyAddedBalanceModal.currentAddedBalance;
+            
+            // Remove all old "إضافة رصيد" entries for this student
+            appData.activityLog = appData.activityLog.filter(log => {
+                if (log.action === 'إضافة رصيد' && log.details && log.details.includes(username)) {
+                    return false;
+                }
+                return true;
+            });
+            
+            // Add new single entry with the specified amount
+            if (newAmount !== 0) {
+                addActivityLog('إضافة رصيد', `${username} ${newAmount >= 0 ? '+' : ''}${newAmount.toFixed(2)}`);
+            }
+            
+            showAlert(`✅ تم تعديل الرصيد المضاف من ${oldAmount.toFixed(2)} إلى ${newAmount.toFixed(2)} ر.س`, 'success');
+            saveData();
+            closeModifyAddedBalanceModal();
+        }
+
         // Render functions
       function render() {
             const app = document.getElementById('app');
@@ -2328,6 +2385,7 @@ async function handleRegister(e) {
             if (addStockModal.show) modalHTML = renderAddStockModal();
             if (editUsernameModal.show) modalHTML = renderEditUsernameModal();
             if (confirmModal.show) modalHTML = renderConfirmModal();
+            if (modifyAddedBalanceModal.show) modalHTML = renderModifyAddedBalanceModal();
             modals.innerHTML = modalHTML;
 
             // استعادة التركيز (Focus) - حل مشكلة الجوال
@@ -2703,65 +2761,6 @@ function renderVerify() {
                         </div>
                     </div>
 
-                    ${portfolio && portfolio.holdings.length > 0 ? `
-                        <div class="card" style="margin-bottom: 2rem;">
-                            <h2 style="margin-bottom: 1.5rem;">أسهمي 📊</h2>
-                            <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 1rem;">
-                                ${portfolio.holdings.map(h => {
-                                    const stock = appData.stocks.find(s => s.symbol === h.symbol);
-                                    if (!stock) return '';
-                                    const currentValue = stock.price * h.quantity;
-                                    const profit = (stock.price - h.avgPrice) * h.quantity;
-                                    const profitPercent = ((stock.price - h.avgPrice) / h.avgPrice) * 100;
-                                    
-                                    return `
-                                        <div style="position: relative; background: linear-gradient(135deg, var(--bg-secondary), var(--bg-primary)); border: 1px solid var(--border); border-radius: 16px; padding: 1.5rem; transition: transform 0.2s, box-shadow 0.2s; cursor: pointer;" 
-                                             onclick="appState.selectedStock=appData.stocks.find(s => s.symbol === '${stock.symbol}'); render();"
-                                             onmouseover="this.style.transform='translateY(-4px)'; this.style.boxShadow='0 8px 24px rgba(0,0,0,0.3)';"
-                                             onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='none';">
-                                            
-                                            ${!tradingEnabled ? '<div style="position: absolute; top: 1rem; left: 1rem; background: var(--danger); color: white; padding: 0.25rem 0.75rem; border-radius: 20px; font-size: 0.75rem; font-weight: bold;">🔒 مغلق</div>' : ''}
-                                            
-                                            <div style="text-align: center; margin-bottom: 1rem;">
-                                                <div style="font-size: 1.1rem; font-weight: bold; margin-bottom: 0.25rem;">${stock.symbol}</div>
-                                                <div style="font-size: 0.85rem; color: var(--text-secondary);">${stock.name}</div>
-                                            </div>
-                                            
-                                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; margin-bottom: 1rem; padding: 1rem; background: var(--bg-primary); border-radius: 12px;">
-                                                <div>
-                                                    <div style="font-size: 0.75rem; color: var(--text-secondary); margin-bottom: 0.25rem;">الكمية:</div>
-                                                    <div style="font-weight: bold; font-size: 1.1rem;">${h.quantity}</div>
-                                                </div>
-                                                <div>
-                                                    <div style="font-size: 0.75rem; color: var(--text-secondary); margin-bottom: 0.25rem;">متوسط الشراء:</div>
-                                                    <div style="font-weight: bold; font-size: 1.1rem;">${h.avgPrice.toFixed(2)}</div>
-                                                </div>
-                                                <div>
-                                                    <div style="font-size: 0.75rem; color: var(--text-secondary); margin-bottom: 0.25rem;">السعر الحالي:</div>
-                                                    <div style="font-weight: bold; font-size: 1.1rem;">${stock.price.toFixed(2)}</div>
-                                                </div>
-                                                <div>
-                                                    <div style="font-size: 0.75rem; color: var(--text-secondary); margin-bottom: 0.25rem;">القيمة:</div>
-                                                    <div style="font-weight: bold; font-size: 1.1rem; color: var(--secondary);">${currentValue.toFixed(2)} ر.س</div>
-                                                </div>
-                                            </div>
-                                            
-                                            <div style="padding: 1rem; background: ${profit >= 0 ? 'rgba(46, 204, 113, 0.1)' : 'rgba(231, 76, 60, 0.1)'}; border-radius: 12px; text-align: center;">
-                                                <div style="font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 0.35rem;">الربح/الخسارة:</div>
-                                                <div style="font-size: 1.3rem; font-weight: 900; color: ${profit >= 0 ? '#2ecc71' : '#e74c3c'};">
-                                                    ${profit >= 0 ? '+' : ''}${profit.toFixed(2)} ر.س
-                                                </div>
-                                                <div style="font-size: 0.95rem; font-weight: bold; color: ${profit >= 0 ? '#2ecc71' : '#e74c3c'}; margin-top: 0.25rem;">
-                                                    (${profitPercent >= 0 ? '+' : ''}${profitPercent.toFixed(2)}%)
-                                                </div>
-                                            </div>
-                                        </div>
-                                    `;
-                                }).join('')}
-                            </div>
-                        </div>
-                    ` : ''}
-
                     <div class="card">
                         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
                             <h2>جميع الأسهم 📈</h2>
@@ -2819,14 +2818,15 @@ function renderVerify() {
                                         const currentValue = stock.price * h.quantity;
                                         const profit = (stock.price - h.avgPrice) * h.quantity;
                                         const profitPercent = ((stock.price - h.avgPrice) / h.avgPrice) * 100;
+                                        const tradingEnabled = appData.settings.tradingEnabled;
                                         
                                         return `
-                                            <div style="background: linear-gradient(135deg, var(--bg-secondary), var(--bg-primary)); border: 1px solid var(--border); border-radius: 16px; padding: 1.5rem; transition: transform 0.2s, box-shadow 0.2s; cursor: ${appData.settings.tradingEnabled ? 'pointer' : 'not-allowed'}; opacity: ${appData.settings.tradingEnabled ? '1' : '0.7'};" 
-                                                 onclick="${appData.settings.tradingEnabled ? `appState.selectedStock=appData.stocks.find(s => s.symbol === '${stock.symbol}'); render();` : `showAlert('التداول مغلق حالياً ⛔', 'error');`}"
-                                                 onmouseover="${appData.settings.tradingEnabled ? `this.style.transform='translateY(-4px)'; this.style.boxShadow='0 8px 24px rgba(0,0,0,0.3)';` : ''}"
-                                                 onmouseout="${appData.settings.tradingEnabled ? `this.style.transform='translateY(0)'; this.style.boxShadow='none';` : ''}">
+                                            <div style="background: linear-gradient(135deg, var(--bg-secondary), var(--bg-primary)); border: 1px solid var(--border); border-radius: 16px; padding: 1.5rem; transition: transform 0.2s, box-shadow 0.2s; cursor: ${tradingEnabled ? 'pointer' : 'default'}; opacity: 1;" 
+                                                 onclick="${tradingEnabled ? `appState.selectedStock=appData.stocks.find(s => s.symbol === '${stock.symbol}'); render();` : ''}"
+                                                 onmouseover="${tradingEnabled ? `this.style.transform='translateY(-4px)'; this.style.boxShadow='0 8px 24px rgba(0,0,0,0.3)';` : ''}"
+                                                 onmouseout="${tradingEnabled ? `this.style.transform='translateY(0)'; this.style.boxShadow='none';` : ''}">
                                                 
-                                                ${!appData.settings.tradingEnabled ? '<div style="position: absolute; top: 1rem; left: 1rem; background: var(--danger); color: white; padding: 0.25rem 0.75rem; border-radius: 20px; font-size: 0.75rem; font-weight: bold;">🔒 مغلق</div>' : ''}
+                                                ${!tradingEnabled ? '<div style="position: absolute; top: 1rem; left: 1rem; background: var(--danger); color: white; padding: 0.25rem 0.75rem; border-radius: 20px; font-size: 0.75rem; font-weight: bold;">🔒 مغلق</div>' : ''}
                                                 
                                                 <div style="text-align: center; margin-bottom: 1rem;">
                                                     <div style="font-size: 1.1rem; font-weight: bold; margin-bottom: 0.25rem;">${stock.symbol}</div>
@@ -2866,33 +2866,8 @@ function renderVerify() {
                                     }).join('')}
                                 </div>
                             `
-                            : '<p style="text-align: center; color: var(--text-secondary); padding: 3rem; background: var(--bg-secondary); border-radius: 12px; border: 2px dashed var(--border);">📭 لا توجد أسهم في المحفظة<br><span style="font-size: 0.9rem; margin-top: 0.5rem; display: block;">ابدأ بشراء أسهم من القائمة أدناه</span></p>'
+                            : '<p style="text-align: center; color: var(--text-secondary); padding: 3rem; background: var(--bg-secondary); border-radius: 12px; border: 2px dashed var(--border);">📭 لا توجد أسهم في المحفظة<br><span style="font-size: 0.9rem; margin-top: 0.5rem; display: block;">ابدأ بشراء أسهم من تبويب الأسهم</span></p>'
                         }
-                    </div>
-
-                    <div class="card">
-                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
-                            <h2>الأسهم المتاحة 📈</h2>
-                            <span style="color: ${appData.settings.tradingEnabled ? 'var(--success)' : 'var(--danger)'}; font-weight: bold;">
-                                ● ${appData.settings.tradingEnabled ? 'التداول مفتوح' : 'التداول مغلق'}
-                            </span>
-                        </div>
-                        ${appData.stocks.map((stock, idx) => `
-                            <div class="stock-card" 
-                                 onclick="${appData.settings.tradingEnabled ? `appState.selectedStock=appData.stocks[${idx}]; render();` : ''}" 
-                                 style="cursor: ${appData.settings.tradingEnabled ? 'pointer' : 'default'}; opacity: ${appData.settings.tradingEnabled ? '1' : '0.6'};">
-                                <div class="stock-info">
-                                    <h3>${stock.name}</h3>
-                                    <p>${stock.symbol}</p>
-                                </div>
-                                <div class="stock-price">
-                                    <div class="price">${stock.price.toFixed(2)} ر.س</div>
-                                    <div class="change ${stock.change >= 0 ? 'positive' : 'negative'}">
-                                        ${stock.change >= 0 ? '+' : ''}${stock.change.toFixed(2)}%
-                                    </div>
-                                </div>
-                            </div>
-                        `).join('')}
                     </div>
                 </div>
             `;
@@ -3051,14 +3026,14 @@ function renderVerify() {
                                     const isOwn = username === appState.currentUser.username;
                                     return `
                                     <div class="chat-message ${isOwn ? 'own' : 'other'}" style="position: relative;">
+                                        ${isAdmin ? `
+                                            <button onclick="deleteMessageSync(${msg.id})" 
+                                                    style="position: absolute; top: 0.5rem; right: 0.5rem; background: #e74c3c; color: white; border: none; border-radius: 6px; padding: 0.35rem 0.65rem; font-size: 0.75rem; cursor: pointer; font-weight: bold; z-index: 10;">
+                                                حذف
+                                            </button>
+                                        ` : ''}
                                         <div class="chat-sender" style="font-weight: bold; margin-bottom: 0.35rem; display: flex; align-items: center; gap: 0.5rem;">
                                             ${username} ${isAdminMsg ? '<span style="background: var(--secondary); color: var(--bg-primary); padding: 0.15rem 0.5rem; border-radius: 12px; font-size: 0.7rem;">👨‍💼 مشرف</span>' : ''}
-                                            ${isAdmin ? `
-                                                <button onclick="deleteMessageSync(${msg.id})" 
-                                                        style="background: #e74c3c; color: white; border: none; border-radius: 6px; padding: 0.25rem 0.5rem; font-size: 0.7rem; cursor: pointer; font-weight: bold; margin-right: auto;">
-                                                    حذف
-                                                </button>
-                                            ` : ''}
                                         </div>
                                         <div style="word-wrap: break-word;">${msg.text}</div>
                                         <div class="chat-time" style="font-size: 0.75rem; opacity: 0.7; margin-top: 0.35rem;">
@@ -3222,11 +3197,16 @@ function renderVerify() {
                                                             ${student.balance.toFixed(2)} ر.س
                                                         </span>
                                                     </div>
-                                                    <div>
+                                                     <div>
                                                         <span style="color: var(--text-secondary); font-size: 0.85rem;">📊 الرصيد المضاف:</span>
                                                         <span style="color: ${addedBalance >= 0 ? 'var(--success)' : 'var(--danger)'}; font-weight: bold; font-size: 1.1rem; margin-right: 0.5rem;">
                                                             ${addedBalance >= 0 ? '+' : ''}${addedBalance.toFixed(2)} ر.س
                                                         </span>
+                                                        <button class="btn btn-warning btn-small" 
+                                                                onclick="openModifyAddedBalanceModal('${student.username}', ${addedBalance})"
+                                                                style="padding: 0.15rem 0.5rem; font-size: 0.75rem; margin-right: 0.5rem;">
+                                                            ✏️
+                                                        </button>
                                                     </div>
                                                 </div>
                                             </div>
@@ -3525,7 +3505,7 @@ let confirmModal = { show: false, message: '', onConfirm: null };
         }
 
         function renderWeeklyReportTab() {
-            // Calculate stock statistics
+            // Calculate stock statistics - count unique students who bought/sold
             const stockStats = {};
             
             // Initialize with all stocks
@@ -3533,37 +3513,45 @@ let confirmModal = { show: false, message: '', onConfirm: null };
                 stockStats[stock.symbol] = {
                     name: stock.name,
                     symbol: stock.symbol,
-                    totalBought: 0,
-                    totalSold: 0,
-                    currentOwned: 0
+                    buyerStudents: new Set(),
+                    sellerStudents: new Set(),
+                    studentNetActions: {} // username -> net quantity (bought - sold)
                 };
             });
             
-            // Calculate from transactions
+            // Calculate from transactions - track net position per student
             appData.transactions.forEach(tx => {
                 if (!stockStats[tx.symbol]) {
                     stockStats[tx.symbol] = {
                         name: tx.name,
                         symbol: tx.symbol,
-                        totalBought: 0,
-                        totalSold: 0,
-                        currentOwned: 0
+                        buyerStudents: new Set(),
+                        sellerStudents: new Set(),
+                        studentNetActions: {}
                     };
                 }
                 
+                const stat = stockStats[tx.symbol];
+                if (!stat.studentNetActions[tx.username]) {
+                    stat.studentNetActions[tx.username] = 0;
+                }
+                
                 if (tx.type === 'buy') {
-                    stockStats[tx.symbol].totalBought += tx.quantity;
+                    stat.studentNetActions[tx.username] += tx.quantity;
                 } else if (tx.type === 'sell') {
-                    stockStats[tx.symbol].totalSold += tx.quantity;
+                    stat.studentNetActions[tx.username] -= tx.quantity;
                 }
             });
             
-            // Calculate current owned from portfolios
-            appData.portfolios.forEach(portfolio => {
-                portfolio.holdings.forEach(holding => {
-                    if (stockStats[holding.symbol]) {
-                        stockStats[holding.symbol].currentOwned += holding.quantity;
+            // After calculating net positions, determine if student is net buyer or seller
+            Object.values(stockStats).forEach(stat => {
+                Object.entries(stat.studentNetActions).forEach(([username, netQty]) => {
+                    if (netQty > 0) {
+                        stat.buyerStudents.add(username);
+                    } else if (netQty < 0) {
+                        stat.sellerStudents.add(username);
                     }
+                    // If netQty == 0, they bought and sold the same amount, so they cancel out
                 });
             });
             
@@ -3641,8 +3629,24 @@ let confirmModal = { show: false, message: '', onConfirm: null };
                             
                             <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 1.5rem;">
                                 ${Object.values(stockStats).map(stock => {
-                                    const hasActivity = stock.totalBought > 0 || stock.totalSold > 0 || stock.currentOwned > 0;
+                                    const buyerCount = stock.buyerStudents.size;
+                                    const sellerCount = stock.sellerStudents.size;
+                                    const hasActivity = buyerCount > 0 || sellerCount > 0;
                                     if (!hasActivity) return '';
+                                    
+                                    // Determine net result
+                                    let netStatus = '';
+                                    let netColor = '';
+                                    if (buyerCount > sellerCount) {
+                                        netStatus = `صافي: ${buyerCount - sellerCount} شراء أكثر`;
+                                        netColor = 'var(--success)';
+                                    } else if (sellerCount > buyerCount) {
+                                        netStatus = `صافي: ${sellerCount - buyerCount} بيع أكثر`;
+                                        netColor = 'var(--danger)';
+                                    } else {
+                                        netStatus = 'صافي: متوازن';
+                                        netColor = 'var(--warning)';
+                                    }
                                     
                                     return `
                                         <div style="background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 16px; padding: 1.5rem;">
@@ -3651,12 +3655,12 @@ let confirmModal = { show: false, message: '', onConfirm: null };
                                             </h4>
                                             <div style="display: grid; gap: 0.75rem;">
                                                 <div style="display: flex; justify-content: space-between; align-items: center; padding: 0.75rem; background: var(--bg-primary); border-radius: 8px;">
-                                                    <span style="color: var(--text-secondary); font-size: 0.9rem;">إجمالي المشتريات:</span>
-                                                    <span style="font-size: 1.3rem; font-weight: 900; color: var(--success);">${stock.totalBought}</span>
+                                                    <span style="color: var(--text-secondary); font-size: 0.9rem;">عدد المشترين:</span>
+                                                    <span style="font-size: 1.3rem; font-weight: 900; color: var(--success);">${buyerCount}</span>
                                                 </div>
                                                 <div style="display: flex; justify-content: space-between; align-items: center; padding: 0.75rem; background: var(--bg-primary); border-radius: 8px;">
-                                                    <span style="color: var(--text-secondary); font-size: 0.9rem;">إجمالي المبيعات:</span>
-                                                    <span style="font-size: 1.3rem; font-weight: 900; color: var(--danger);">${stock.totalSold}</span>
+                                                    <span style="color: var(--text-secondary); font-size: 0.9rem;">عدد البائعين:</span>
+                                                    <span style="font-size: 1.3rem; font-weight: 900; color: var(--danger);">${sellerCount}</span>
                                                 </div>
                                                 <div style="display: flex; justify-content: space-between; align-items: center; padding: 0.75rem; background: var(--bg-primary); border-radius: 8px;">
                                                     <span style="color: var(--text-secondary); font-size: 0.9rem;">الملكية الحالية:</span>
@@ -3739,13 +3743,24 @@ let confirmModal = { show: false, message: '', onConfirm: null };
             `;
         }
 
-        function resetWeeklyStats() {
-            if (window.confirm('هل تريد إعادة تعيين التقرير الأسبوعي؟\n\n⚠️ سيتم حفظ تاريخ الإعادة فقط. جميع المعاملات ستبقى في السجل.')) {
+        async function resetWeeklyStats() {
+            if (window.confirm('هل تريد إعادة تعيين التقرير الأسبوعي؟\n\n⚠️ سيتم حذف جميع المعاملات نهائياً ولن تظهر مجدداً.')) {
                 appData.weeklyStats.lastReset = new Date().toISOString();
+                
+                // Delete all transactions permanently
                 appData.transactions = [];
-                addActivityLog('إعادة تعيين التقرير', 'تم إعادة تعيين التقرير الأسبوعي');
-                showAlert('✅ تم إعادة تعيين التقرير الأسبوعي', 'success');
-                saveData();
+                
+                // Delete from Firebase
+                const txBatch = db.batch();
+                const txSnapshot = await db.collection('transactions').get();
+                txSnapshot.forEach(doc => {
+                    txBatch.delete(doc.ref);
+                });
+                await txBatch.commit();
+                
+                addActivityLog('إعادة تعيين التقرير', 'تم إعادة تعيين التقرير الأسبوعي وحذف جميع المعاملات');
+                showAlert('✅ تم إعادة تعيين التقرير الأسبوعي وحذف جميع المعاملات', 'success');
+                await saveData();
                 render();
             }
         }
@@ -4134,6 +4149,51 @@ let confirmModal = { show: false, message: '', onConfirm: null };
                                     • إضافة: يضاف المبلغ للرصيد<br>
                                     • خصم: ينقص من الرصيد<br>
                                     • تعيين: يتم تعيين الرصيد للمبلغ المحدد
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderModifyAddedBalanceModal() {
+            return `
+                <div style="position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.7); z-index: 9999; display: flex; align-items: center; justify-content: center; padding: 1rem;" onclick="if(event.target===this) closeModifyAddedBalanceModal()">
+                    <div style="background: var(--bg-card); border-radius: 20px; max-width: 500px; width: 100%; max-height: 90vh; overflow-y: auto; box-shadow: 0 20px 60px rgba(0,0,0,0.5);" onclick="event.stopPropagation()">
+                        <div style="padding: 1.5rem; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center;">
+                            <h2 style="margin: 0;">📊 تعديل الرصيد المضاف</h2>
+                            <button onclick="closeModifyAddedBalanceModal()" style="background: none; border: none; font-size: 2rem; color: var(--danger); cursor: pointer; padding: 0; width: 40px; height: 40px;">×</button>
+                        </div>
+                        
+                        <div style="padding: 2rem;">
+                            <div style="text-align: center; padding: 2rem; background: linear-gradient(135deg, #9b6b00, #d4af37); border-radius: 16px; margin-bottom: 2rem;">
+                                <div style="color: rgba(255,255,255,0.8); font-size: 0.9rem; margin-bottom: 0.5rem;">الطالب</div>
+                                <div style="font-size: 1.5rem; font-weight: bold; color: white; margin-bottom: 1rem;">${modifyAddedBalanceModal.username}</div>
+                                <div style="color: rgba(255,255,255,0.7); font-size: 0.85rem; margin-bottom: 0.5rem;">الرصيد المضاف الحالي</div>
+                                <div style="font-size: 2.5rem; font-weight: 900; color: white;">
+                                    ${modifyAddedBalanceModal.currentAddedBalance >= 0 ? '+' : ''}${modifyAddedBalanceModal.currentAddedBalance.toFixed(2)} <span style="font-size: 1.2rem;">ر.س</span>
+                                </div>
+                            </div>
+
+                            <div style="margin-bottom: 1.5rem;">
+                                <label style="display: block; margin-bottom: 0.5rem; font-weight: 600;">الرصيد المضاف الجديد</label>
+                                <input type="number" id="modifyAddedBalanceInput" placeholder="أدخل المبلغ..." step="0.01" 
+                                       value="${modifyAddedBalanceModal.currentAddedBalance.toFixed(2)}"
+                                       style="width: 100%; padding: 1rem; font-size: 1.2rem; text-align: center; border: 2px solid var(--border); border-radius: 12px; background: var(--bg-secondary); color: var(--text-primary); font-weight: bold;">
+                            </div>
+
+                            <button onclick="setAddedBalance()" style="width: 100%; padding: 1.25rem; background: #f39c12; color: white; border: none; border-radius: 12px; font-size: 1.1rem; font-weight: 700; cursor: pointer; transition: transform 0.2s;">
+                                <div style="font-size: 1.5rem; margin-bottom: 0.25rem;">✏️</div>
+                                <div>تعيين الرصيد المضاف</div>
+                            </button>
+
+                            <div style="margin-top: 1.5rem; padding: 1rem; background: var(--bg-secondary); border-radius: 12px; border-right: 3px solid #f39c12;">
+                                <div style="font-size: 0.85rem; color: var(--text-secondary); line-height: 1.6;">
+                                    <strong>💡 ملاحظة:</strong><br>
+                                    • سيتم حذف جميع سجلات "إضافة رصيد" السابقة لهذا الطالب<br>
+                                    • سيتم إنشاء سجل واحد جديد بالمبلغ المحدد<br>
+                                    • هذا لا يؤثر على الرصيد المتاح للطالب، فقط على سجل الإضافات
                                 </div>
                             </div>
                         </div>
