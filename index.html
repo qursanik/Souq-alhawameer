@@ -2128,11 +2128,14 @@ async function handleRegister(e) {
         // Toggle trading
         async function toggleTrading() {
             appData.settings.tradingEnabled = !appData.settings.tradingEnabled;
+            await saveData();
             
-            // حفظ في Firebase فوراً
-            await db.collection('appData').doc('main').update({
-                settings: appData.settings
-            });
+            // Update button only without full render
+            const toggleBtn = document.querySelector('button[onclick*="toggleTrading"]');
+            if (toggleBtn) {
+                toggleBtn.className = 'btn ' + (appData.settings.tradingEnabled ? 'btn-success' : 'btn-danger');
+                toggleBtn.textContent = appData.settings.tradingEnabled ? 'مفتوح ✓' : 'مغلق ✗';
+            }
             
             addActivityLog('تغيير إعدادات', `التداول ${appData.settings.tradingEnabled ? 'مفتوح' : 'مغلق'}`);
             addNotification(`التداول ${appData.settings.tradingEnabled ? 'مفتوح' : 'مغلق'} الآن`, 'info');
@@ -2513,7 +2516,7 @@ function renderVerify() {
         }
 
         function clearAllNotifications() {
-            if (window.confirm('هل تريد مسح جميع الإشعارات؟')) {
+            if (true) {
 
                 appData.notifications = [];
                 saveData();
@@ -2718,6 +2721,45 @@ function renderVerify() {
                                 `;
                             }).join('')}
                         </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        
+        function renderStocksTab() {
+            const portfolio = appData.portfolios.find(p => p.username === appState.currentUser.username);
+            
+            return `
+                <div class="tab-content active">
+                    <div class="card">
+                        <h3>أسهمي 📈</h3>
+                        ${portfolio && portfolio.holdings.length > 0 ? `
+                            <table style="width:100%;">
+                                <thead>
+                                    <tr>
+                                        <th>السهم</th>
+                                        <th>الكمية</th>
+                                        <th>السعر الحالي</th>
+                                        <th>القيمة الإجمالية</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${portfolio.holdings.map(h => {
+                                        const stock = appData.stocks.find(s => s.symbol === h.symbol);
+                                        const totalValue = stock ? (stock.price * h.quantity) : 0;
+                                        return `
+                                            <tr>
+                                                <td><strong>${h.symbol}</strong></td>
+                                                <td>${h.quantity}</td>
+                                                <td>${stock ? stock.price.toFixed(2) : '-'} ر.س</td>
+                                                <td>${totalValue.toFixed(2)} ر.س</td>
+                                            </tr>
+                                        `;
+                                    }).join('')}
+                                </tbody>
+                            </table>
+                        ` : '<p style="text-align:center;padding:2rem;color:var(--text-secondary);">لا توجد أسهم في محفظتك</p>'}
                     </div>
                 </div>
             `;
@@ -4209,25 +4251,30 @@ let confirmModal = { show: false, message: '', onConfirm: null };
         }
 
         async function deleteMessage(id) {
-            if (!window.confirm('هل تريد حذف هذه الرسالة؟')) return;
-            
             appData.messages = appData.messages.filter(m => m.id !== id);
             await saveData();
-            render();
-        }
-
-        async function resetWeeklyData() {
-            if (!window.confirm('⚠️ هل أنت متأكد من حذف جميع البيانات؟\n\n• المعاملات\n• سجل النشاط\n• المحافظ (رصيد 10000)')) return;
             
-            appData.transactions = [];
-            appData.activityLog = [];
-            appData.portfolios.forEach(p => {
-                p.holdings = [];
-                p.balance = 10000;
-            });
-            
-            await saveData();
-            render();
+            // Update only chat messages without full render
+            const chatMessages = document.querySelector('.chat-messages');
+            if (chatMessages) {
+                chatMessages.innerHTML = appData.messages.map(msg => `
+                    <div class="chat-message ${msg.role === 'admin' ? 'admin' : 'student'}">
+                        <div class="message-header">
+                            <strong>${msg.sender || msg.username || "مجهول"}</strong>
+                            <span>${new Date(msg.timestamp).toLocaleTimeString('ar-SA', {hour: '2-digit', minute: '2-digit'})}</span>
+                        </div>
+                        <div class="message-text">${msg.text}</div>
+                        ${appState.currentUser.role === 'admin' ? `
+                            <div style="margin-top:0.8rem;text-align:left;">
+                                <button onclick="deleteMessageSync(${msg.id})" class="btn btn-danger btn-small" style="padding:0.3rem 0.8rem;font-size:0.85rem;">
+                                    🗑️ حذف
+                                </button>
+                            </div>
+                        ` : ''}
+                    </div>
+                `).join('');
+                chatMessages.scrollTop = chatMessages.scrollHeight;
+            }
         }
 
         // Initialize app
