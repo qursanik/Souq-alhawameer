@@ -1443,6 +1443,9 @@ function changePassword(form) {
                         const chatContainer = document.querySelector('.chat-container');
                         if (chatContainer) {
                             const isAdmin = appState.currentUser.role === 'admin';
+                            // Check if user is at the bottom before updating
+                            const isAtBottom = chatContainer.scrollHeight - chatContainer.scrollTop <= chatContainer.clientHeight + 50;
+                            
                             chatContainer.innerHTML = appData.messages.length === 0 
                                 ? '<p style="text-align: center; color: var(--text-secondary); padding: 2rem;">لا توجد رسائل</p>'
                                 : appData.messages.map(msg => {
@@ -1468,7 +1471,11 @@ function changePassword(form) {
                                         </div>
                                     </div>
                                 `}).join('');
-                            chatContainer.scrollTop = chatContainer.scrollHeight;
+                            
+                            // Only auto-scroll if user was already at the bottom
+                            if (isAtBottom) {
+                                chatContainer.scrollTop = chatContainer.scrollHeight;
+                            }
                         }
                     } else {
                         // Use debounced render to prevent cutoffs for other data updates
@@ -2774,7 +2781,7 @@ function renderVerify() {
             
             // Delete from current user's notifications by finding the matching ID
             if (appState.currentUser.notifications) {
-                const index = appState.currentUser.notifications.findIndex(n => n.id == notificationId);
+                const index = appState.currentUser.notifications.findIndex(n => n.id === notificationId);
                 if (index !== -1) {
                     appState.currentUser.notifications.splice(index, 1);
                 }
@@ -2783,7 +2790,7 @@ function renderVerify() {
             // Update in appData.users array
             const user = appData.users.find(u => u.username === appState.currentUser.username);
             if (user && user.notifications) {
-                const index = user.notifications.findIndex(n => n.id == notificationId);
+                const index = user.notifications.findIndex(n => n.id === notificationId);
                 if (index !== -1) {
                     user.notifications.splice(index, 1);
                 }
