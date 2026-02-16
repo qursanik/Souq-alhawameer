@@ -1424,14 +1424,56 @@ function changePassword(form) {
             db.collection('appData').doc('main').onSnapshot((doc) => {
                 if (doc.exists) {
                     const data = doc.data();
+                    const oldMessagesLength = appData.messages.length;
+                    const oldLastMessageId = appData.messages.length > 0 ? appData.messages[appData.messages.length - 1].id : null;
+                    
                     appData.stocks = data.stocks || [];
                     appData.messages = data.messages || [];
                     appData.settings = data.settings || appData.settings;
                     appData.activityLog = data.activityLog || [];
                     appData.notifications = data.notifications || [];
                     
-                    // Use debounced render to prevent cutoffs
-                    debouncedRender();
+                    // Check if we're in chat tab and messages changed
+                    const inChatTab = (appState.activeTab === 'chat' || appState.activeAdminTab === 'chat');
+                    const messagesChanged = appData.messages.length !== oldMessagesLength || 
+                                          (appData.messages.length > 0 && appData.messages[appData.messages.length - 1].id !== oldLastMessageId);
+                    
+                    // If in chat and messages changed, update chat container directly
+                    if (inChatTab && messagesChanged) {
+                        const chatContainer = document.querySelector('.chat-container');
+                        if (chatContainer) {
+                            const isAdmin = appState.currentUser.role === 'admin';
+                            chatContainer.innerHTML = appData.messages.length === 0 
+                                ? '<p style="text-align: center; color: var(--text-secondary); padding: 2rem;">لا توجد رسائل</p>'
+                                : appData.messages.map(msg => {
+                                    const username = getMessageUsername(msg);
+                                    const isAdminMsg = isMessageFromAdmin(msg);
+                                    const isOwn = username === appState.currentUser.username;
+                                    return `
+                                    <div class="chat-message ${isOwn ? 'own' : 'other'}">
+                                        <div class="chat-sender" style="font-weight: bold; margin-bottom: 0.35rem; display: flex; align-items: center; gap: 0.5rem; justify-content: space-between;">
+                                            <div style="display: flex; align-items: center; gap: 0.5rem;">
+                                                ${username} ${isAdminMsg ? '<span style="background: var(--secondary); color: var(--bg-primary); padding: 0.15rem 0.5rem; border-radius: 12px; font-size: 0.7rem;">👨‍💼 مشرف</span>' : ''}
+                                            </div>
+                                            ${isAdmin ? `
+                                                <button onclick="deleteMessageSync(${msg.id})" 
+                                                        style="background: #e74c3c; color: white; border: none; border-radius: 6px; padding: 0.25rem 0.5rem; font-size: 0.7rem; cursor: pointer; font-weight: bold;">
+                                                    حذف
+                                                </button>
+                                            ` : ''}
+                                        </div>
+                                        <div style="word-wrap: break-word;">${msg.text}</div>
+                                        <div class="chat-time" style="font-size: 0.75rem; opacity: 0.7; margin-top: 0.35rem;">
+                                            ${new Date(msg.timestamp).toLocaleString('ar-SA', {hour: '2-digit', minute: '2-digit'})}
+                                        </div>
+                                    </div>
+                                `}).join('');
+                            chatContainer.scrollTop = chatContainer.scrollHeight;
+                        }
+                    } else {
+                        // Use debounced render to prevent cutoffs for other data updates
+                        debouncedRender();
+                    }
                 }
             });
 
@@ -1454,7 +1496,10 @@ function changePassword(form) {
                         // Check if I got suspended live
                         if(me.suspended && !appState.currentUser.suspended) {
                             alert("⛔ تم تعليق حسابك من قبل الإدارة");
-                            location.reload();
+                            // Don't reload - just update the state and re-render
+                            appState.currentUser = me;
+                            render();
+                            return;
                         }
                         appState.currentUser = me;
                     }
@@ -2714,7 +2759,7 @@ function renderVerify() {
                                         ${new Date(n.timestamp).toLocaleString('ar-SA', {hour: '2-digit', minute: '2-digit'})}
                                     </div>
                                 </div>
-                                <button onclick="deleteNotification(${idx}, event)" style="background: none; border: none; color: var(--danger); cursor: pointer; padding: 0.2rem; font-size: 1.2rem;" title="حذف">
+                                <button onclick="deleteNotification('${n.timestamp}', event)" style="background: none; border: none; color: var(--danger); cursor: pointer; padding: 0.2rem; font-size: 1.2rem;" title="حذف">
                                     ×
                                 </button>
                             </div>
@@ -2724,18 +2769,24 @@ function renderVerify() {
             `;
         }
 
-        function deleteNotification(index, event) {
+        function deleteNotification(timestamp, event) {
             if (event) event.stopPropagation();
             
-            // Delete from current user's notifications
+            // Delete from current user's notifications by finding the matching timestamp
             if (appState.currentUser.notifications) {
-                appState.currentUser.notifications.splice(index, 1);
+                const index = appState.currentUser.notifications.findIndex(n => n.timestamp === timestamp);
+                if (index !== -1) {
+                    appState.currentUser.notifications.splice(index, 1);
+                }
             }
             
             // Update in appData.users array
             const user = appData.users.find(u => u.username === appState.currentUser.username);
             if (user && user.notifications) {
-                user.notifications.splice(index, 1);
+                const index = user.notifications.findIndex(n => n.timestamp === timestamp);
+                if (index !== -1) {
+                    user.notifications.splice(index, 1);
+                }
             }
             
             saveData();
@@ -3093,15 +3144,17 @@ function renderVerify() {
                                     const isAdminMsg = isMessageFromAdmin(msg);
                                     const isOwn = username === appState.currentUser.username;
                                     return `
-                                    <div class="chat-message ${isOwn ? 'own' : 'other'}" style="position: relative;">
-                                        ${isAdmin ? `
-                                            <button onclick="deleteMessageSync(${msg.id})" 
-                                                    style="position: absolute; top: 0.5rem; right: 0.5rem; background: #e74c3c; color: white; border: none; border-radius: 6px; padding: 0.35rem 0.65rem; font-size: 0.75rem; cursor: pointer; font-weight: bold; z-index: 10;">
-                                                حذف
-                                            </button>
-                                        ` : ''}
-                                        <div class="chat-sender" style="font-weight: bold; margin-bottom: 0.35rem; display: flex; align-items: center; gap: 0.5rem;">
-                                            ${username} ${isAdminMsg ? '<span style="background: var(--secondary); color: var(--bg-primary); padding: 0.15rem 0.5rem; border-radius: 12px; font-size: 0.7rem;">👨‍💼 مشرف</span>' : ''}
+                                    <div class="chat-message ${isOwn ? 'own' : 'other'}">
+                                        <div class="chat-sender" style="font-weight: bold; margin-bottom: 0.35rem; display: flex; align-items: center; gap: 0.5rem; justify-content: space-between;">
+                                            <div style="display: flex; align-items: center; gap: 0.5rem;">
+                                                ${username} ${isAdminMsg ? '<span style="background: var(--secondary); color: var(--bg-primary); padding: 0.15rem 0.5rem; border-radius: 12px; font-size: 0.7rem;">👨‍💼 مشرف</span>' : ''}
+                                            </div>
+                                            ${isAdmin ? `
+                                                <button onclick="deleteMessageSync(${msg.id})" 
+                                                        style="background: #e74c3c; color: white; border: none; border-radius: 6px; padding: 0.25rem 0.5rem; font-size: 0.7rem; cursor: pointer; font-weight: bold;">
+                                                    حذف
+                                                </button>
+                                            ` : ''}
                                         </div>
                                         <div style="word-wrap: break-word;">${msg.text}</div>
                                         <div class="chat-time" style="font-size: 0.75rem; opacity: 0.7; margin-top: 0.35rem;">
@@ -4443,20 +4496,30 @@ let confirmModal = { show: false, message: '', onConfirm: null };
                     appState.currentUser.username = newUsername;
                 }
                 
-                // 3. Save to Firebase once (debounced save will handle it)
+                // 3. Save to Firebase - create new docs with new username, then delete old ones
                 console.log('💾 جاري حفظ البيانات الجديدة في Firebase...');
                 
-                // Delete old documents from Firebase
-                console.log('🗑️ جاري حذف الوثائق القديمة من Firebase...');
-                await db.collection('users').doc(oldUsername).delete();
-                if (portfolio) {
-                    await db.collection('portfolios').doc(oldUsername).delete();
-                }
-                console.log(`✅ تم حذف ${oldUsername} من Firebase`);
+                // First, save new documents with updated username
+                await db.collection('users').doc(newUsername).set(user);
+                console.log(`✅ تم حفظ المستخدم ${newUsername} في Firebase`);
                 
-                // Save new data (this will trigger debounced save)
+                if (portfolio) {
+                    await db.collection('portfolios').doc(newUsername).set(portfolio);
+                    console.log(`✅ تم حفظ المحفظة ${newUsername} في Firebase`);
+                }
+                
+                // Save all other data (messages, transactions, activity logs)
                 await saveData();
-                console.log(`✅ تم حفظ ${newUsername} في Firebase`);
+                
+                // Only after successful save, delete old documents
+                console.log('🗑️ جاري حذف الوثائق القديمة من Firebase...');
+                if (oldUsername !== newUsername) {
+                    await db.collection('users').doc(oldUsername).delete();
+                    if (portfolio) {
+                        await db.collection('portfolios').doc(oldUsername).delete();
+                    }
+                    console.log(`✅ تم حذف ${oldUsername} من Firebase`);
+                }
                 
                 addActivityLog('تعديل اسم مستخدم', `تم تغيير اسم المستخدم من ${oldUsername} إلى ${newUsername}`);
                 closeEditUsernameModal();
@@ -4661,15 +4724,17 @@ let confirmModal = { show: false, message: '', onConfirm: null };
                 const isOwn = username === appState.currentUser.username;
                 
                 const messageHTML = `
-                    <div class="chat-message ${isOwn ? 'own' : 'other'}" style="position: relative;">
-                        ${isAdmin ? `
-                            <button onclick="deleteMessageSync(${message.id})" 
-                                    style="position: absolute; top: 0.5rem; right: 0.5rem; background: #e74c3c; color: white; border: none; border-radius: 6px; padding: 0.35rem 0.65rem; font-size: 0.75rem; cursor: pointer; font-weight: bold;">
-                                حذف
-                            </button>
-                        ` : ''}
-                        <div class="chat-sender" style="font-weight: bold; margin-bottom: 0.35rem;">
-                            ${username} ${isAdminMsg ? '<span style="background: var(--secondary); color: var(--bg-primary); padding: 0.15rem 0.5rem; border-radius: 12px; font-size: 0.7rem; margin-right: 0.35rem;">👨‍💼 مشرف</span>' : ''}
+                    <div class="chat-message ${isOwn ? 'own' : 'other'}">
+                        <div class="chat-sender" style="font-weight: bold; margin-bottom: 0.35rem; display: flex; align-items: center; gap: 0.5rem; justify-content: space-between;">
+                            <div style="display: flex; align-items: center; gap: 0.5rem;">
+                                ${username} ${isAdminMsg ? '<span style="background: var(--secondary); color: var(--bg-primary); padding: 0.15rem 0.5rem; border-radius: 12px; font-size: 0.7rem;">👨‍💼 مشرف</span>' : ''}
+                            </div>
+                            ${isAdmin ? `
+                                <button onclick="deleteMessageSync(${message.id})" 
+                                        style="background: #e74c3c; color: white; border: none; border-radius: 6px; padding: 0.25rem 0.5rem; font-size: 0.7rem; cursor: pointer; font-weight: bold;">
+                                    حذف
+                                </button>
+                            ` : ''}
                         </div>
                         <div style="word-wrap: break-word;">${message.text}</div>
                         <div class="chat-time" style="font-size: 0.75rem; opacity: 0.7; margin-top: 0.35rem;">
@@ -4702,15 +4767,17 @@ let confirmModal = { show: false, message: '', onConfirm: null };
                         const isAdminMsg = isMessageFromAdmin(msg);
                         const isOwn = username === appState.currentUser.username;
                         return `
-                        <div class="chat-message ${isOwn ? 'own' : 'other'}" style="position: relative;">
-                            ${isAdmin ? `
-                                <button onclick="deleteMessageSync(${msg.id})" 
-                                        style="position: absolute; top: 0.5rem; right: 0.5rem; background: #e74c3c; color: white; border: none; border-radius: 6px; padding: 0.35rem 0.65rem; font-size: 0.75rem; cursor: pointer; font-weight: bold;">
-                                    حذف
-                                </button>
-                            ` : ''}
-                            <div class="chat-sender" style="font-weight: bold; margin-bottom: 0.35rem;">
-                                ${username} ${isAdminMsg ? '<span style="background: var(--secondary); color: var(--bg-primary); padding: 0.15rem 0.5rem; border-radius: 12px; font-size: 0.7rem; margin-right: 0.35rem;">👨‍💼 مشرف</span>' : ''}
+                        <div class="chat-message ${isOwn ? 'own' : 'other'}">
+                            <div class="chat-sender" style="font-weight: bold; margin-bottom: 0.35rem; display: flex; align-items: center; gap: 0.5rem; justify-content: space-between;">
+                                <div style="display: flex; align-items: center; gap: 0.5rem;">
+                                    ${username} ${isAdminMsg ? '<span style="background: var(--secondary); color: var(--bg-primary); padding: 0.15rem 0.5rem; border-radius: 12px; font-size: 0.7rem;">👨‍💼 مشرف</span>' : ''}
+                                </div>
+                                ${isAdmin ? `
+                                    <button onclick="deleteMessageSync(${msg.id})" 
+                                            style="background: #e74c3c; color: white; border: none; border-radius: 6px; padding: 0.25rem 0.5rem; font-size: 0.7rem; cursor: pointer; font-weight: bold;">
+                                        حذف
+                                    </button>
+                                ` : ''}
                             </div>
                             <div style="word-wrap: break-word;">${msg.text}</div>
                             <div class="chat-time" style="font-size: 0.75rem; opacity: 0.7; margin-top: 0.35rem;">
