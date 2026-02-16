@@ -2083,18 +2083,6 @@ async function handleRegister(e) {
 
         // Send message
 
-        async function deleteMessage(id) {
-            showConfirm('هل تريد حذف هذه الرسالة؟', async () => {
-                appData.messages = appData.messages.filter(m => m.id !== id);
-                
-                // حفظ في Firebase
-                await db.collection('appData').doc('main').update({
-                    messages: appData.messages
-                });
-                
-                console.log('🗑️ Message deleted from Firebase');
-            });
-        }
 
         async function toggleChat() {
             appData.settings.chatEnabled = !appData.settings.chatEnabled;
@@ -2140,11 +2128,14 @@ async function handleRegister(e) {
         // Toggle trading
         async function toggleTrading() {
             appData.settings.tradingEnabled = !appData.settings.tradingEnabled;
+            await saveData();
             
-            // حفظ في Firebase فوراً
-            await db.collection('appData').doc('main').update({
-                settings: appData.settings
-            });
+            // Update button only without full render
+            const toggleBtn = document.querySelector('button[onclick*="toggleTrading"]');
+            if (toggleBtn) {
+                toggleBtn.className = 'btn ' + (appData.settings.tradingEnabled ? 'btn-success' : 'btn-danger');
+                toggleBtn.textContent = appData.settings.tradingEnabled ? 'مفتوح ✓' : 'مغلق ✗';
+            }
             
             addActivityLog('تغيير إعدادات', `التداول ${appData.settings.tradingEnabled ? 'مفتوح' : 'مغلق'}`);
             addNotification(`التداول ${appData.settings.tradingEnabled ? 'مفتوح' : 'مغلق'} الآن`, 'info');
@@ -2525,11 +2516,13 @@ function renderVerify() {
         }
 
         function clearAllNotifications() {
-            showConfirm('هل تريد مسح جميع الإشعارات؟', () => {
+            if (true) {
+
                 appData.notifications = [];
                 saveData();
                 render();
-            });
+            
+            }
         }
 
         function renderStudentDashboard() {
@@ -2733,6 +2726,45 @@ function renderVerify() {
             `;
         }
 
+        
+        function renderStocksTab() {
+            const portfolio = appData.portfolios.find(p => p.username === appState.currentUser.username);
+            
+            return `
+                <div class="tab-content active">
+                    <div class="card">
+                        <h3>أسهمي 📈</h3>
+                        ${portfolio && portfolio.holdings.length > 0 ? `
+                            <table style="width:100%;">
+                                <thead>
+                                    <tr>
+                                        <th>السهم</th>
+                                        <th>الكمية</th>
+                                        <th>السعر الحالي</th>
+                                        <th>القيمة الإجمالية</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${portfolio.holdings.map(h => {
+                                        const stock = appData.stocks.find(s => s.symbol === h.symbol);
+                                        const totalValue = stock ? (stock.price * h.quantity) : 0;
+                                        return `
+                                            <tr>
+                                                <td><strong>${h.symbol}</strong></td>
+                                                <td>${h.quantity}</td>
+                                                <td>${stock ? stock.price.toFixed(2) : '-'} ر.س</td>
+                                                <td>${totalValue.toFixed(2)} ر.س</td>
+                                            </tr>
+                                        `;
+                                    }).join('')}
+                                </tbody>
+                            </table>
+                        ` : '<p style="text-align:center;padding:2rem;color:var(--text-secondary);">لا توجد أسهم في محفظتك</p>'}
+                    </div>
+                </div>
+            `;
+        }
+
         function renderChatTab() {
             const isAdmin = appState.currentUser.role === 'admin';
             const chatDisabled = !appData.settings.chatEnabled;
@@ -2802,7 +2834,7 @@ function renderVerify() {
                         </div>
 
                         ${isAdmin || !chatDisabled ? `
-                            <form class="chat-input-group" onsubmit="event.preventDefault(); (async () => { await sendMessage(this.chatInput.value); this.chatInput.value=''; })();">
+                            <form class="chat-input-group" onsubmit="event.preventDefault(); sendMessage(this.chatInput.value); this.chatInput.value=''; return false;">
                                 <input type="text" name="chatInput" placeholder="${isAdmin ? '💬 رسالة من المشرف...' : 'اكتب رسالة...'}" required>
                                 <button type="submit" class="btn btn-primary">إرسال</button>
                             </form>
@@ -2860,64 +2892,7 @@ function renderVerify() {
         function renderAdminDashboard() {
             return `
                 <div class="tabs">
-                    <button class="tab ${appState.activeAdminTab === 'settings' ? 'active' : ''}" 
-                            onclick="appState.activeAdminTab='settings'; render();">
-                        ⚙️ الإعدادات
-                    </button>
-                    <button class="tab ${appState.activeAdminTab === 'students' ? 'active' : ''}" 
-                            onclick="appState.activeAdminTab='students'; render();">
-                        👥 الطلاب
-                    </button>
-                    <button class="tab ${appState.activeAdminTab === 'stocks' ? 'active' : ''}" 
-                            onclick="appState.activeAdminTab='stocks'; render();">
-                        📈 الأسهم
-                    </button>
-                    <button class="tab ${appState.activeAdminTab === 'weekly' ? 'active' : ''}" 
-                            onclick="appState.activeAdminTab='weekly'; render();">
-                        📊 التقرير الأسبوعي
-                    </button>
-                    <button class="tab ${appState.activeAdminTab === 'chat' ? 'active' : ''}" 
-                            onclick="appState.activeAdminTab='chat'; render();">
-                        💬 الدردشة
-                    </button>
-                    <button class="tab ${appState.activeAdminTab === 'leaderboard' ? 'active' : ''}" 
-                            onclick="appState.activeAdminTab='leaderboard'; render();">
-                        🏅 المتصدرين
-                    </button>
-                    <button class="tab ${appState.activeAdminTab === 'account' ? 'active' : ''}" 
-                    onclick="appState.activeAdminTab='account'; render();">
-                        👤 حسابي
-                    </button>
-                </div>
-
-                ${appState.activeAdminTab === 'settings' ? renderAdminSettingsTab() : ''}
-                ${appState.activeAdminTab === 'students' ? renderAdminStudentsTab() : ''}
-                ${appState.activeAdminTab === 'stocks' ? renderAdminStocksTab() : ''}
-                ${appState.activeAdminTab === 'weekly' ? renderWeeklyReportTab() : ''}
-                ${appState.activeAdminTab === 'chat' ? renderChatTab() : ''}
-                ${appState.activeAdminTab === 'leaderboard' ? renderLeaderboardTab(true) : ''}
-                ${appState.activeAdminTab === 'account' ? renderAdminProfileTab() : ''}
-            `;
-        }
-
-        function renderAdminSettingsTab() {
-            return `
-                <div class="tab-content active">
-                    <div class="card">
-                        <h3 style="margin-bottom: 1.5rem;">إعدادات التداول ⚙️</h3>
-                        
-                        <div style="background: var(--bg-secondary); padding: 1.5rem; border-radius: 12px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
-                            <div>
-                                <strong>حالة التداول</strong>
-                                <p style="color: var(--text-secondary); font-size: 0.9rem; margin-top: 0.3rem;">
-                                    السماح للطلاب بالشراء والبيع
-                                </p>
-                            </div>
-                            <button class="btn ${appData.settings.tradingEnabled ? 'btn-success' : 'btn-danger'}" 
-                                    onclick="toggleTradingSync()">
-                                ${appData.settings.tradingEnabled ? 'مفتوح ✓' : 'مغلق ✗'}
-                            </button>
-                        </div>
+                    </div>
                     </div>
                 </div>
             `;
@@ -2931,6 +2906,7 @@ function renderVerify() {
                     <div class="card">
                         <h3 style="margin-bottom: 1.5rem;">إدارة الطلاب 👥</h3>
                         
+                        <!-- عدد الطلاب فقط -->
                         <div style="background: var(--bg-secondary); padding: 1.5rem; border-radius: 12px; margin-bottom: 2rem; border: 1px solid var(--border);">
                             <div style="text-align: center;">
                                 <div style="color: var(--text-secondary); font-size: 0.9rem; margin-bottom: 0.5rem;">👥 عدد الطلاب</div>
@@ -2944,11 +2920,13 @@ function renderVerify() {
                                 const portfolio = appData.portfolios.find(p => p.username === student.username);
                                 const holdings = portfolio ? portfolio.holdings : [];
                                 
-                                // حساب الرصيد المضاف
+                                // حساب الرصيد المضاف لهذا الطالب من سجل النشاط
                                 let addedBalance = 0;
                                 appData.activityLog.forEach(log => {
                                     if (log.action === 'إضافة رصيد' && log.details) {
+                                        // البحث عن اسم الطالب والمبلغ في التفاصيل
                                         if (log.details.includes(student.username)) {
+                                            // البحث عن +المبلغ أو -المبلغ
                                             const matchPositive = log.details.match(/\+(\d+\.?\d*)/);
                                             const matchNegative = log.details.match(/-(\d+\.?\d*)/);
                                             
@@ -3064,6 +3042,22 @@ function renderVerify() {
             return `
                 <div class="tab-content active">
                     <div class="card">
+                        <!-- Trading Control -->
+                        <div style="background: var(--bg-secondary); padding: 1rem; border-radius: 8px; margin-bottom: 1.5rem; display: flex; justify-content: space-between; align-items: center; border: 2px solid var(--border);">
+                            <div>
+                                <strong style="font-size: 1.1rem;">🏛️ حالة السوق</strong>
+                                <p style="color: var(--text-secondary); font-size: 0.9rem; margin: 0.3rem 0 0 0;">
+                                    ${appData.settings.tradingEnabled ? 'السوق مفتوح - يمكن للطلاب التداول' : 'السوق مغلق - لا يمكن التداول'}
+                                </p>
+                            </div>
+                            <button class="btn ${appData.settings.tradingEnabled ? 'btn-success' : 'btn-danger'}" 
+                                    onclick="toggleTradingSync()" 
+                                    style="min-width: 120px; font-weight: bold;">
+                                ${appData.settings.tradingEnabled ? '✅ مفتوح' : '⛔ مغلق'}
+                            </button>
+                        </div>
+                        
+                        <div class="card">
                         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 1rem;">
                             <h3>إدارة الأسهم 📈</h3>
                             <div style="display: flex; gap: 0.5rem;">
@@ -3247,21 +3241,18 @@ let confirmModal = { show: false, message: '', onConfirm: null };
         async function deleteStock(idx) {
             const stock = appData.stocks[idx];
             
-            showConfirm(
-                `هل تريد حذف سهم ${stock.name} (${stock.symbol})؟<br><br><span style="color: var(--danger)">⚠️ سيتم حذفه من جميع المحافظ!</span>`,
-                async () => {
-                    appData.portfolios.forEach(p => {
-                        p.holdings = p.holdings.filter(h => h.symbol !== stock.symbol);
-                    });
+            if (window.confirm(`هل تريد حذف سهم ${stock.name} (${stock.symbol})؟\n\n⚠️ سيتم حذفه من جميع المحافظ!`)) {
+                appData.portfolios.forEach(p => {
+                    p.holdings = p.holdings.filter(h => h.symbol !== stock.symbol);
+                });
 
-                    appData.stocks.splice(idx, 1);
+                appData.stocks.splice(idx, 1);
 
-                    addActivityLog('حذف سهم', `حذف سهم ${stock.name} (${stock.symbol})`);
-                    showAlert(`✅ تم حذف ${stock.name}`, 'success');
-                    await saveData();
-                    render();
-                }
-            );
+                addActivityLog('حذف سهم', `حذف سهم ${stock.name} (${stock.symbol})`);
+                showAlert(`✅ تم حذف ${stock.name}`, 'success');
+                saveData();
+                render();
+            }
         }
 
         function renderWeeklyReportTab() {
@@ -3480,20 +3471,14 @@ let confirmModal = { show: false, message: '', onConfirm: null };
         }
 
         function resetWeeklyStats() {
-            showConfirm(
-                'هل تريد إعادة تعيين التقرير الأسبوعي؟<br><br><span style="color: var(--warning);">⚠️ سيتم حفظ تاريخ الإعادة فقط. جميع المعاملات ستبقى في السجل.</span>',
-                () => {
-                    appData.weeklyStats.lastReset = new Date().toISOString();
-                    
-                    // Clear all transactions for fresh start
-                    appData.transactions = [];
-                    
-                    addActivityLog('إعادة تعيين التقرير', 'تم إعادة تعيين التقرير الأسبوعي');
-                    showAlert('✅ تم إعادة تعيين التقرير الأسبوعي', 'success');
-                    saveData();
-                    render();
-                }
-            );
+            if (window.confirm('هل تريد إعادة تعيين التقرير الأسبوعي؟\n\n⚠️ سيتم حفظ تاريخ الإعادة فقط. جميع المعاملات ستبقى في السجل.')) {
+                appData.weeklyStats.lastReset = new Date().toISOString();
+                appData.transactions = [];
+                addActivityLog('إعادة تعيين التقرير', 'تم إعادة تعيين التقرير الأسبوعي');
+                showAlert('✅ تم إعادة تعيين التقرير الأسبوعي', 'success');
+                saveData();
+                render();
+            }
         }
 
         function renderTradingModal() {
@@ -4107,18 +4092,9 @@ let confirmModal = { show: false, message: '', onConfirm: null };
         
         // Delete student confirmation
         function confirmDeleteStudent(username) {
-            showConfirm(
-                `هل أنت متأكد من حذف الطالب "${username}"؟
-
-⚠️ سيتم حذف:
-• الحساب
-• المحفظة
-• جميع المعاملات
-• سجل النشاط
-
-هذا الإجراء لا يمكن التراجع عنه!`,
-                () => deleteStudent(username)
-            );
+            if (window.confirm(`هل أنت متأكد من حذف الطالب "${username}"?\n\n⚠️ سيتم حذف:\n• الحساب\n• المحفظة\n• جميع المعاملات\n• سجل النشاط\n\nهذا الإجراء لا يمكن التراجع عنه!`)) {
+                deleteStudent(username);
+            }
         }
 
         // Delete student function
@@ -4216,6 +4192,50 @@ let confirmModal = { show: false, message: '', onConfirm: null };
             
             console.log('☁️ App is now Live & Interactive');
         }
+
+        async function sendMessage(text) {
+            if (!text || !text.trim()) return;
+            
+            const message = {
+                id: Date.now(),
+                text: text.trim(),
+                sender: appState.currentUser.username,
+                role: appState.currentUser.role,
+                timestamp: new Date().toISOString()
+            };
+            
+            appData.messages.push(message);
+            await saveData();
+            render();
+        }
+
+        async function deleteMessage(id) {
+            appData.messages = appData.messages.filter(m => m.id !== id);
+            await saveData();
+            
+            // Update only chat messages without full render
+            const chatMessages = document.querySelector('.chat-messages');
+            if (chatMessages) {
+                chatMessages.innerHTML = appData.messages.map(msg => `
+                    <div class="chat-message ${msg.role === 'admin' ? 'admin' : 'student'}">
+                        <div class="message-header">
+                            <strong>${msg.sender || msg.username || "مجهول"}</strong>
+                            <span>${new Date(msg.timestamp).toLocaleTimeString('ar-SA', {hour: '2-digit', minute: '2-digit'})}</span>
+                        </div>
+                        <div class="message-text">${msg.text}</div>
+                        ${appState.currentUser.role === 'admin' ? `
+                            <div style="margin-top:0.8rem;text-align:left;">
+                                <button onclick="deleteMessageSync(${msg.id})" class="btn btn-danger btn-small" style="padding:0.3rem 0.8rem;font-size:0.85rem;">
+                                    🗑️ حذف
+                                </button>
+                            </div>
+                        ` : ''}
+                    </div>
+                `).join('');
+                chatMessages.scrollTop = chatMessages.scrollHeight;
+            }
+        }
+
         // Initialize app
         (async () => {
             console.log('Starting app initialization...');
