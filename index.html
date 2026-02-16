@@ -1010,8 +1010,9 @@
             selectedStock: null,
             activeTab: 'stocks',
             activeAdminTab: 'stocks',
-    forgotPasswordPhone: null,
-    resetPasswordCode: null
+            transactionFilter: 'all',
+            forgotPasswordPhone: null,
+            resetPasswordCode: null
         };
 
         let appData = {
@@ -1311,6 +1312,51 @@ function renderAdminProfileTab() {
                         </button>
                     </div>
                 </form>
+            </div>
+
+            <div class="card" style="max-width: 800px; margin: 2rem auto 0;">
+                <h2 style="margin-bottom: 2rem; border-bottom: 1px solid var(--border); padding-bottom: 1rem;">
+                    النسخ الاحتياطي والاستعادة 🔐
+                </h2>
+                
+                <div style="background: var(--bg-secondary); padding: 1.5rem; border-radius: 12px; margin-bottom: 1.5rem; border: 1px solid var(--border);">
+                    <p style="color: var(--text-secondary); margin-bottom: 1rem; line-height: 1.6;">
+                        📌 <strong>ملاحظة مهمة:</strong> يتم حفظ جميع البيانات تلقائياً في Firebase. استخدم النسخ الاحتياطي للحصول على نسخة محلية يمكنك استعادتها في حالة حدوث مشكلة.
+                    </p>
+                </div>
+
+                <div style="display: grid; gap: 1rem;">
+                    <button onclick="exportBackup()" class="btn btn-primary" style="padding: 1rem; display: flex; align-items: center; justify-content: center; gap: 0.5rem;">
+                        <span style="font-size: 1.5rem;">📦</span>
+                        <span>تصدير نسخة احتياطية كاملة</span>
+                    </button>
+
+                    <button onclick="importBackup()" class="btn btn-warning" style="padding: 1rem; display: flex; align-items: center; justify-content: center; gap: 0.5rem;">
+                        <span style="font-size: 1.5rem;">📥</span>
+                        <span>استيراد نسخة احتياطية</span>
+                    </button>
+
+                    <button onclick="verifyDataIntegrity()" class="btn btn-secondary" style="padding: 1rem; display: flex; align-items: center; justify-content: center; gap: 0.5rem;">
+                        <span style="font-size: 1.5rem;">🔍</span>
+                        <span>التحقق من سلامة البيانات</span>
+                    </button>
+
+                    <button onclick="forceFullSave()" class="btn btn-success" style="padding: 1rem; display: flex; align-items: center; justify-content: center; gap: 0.5rem;">
+                        <span style="font-size: 1.5rem;">💾</span>
+                        <span>فرض حفظ جميع البيانات في Firebase</span>
+                    </button>
+
+                    <button onclick="reloadData()" class="btn" style="padding: 1rem; display: flex; align-items: center; justify-content: center; gap: 0.5rem; background: var(--bg-secondary); border: 1px solid var(--border);">
+                        <span style="font-size: 1.5rem;">🔄</span>
+                        <span>إعادة تحميل البيانات من Firebase</span>
+                    </button>
+                </div>
+
+                <div style="background: rgba(46, 204, 113, 0.1); padding: 1rem; border-radius: 8px; margin-top: 1.5rem; border: 1px solid var(--success);">
+                    <p style="color: var(--success); font-size: 0.9rem; line-height: 1.6; margin: 0;">
+                        ✅ <strong>جميع البيانات محفوظة تلقائياً:</strong> يتم حفظ كل تغيير تلقائياً في Firebase. استخدم "التحقق من سلامة البيانات" للتأكد من تطابق البيانات المحلية مع Firebase.
+                    </p>
+                </div>
             </div>
         </div>
     `;
@@ -1880,6 +1926,233 @@ function changePassword(form) {
             } catch (error) {
                 console.error('❌ Error reloading data:', error);
                 showAlert('فشل إعادة التحميل ❌', 'error');
+            }
+        }
+
+        // Backup: Export all data to JSON file
+        async function exportBackup() {
+            try {
+                showAlert('جاري تصدير النسخة الاحتياطية...', 'info');
+                console.log('📦 Exporting backup...');
+
+                // First, ensure all data is saved to Firebase
+                await forceFullSave();
+                
+                // Wait a bit for save to complete
+                await new Promise(resolve => setTimeout(resolve, 1000));
+
+                // Prepare complete backup data
+                const backupData = {
+                    version: '1.0',
+                    timestamp: new Date().toISOString(),
+                    appData: {
+                        users: appData.users,
+                        portfolios: appData.portfolios,
+                        transactions: appData.transactions,
+                        stocks: appData.stocks,
+                        messages: appData.messages,
+                        activityLog: appData.activityLog,
+                        settings: appData.settings,
+                        notifications: appData.notifications,
+                        weeklyStats: appData.weeklyStats
+                    }
+                };
+
+                // Convert to JSON
+                const jsonStr = JSON.stringify(backupData, null, 2);
+                const blob = new Blob([jsonStr], { type: 'application/json' });
+                
+                // Create download link
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `souq-alhawameer-backup-${new Date().toISOString().split('T')[0]}.json`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+
+                console.log('✅ Backup exported successfully');
+                showAlert('✅ تم تصدير النسخة الاحتياطية بنجاح', 'success');
+                addActivityLog('تصدير نسخة احتياطية', 'تم تصدير نسخة احتياطية كاملة من جميع البيانات');
+            } catch (error) {
+                console.error('❌ Error exporting backup:', error);
+                showAlert('فشل تصدير النسخة الاحتياطية ❌', 'error');
+            }
+        }
+
+        // Restore: Import data from JSON file
+        async function importBackup() {
+            try {
+                // Create file input
+                const input = document.createElement('input');
+                input.type = 'file';
+                input.accept = '.json';
+                
+                input.onchange = async (e) => {
+                    const file = e.target.files[0];
+                    if (!file) return;
+
+                    showAlert('جاري استيراد النسخة الاحتياطية...', 'info');
+                    console.log('📥 Importing backup...');
+
+                    try {
+                        const text = await file.text();
+                        const backupData = JSON.parse(text);
+
+                        // Validate backup data
+                        if (!backupData.appData) {
+                            throw new Error('Invalid backup file format');
+                        }
+
+                        // Ask for confirmation
+                        if (!window.confirm('⚠️ هل أنت متأكد من استيراد هذه النسخة الاحتياطية؟\n\nسيتم استبدال جميع البيانات الحالية بالبيانات من النسخة الاحتياطية.\n\nهذا الإجراء لا يمكن التراجع عنه!')) {
+                            return;
+                        }
+
+                        // Restore data
+                        appData.users = backupData.appData.users || [];
+                        appData.portfolios = backupData.appData.portfolios || [];
+                        appData.transactions = backupData.appData.transactions || [];
+                        appData.stocks = backupData.appData.stocks || [];
+                        appData.messages = backupData.appData.messages || [];
+                        appData.activityLog = backupData.appData.activityLog || [];
+                        appData.settings = backupData.appData.settings || {};
+                        appData.notifications = backupData.appData.notifications || [];
+                        appData.weeklyStats = backupData.appData.weeklyStats || {};
+
+                        // Save all restored data to Firebase
+                        console.log('💾 Saving restored data to Firebase...');
+                        
+                        // Save main app data
+                        await db.collection('appData').doc('main').set({
+                            stocks: appData.stocks,
+                            activityLog: appData.activityLog,
+                            settings: appData.settings,
+                            messages: appData.messages,
+                            notifications: appData.notifications,
+                            weeklyStats: appData.weeklyStats
+                        });
+
+                        // Save users (batch)
+                        const usersBatch = db.batch();
+                        appData.users.forEach(user => {
+                            const userRef = db.collection('users').doc(user.username);
+                            usersBatch.set(userRef, user);
+                        });
+                        await usersBatch.commit();
+
+                        // Save portfolios (batch)
+                        const portfoliosBatch = db.batch();
+                        appData.portfolios.forEach(portfolio => {
+                            const portfolioRef = db.collection('portfolios').doc(portfolio.username);
+                            portfoliosBatch.set(portfolioRef, portfolio);
+                        });
+                        await portfoliosBatch.commit();
+
+                        // Save transactions (batch)
+                        const txBatch = db.batch();
+                        appData.transactions.forEach(tx => {
+                            const txRef = db.collection('transactions').doc(tx.id.toString());
+                            txBatch.set(txRef, tx);
+                        });
+                        await txBatch.commit();
+
+                        console.log('✅ Backup restored successfully');
+                        showAlert('✅ تم استيراد النسخة الاحتياطية بنجاح', 'success');
+                        addActivityLog('استيراد نسخة احتياطية', `تم استيراد نسخة احتياطية من ${backupData.timestamp}`);
+                        
+                        // Reload page to refresh everything
+                        setTimeout(() => {
+                            window.location.reload();
+                        }, 2000);
+                    } catch (error) {
+                        console.error('❌ Error importing backup:', error);
+                        showAlert('فشل استيراد النسخة الاحتياطية: ' + error.message + ' ❌', 'error');
+                    }
+                };
+
+                input.click();
+            } catch (error) {
+                console.error('❌ Error in import process:', error);
+                showAlert('فشل عملية الاستيراد ❌', 'error');
+            }
+        }
+
+        // Verify Firebase data integrity
+        async function verifyDataIntegrity() {
+            try {
+                showAlert('جاري التحقق من سلامة البيانات...', 'info');
+                console.log('🔍 Verifying data integrity...');
+
+                const report = {
+                    local: {
+                        users: appData.users.length,
+                        portfolios: appData.portfolios.length,
+                        transactions: appData.transactions.length,
+                        stocks: appData.stocks.length,
+                        messages: appData.messages.length
+                    },
+                    firebase: {
+                        users: 0,
+                        portfolios: 0,
+                        transactions: 0,
+                        stocks: 0,
+                        messages: 0
+                    }
+                };
+
+                // Count Firebase documents
+                const usersSnapshot = await db.collection('users').get();
+                report.firebase.users = usersSnapshot.size;
+
+                const portfoliosSnapshot = await db.collection('portfolios').get();
+                report.firebase.portfolios = portfoliosSnapshot.size;
+
+                const transactionsSnapshot = await db.collection('transactions').get();
+                report.firebase.transactions = transactionsSnapshot.size;
+
+                const mainSnapshot = await db.collection('appData').doc('main').get();
+                if (mainSnapshot.exists) {
+                    const data = mainSnapshot.data();
+                    report.firebase.stocks = data.stocks?.length || 0;
+                    report.firebase.messages = data.messages?.length || 0;
+                }
+
+                console.log('📊 Data Integrity Report:', report);
+
+                // Check for discrepancies
+                const issues = [];
+                if (report.local.users !== report.firebase.users) {
+                    issues.push(`المستخدمين: محلي ${report.local.users} ≠ Firebase ${report.firebase.users}`);
+                }
+                if (report.local.portfolios !== report.firebase.portfolios) {
+                    issues.push(`المحافظ: محلي ${report.local.portfolios} ≠ Firebase ${report.firebase.portfolios}`);
+                }
+                if (report.local.transactions !== report.firebase.transactions) {
+                    issues.push(`المعاملات: محلي ${report.local.transactions} ≠ Firebase ${report.firebase.transactions}`);
+                }
+                if (report.local.stocks !== report.firebase.stocks) {
+                    issues.push(`الأسهم: محلي ${report.local.stocks} ≠ Firebase ${report.firebase.stocks}`);
+                }
+                if (report.local.messages !== report.firebase.messages) {
+                    issues.push(`الرسائل: محلي ${report.local.messages} ≠ Firebase ${report.firebase.messages}`);
+                }
+
+                if (issues.length > 0) {
+                    const message = '⚠️ تم العثور على اختلافات:\n\n' + issues.join('\n') + '\n\nهل تريد مزامنة البيانات المحلية إلى Firebase؟';
+                    if (window.confirm(message)) {
+                        await forceFullSave();
+                        showAlert('✅ تمت المزامنة بنجاح', 'success');
+                    }
+                } else {
+                    showAlert('✅ البيانات متطابقة تماماً بين المحلي وFirebase', 'success');
+                }
+
+                addActivityLog('التحقق من سلامة البيانات', `محلي: ${report.local.users} مستخدمين، Firebase: ${report.firebase.users} مستخدمين`);
+            } catch (error) {
+                console.error('❌ Error verifying data integrity:', error);
+                showAlert('فشل التحقق من سلامة البيانات ❌', 'error');
             }
         }
 
@@ -2997,6 +3270,225 @@ function renderVerify() {
             }
         }
 
+        // Admin: Delete individual transaction
+        async function adminDeleteTransaction(transactionId, event) {
+            if (event) event.stopPropagation();
+            
+            if (!window.confirm('هل أنت متأكد من حذف هذه المعاملة؟')) {
+                return;
+            }
+            
+            // Find the transaction
+            const txIndex = appData.transactions.findIndex(t => t.id === transactionId);
+            if (txIndex === -1) {
+                alert('لا يمكن العثور على هذه المعاملة');
+                return;
+            }
+            
+            // Remove from local array
+            appData.transactions.splice(txIndex, 1);
+            
+            // Remove from Firebase
+            try {
+                await db.collection('transactions').doc(transactionId.toString()).delete();
+                saveData();
+                render();
+            } catch (error) {
+                console.error('Error deleting transaction:', error);
+                alert('حدث خطأ في حذف المعاملة');
+            }
+        }
+
+        // Admin: Delete all transactions
+        async function adminClearAllTransactions(event) {
+            if (event) event.stopPropagation();
+            
+            if (!window.confirm('هل أنت متأكد من حذف جميع المعاملات؟\n\nهذا الإجراء لا يمكن التراجع عنه!')) {
+                return;
+            }
+            
+            const allTransactions = [...appData.transactions];
+            
+            // Remove from local array
+            appData.transactions = [];
+            
+            // Remove from Firebase
+            try {
+                const batch = db.batch();
+                allTransactions.forEach(tx => {
+                    const docRef = db.collection('transactions').doc(tx.id.toString());
+                    batch.delete(docRef);
+                });
+                await batch.commit();
+                saveData();
+                render();
+            } catch (error) {
+                console.error('Error deleting all transactions:', error);
+                alert('حدث خطأ في حذف المعاملات');
+            }
+        }
+
+        // Admin: Delete transactions for a specific student
+        async function adminDeleteStudentTransactions(username, event) {
+            if (event) event.stopPropagation();
+            
+            if (!window.confirm(`هل أنت متأكد من حذف جميع معاملات الطالب "${username}"؟\n\nهذا الإجراء لا يمكن التراجع عنه!`)) {
+                return;
+            }
+            
+            const studentTransactions = appData.transactions.filter(t => t.username === username);
+            
+            // Remove from local array
+            appData.transactions = appData.transactions.filter(t => t.username !== username);
+            
+            // Remove from Firebase
+            try {
+                const batch = db.batch();
+                studentTransactions.forEach(tx => {
+                    const docRef = db.collection('transactions').doc(tx.id.toString());
+                    batch.delete(docRef);
+                });
+                await batch.commit();
+                saveData();
+                render();
+            } catch (error) {
+                console.error('Error deleting student transactions:', error);
+                alert('حدث خطأ في حذف معاملات الطالب');
+            }
+        }
+
+        // Render admin transactions tab
+        function renderAdminTransactionsTab() {
+            const allTransactions = [...appData.transactions].sort((a, b) => {
+                const timeA = new Date(a.timestamp).getTime();
+                const timeB = new Date(b.timestamp).getTime();
+                return timeB - timeA;
+            });
+
+            // Get unique students for filter
+            const students = [...new Set(allTransactions.map(t => t.username))];
+
+            // Filter state (if we want to add filtering later)
+            const filterStudent = appState.transactionFilter || 'all';
+            const filteredTransactions = filterStudent === 'all' 
+                ? allTransactions 
+                : allTransactions.filter(t => t.username === filterStudent);
+
+            return `
+                <div class="tab-content active">
+                    <div class="card">
+                        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem; margin-bottom: 1.5rem;">
+                            <h2 style="margin: 0;">إدارة المعاملات 📜</h2>
+                            <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+                                <select onchange="appState.transactionFilter = this.value; render();" 
+                                        style="padding: 0.5rem 1rem; border-radius: 8px; border: 1px solid var(--border); background: var(--bg-secondary); color: var(--text-primary); font-family: 'Tajawal', sans-serif;">
+                                    <option value="all" ${filterStudent === 'all' ? 'selected' : ''}>جميع الطلاب</option>
+                                    ${students.map(s => `<option value="${s}" ${filterStudent === s ? 'selected' : ''}>${s}</option>`).join('')}
+                                </select>
+                                ${allTransactions.length > 0 ? `
+                                    <button class="btn btn-danger btn-small" onclick="adminClearAllTransactions(event)" aria-label="حذف جميع المعاملات" style="padding: 0.5rem 1rem; font-size: 0.9rem;">
+                                        🗑️ حذف الكل
+                                    </button>
+                                ` : ''}
+                            </div>
+                        </div>
+
+                        <div style="background: var(--bg-secondary); padding: 1.5rem; border-radius: 12px; margin-bottom: 1.5rem; border: 1px solid var(--border);">
+                            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; text-align: center;">
+                                <div>
+                                    <div style="color: var(--text-secondary); font-size: 0.9rem; margin-bottom: 0.5rem;">إجمالي المعاملات</div>
+                                    <div style="font-size: 2rem; font-weight: 900; color: var(--text-primary);">${filteredTransactions.length}</div>
+                                </div>
+                                <div>
+                                    <div style="color: var(--text-secondary); font-size: 0.9rem; margin-bottom: 0.5rem;">عمليات الشراء</div>
+                                    <div style="font-size: 2rem; font-weight: 900; color: var(--success);">${filteredTransactions.filter(t => t.type === 'buy').length}</div>
+                                </div>
+                                <div>
+                                    <div style="color: var(--text-secondary); font-size: 0.9rem; margin-bottom: 0.5rem;">عمليات البيع</div>
+                                    <div style="font-size: 2rem; font-weight: 900; color: var(--danger);">${filteredTransactions.filter(t => t.type === 'sell').length}</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        ${filteredTransactions.length === 0 
+                            ? '<p style="text-align: center; color: var(--text-secondary); padding: 3rem; background: var(--bg-secondary); border-radius: 12px; border: 2px dashed var(--border);">📭 لا توجد معاملات</p>'
+                            : `
+                                <div style="display: grid; gap: 1rem;">
+                                    ${filteredTransactions.map(tx => {
+                                        const date = new Date(tx.timestamp);
+                                        const dateStr = date.toLocaleDateString('ar-SA', { year: 'numeric', month: 'short', day: 'numeric' });
+                                        const timeStr = date.toLocaleTimeString('ar-SA', { hour: '2-digit', minute: '2-digit' });
+                                        
+                                        return `
+                                            <div class="transaction-item" style="position: relative; background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 12px; padding: 1.5rem;">
+                                                <div class="transaction-header" style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1rem;">
+                                                    <div style="flex: 1;">
+                                                        <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem;">
+                                                            <span class="transaction-badge ${tx.type}" style="display: inline-block; padding: 0.25rem 0.75rem; border-radius: 20px; font-size: 0.85rem; font-weight: bold; ${tx.type === 'buy' ? 'background: var(--success); color: white;' : 'background: var(--danger); color: white;'}">
+                                                                ${tx.type === 'buy' ? '📈 شراء' : '📉 بيع'}
+                                                            </span>
+                                                            <span style="font-weight: bold; font-size: 1.1rem;">${tx.symbol}</span>
+                                                            <span style="color: var(--text-secondary); font-size: 0.9rem;">${tx.name}</span>
+                                                        </div>
+                                                        <div style="color: var(--text-secondary); font-size: 0.85rem;">
+                                                            👤 ${tx.username}
+                                                        </div>
+                                                    </div>
+                                                    <button onclick="adminDeleteTransaction(${tx.id}, event)" 
+                                                            style="position: absolute; top: 0.5rem; left: 0.5rem; background: var(--danger); border: none; color: white; cursor: pointer; padding: 0.4rem 0.6rem; font-size: 1rem; border-radius: 6px; transition: all 0.2s;" 
+                                                            onmouseover="this.style.background='#c0392b'"
+                                                            onmouseout="this.style.background='var(--danger)'"
+                                                            title="حذف المعاملة"
+                                                            aria-label="حذف المعاملة">🗑️</button>
+                                                </div>
+                                                
+                                                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 1rem; padding: 1rem; background: var(--bg-primary); border-radius: 8px;">
+                                                    <div>
+                                                        <div style="color: var(--text-secondary); font-size: 0.8rem; margin-bottom: 0.25rem;">الكمية:</div>
+                                                        <div style="font-weight: bold;">${tx.quantity}</div>
+                                                    </div>
+                                                    <div>
+                                                        <div style="color: var(--text-secondary); font-size: 0.8rem; margin-bottom: 0.25rem;">السعر:</div>
+                                                        <div style="font-weight: bold;">${tx.price.toFixed(2)} ر.س</div>
+                                                    </div>
+                                                    <div>
+                                                        <div style="color: var(--text-secondary); font-size: 0.8rem; margin-bottom: 0.25rem;">الإجمالي:</div>
+                                                        <div style="font-weight: bold; color: ${tx.type === 'buy' ? 'var(--danger)' : 'var(--success)'};">${tx.total.toFixed(2)} ر.س</div>
+                                                    </div>
+                                                    ${tx.profit !== undefined ? `
+                                                        <div>
+                                                            <div style="color: var(--text-secondary); font-size: 0.8rem; margin-bottom: 0.25rem;">الربح:</div>
+                                                            <div style="font-weight: bold; color: ${tx.profit >= 0 ? 'var(--success)' : 'var(--danger)'};">${tx.profit >= 0 ? '+' : ''}${tx.profit.toFixed(2)} ر.س</div>
+                                                        </div>
+                                                    ` : ''}
+                                                    <div>
+                                                        <div style="color: var(--text-secondary); font-size: 0.8rem; margin-bottom: 0.25rem;">التاريخ:</div>
+                                                        <div style="font-weight: bold; font-size: 0.85rem;">${dateStr}</div>
+                                                    </div>
+                                                    <div>
+                                                        <div style="color: var(--text-secondary); font-size: 0.8rem; margin-bottom: 0.25rem;">الوقت:</div>
+                                                        <div style="font-weight: bold; font-size: 0.85rem;">${timeStr}</div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        `;
+                                    }).join('')}
+                                </div>
+
+                                ${filterStudent !== 'all' && filteredTransactions.length > 0 ? `
+                                    <div style="text-align: center; margin-top: 1.5rem;">
+                                        <button class="btn btn-danger" onclick="adminDeleteStudentTransactions('${filterStudent}', event)" style="padding: 0.75rem 2rem;">
+                                            🗑️ حذف جميع معاملات ${filterStudent}
+                                        </button>
+                                    </div>
+                                ` : ''}
+                            `
+                        }
+                    </div>
+                </div>
+            `;
+        }
+
         function renderStudentDashboard() {
             const portfolio = appData.portfolios.find(p => p.username === appState.currentUser.username);
             const portfolioValue = getPortfolioValue(appState.currentUser.username);
@@ -3440,6 +3932,10 @@ function renderVerify() {
                             onclick="appState.activeAdminTab='weeklyReport'; render();">
                         📊 التقرير الأسبوعي
                     </button>
+                    <button class="tab ${appState.activeAdminTab === 'transactions' ? 'active' : ''}" 
+                            onclick="appState.activeAdminTab='transactions'; render();">
+                        📜 المعاملات
+                    </button>
                     <button class="tab ${appState.activeAdminTab === 'activityLog' ? 'active' : ''}" 
                             onclick="appState.activeAdminTab='activityLog'; render();">
                         📋 سجل التداول
@@ -3458,6 +3954,7 @@ function renderVerify() {
                 ${appState.activeAdminTab === 'stocks' ? renderAdminStocksTab() : ''}
                 ${appState.activeAdminTab === 'leaderboard' ? renderLeaderboardTab(true) : ''}
                 ${appState.activeAdminTab === 'weeklyReport' ? renderWeeklyReportTab() : ''}
+                ${appState.activeAdminTab === 'transactions' ? renderAdminTransactionsTab() : ''}
                 ${appState.activeAdminTab === 'activityLog' ? renderActivityLogTab() : ''}
                 ${appState.activeAdminTab === 'chat' ? renderChatTab() : ''}
                 ${appState.activeAdminTab === 'profile' ? renderAdminProfileTab() : ''}
@@ -4149,21 +4646,11 @@ let confirmModal = { show: false, message: '', onConfirm: null };
         }
 
         async function resetWeeklyStats() {
-            if (window.confirm('هل تريد إعادة تعيين التقرير الأسبوعي؟\n\n⚠️ سيتم حذف جميع المعاملات والمحافظ وإعادة تعيين أرصدة الطلاب نهائياً ولن تظهر مجدداً.')) {
+            if (window.confirm('هل تريد إعادة تعيين التقرير الأسبوعي؟\n\n⚠️ سيتم حذف سجل المعاملات فقط.\n✅ ستبقى الأرصدة والأسهم كما هي.')) {
                 appData.weeklyStats.lastReset = new Date().toISOString();
                 
-                // Delete all transactions permanently
+                // Delete all transactions permanently (but keep balances and portfolios)
                 appData.transactions = [];
-                
-                // Reset student balances to 0 and clear portfolios
-                appData.users.filter(u => u.role === 'student').forEach(student => {
-                    student.balance = 0;
-                });
-                
-                // Clear all portfolios
-                appData.portfolios.forEach(portfolio => {
-                    portfolio.holdings = [];
-                });
                 
                 // Delete from Firebase
                 const txBatch = db.batch();
@@ -4173,8 +4660,8 @@ let confirmModal = { show: false, message: '', onConfirm: null };
                 });
                 await txBatch.commit();
                 
-                addActivityLog('إعادة تعيين التقرير', 'تم إعادة تعيين التقرير الأسبوعي وحذف جميع المعاملات والمحافظ وإعادة تعيين الأرصدة');
-                showAlert('✅ تم إعادة تعيين التقرير الأسبوعي وحذف جميع المعاملات والمحافظ وإعادة تعيين الأرصدة', 'success');
+                addActivityLog('إعادة تعيين التقرير', 'تم إعادة تعيين التقرير الأسبوعي وحذف سجل المعاملات (تم الاحتفاظ بالأرصدة والأسهم)');
+                showAlert('✅ تم إعادة تعيين التقرير الأسبوعي وحذف سجل المعاملات (تم الاحتفاظ بالأرصدة والأسهم)', 'success');
                 await saveData();
                 render();
             }
