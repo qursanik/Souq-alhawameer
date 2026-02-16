@@ -2922,7 +2922,9 @@ function renderVerify() {
         }
 
         function renderAdminStudentsTab() {
+            console.log('👥 renderAdminStudentsTab called');
             const students = appData.users.filter(u => u.role === 'student');
+            console.log('Students count:', students.length);
             
             return `
                 <div class="tab-content active">
@@ -3062,6 +3064,8 @@ function renderVerify() {
         }
 
         function renderAdminStocksTab() {
+            console.log('📈 renderAdminStocksTab called');
+            console.log('Stocks count:', appData.stocks.length);
             return `
                 <div class="tab-content active">
                     <div class="card">
