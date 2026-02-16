@@ -2759,7 +2759,7 @@ function renderVerify() {
                                         ${new Date(n.timestamp).toLocaleString('ar-SA', {hour: '2-digit', minute: '2-digit'})}
                                     </div>
                                 </div>
-                                <button onclick="deleteNotification('${n.timestamp}', event)" style="background: none; border: none; color: var(--danger); cursor: pointer; padding: 0.2rem; font-size: 1.2rem;" title="حذف">
+                                <button onclick="deleteNotification('${n.id}', event)" style="background: none; border: none; color: var(--danger); cursor: pointer; padding: 0.2rem; font-size: 1.2rem;" title="حذف">
                                     ×
                                 </button>
                             </div>
@@ -2769,12 +2769,12 @@ function renderVerify() {
             `;
         }
 
-        function deleteNotification(timestamp, event) {
+        function deleteNotification(notificationId, event) {
             if (event) event.stopPropagation();
             
-            // Delete from current user's notifications by finding the matching timestamp
+            // Delete from current user's notifications by finding the matching ID
             if (appState.currentUser.notifications) {
-                const index = appState.currentUser.notifications.findIndex(n => n.timestamp === timestamp);
+                const index = appState.currentUser.notifications.findIndex(n => n.id == notificationId);
                 if (index !== -1) {
                     appState.currentUser.notifications.splice(index, 1);
                 }
@@ -2783,7 +2783,7 @@ function renderVerify() {
             // Update in appData.users array
             const user = appData.users.find(u => u.username === appState.currentUser.username);
             if (user && user.notifications) {
-                const index = user.notifications.findIndex(n => n.timestamp === timestamp);
+                const index = user.notifications.findIndex(n => n.id == notificationId);
                 if (index !== -1) {
                     user.notifications.splice(index, 1);
                 }
@@ -4513,13 +4513,11 @@ let confirmModal = { show: false, message: '', onConfirm: null };
                 
                 // Only after successful save, delete old documents
                 console.log('🗑️ جاري حذف الوثائق القديمة من Firebase...');
-                if (oldUsername !== newUsername) {
-                    await db.collection('users').doc(oldUsername).delete();
-                    if (portfolio) {
-                        await db.collection('portfolios').doc(oldUsername).delete();
-                    }
-                    console.log(`✅ تم حذف ${oldUsername} من Firebase`);
+                await db.collection('users').doc(oldUsername).delete();
+                if (portfolio) {
+                    await db.collection('portfolios').doc(oldUsername).delete();
                 }
+                console.log(`✅ تم حذف ${oldUsername} من Firebase`);
                 
                 addActivityLog('تعديل اسم مستخدم', `تم تغيير اسم المستخدم من ${oldUsername} إلى ${newUsername}`);
                 closeEditUsernameModal();
