@@ -3336,6 +3336,10 @@ function renderVerify() {
                             onclick="appState.activeAdminTab='weeklyReport'; render();">
                         📊 التقرير الأسبوعي
                     </button>
+                    <button class="tab ${appState.activeAdminTab === 'activityLog' ? 'active' : ''}" 
+                            onclick="appState.activeAdminTab='activityLog'; render();">
+                        📋 سجل التداول وتغيرات الأسعار
+                    </button>
                     <button class="tab ${appState.activeAdminTab === 'chat' ? 'active' : ''}" 
                             onclick="appState.activeAdminTab='chat'; render();">
                         💬 الدردشة
@@ -3350,6 +3354,7 @@ function renderVerify() {
                 ${appState.activeAdminTab === 'stocks' ? renderAdminStocksTab() : ''}
                 ${appState.activeAdminTab === 'leaderboard' ? renderLeaderboardTab(true) : ''}
                 ${appState.activeAdminTab === 'weeklyReport' ? renderWeeklyReportTab() : ''}
+                ${appState.activeAdminTab === 'activityLog' ? renderActivityLogTab() : ''}
                 ${appState.activeAdminTab === 'chat' ? renderChatTab() : ''}
                 ${appState.activeAdminTab === 'profile' ? renderAdminProfileTab() : ''}
             `;
@@ -3964,12 +3969,97 @@ let confirmModal = { show: false, message: '', onConfirm: null };
             `;
         }
 
+        function renderActivityLogTab() {
+            // Filter activity log for trading and price changes only
+            const tradingActions = ['شراء سهم', 'بيع سهم', 'زيادة سعر سهم', 'تخفيض سعر سهم'];
+            const filteredLog = appData.activityLog.filter(log => tradingActions.includes(log.action));
+            
+            return `
+                <div class="tab-content active">
+                    <div class="card">
+                        <h2 style="margin-bottom: 1.5rem;">سجل التداول وتغيرات الأسعار 📋</h2>
+                        
+                        ${filteredLog.length === 0 
+                            ? '<p style="text-align: center; color: var(--text-secondary); padding: 3rem; background: var(--bg-secondary); border-radius: 12px; border: 2px dashed var(--border);">لا يوجد نشاط</p>'
+                            : `
+                                <div style="display: flex; flex-direction: column; gap: 1rem;">
+                                    ${filteredLog.map(log => {
+                                        // Determine border color and icon based on action
+                                        let borderColor, icon, actionLabel;
+                                        
+                                        if (log.action === 'شراء سهم') {
+                                            borderColor = 'var(--success)'; // green
+                                            icon = '📈';
+                                            actionLabel = 'شراء';
+                                        } else if (log.action === 'بيع سهم') {
+                                            borderColor = 'var(--warning)'; // yellow
+                                            icon = '📉';
+                                            actionLabel = 'بيع';
+                                        } else if (log.action === 'زيادة سعر سهم' || log.action === 'تخفيض سعر سهم') {
+                                            borderColor = 'var(--secondary)'; // secondary color
+                                            icon = '💰';
+                                            actionLabel = log.action === 'زيادة سعر سهم' ? 'زيادة سعر' : 'تخفيض سعر';
+                                        }
+                                        
+                                        // Format timestamp in Arabic-Saudi locale
+                                        const date = new Date(log.timestamp);
+                                        const formattedDate = date.toLocaleString('ar-SA', {
+                                            day: 'numeric',
+                                            month: 'long',
+                                            hour: '2-digit',
+                                            minute: '2-digit'
+                                        });
+                                        
+                                        return `
+                                            <div style="background: var(--bg-secondary); border-right: 4px solid ${borderColor}; border-radius: 8px; padding: 1rem; transition: transform 0.2s, box-shadow 0.2s;"
+                                                 onmouseover="this.style.transform='translateX(-4px)'; this.style.boxShadow='0 4px 12px rgba(0,0,0,0.2)';"
+                                                 onmouseout="this.style.transform='translateX(0)'; this.style.boxShadow='none';">
+                                                <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem;">
+                                                    <div style="flex: 1;">
+                                                        <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem;">
+                                                            <span style="font-size: 1.5rem;">${icon}</span>
+                                                            <strong style="color: ${borderColor}; font-size: 1.1rem;">${actionLabel}</strong>
+                                                        </div>
+                                                        <div style="color: var(--text-primary); margin-bottom: 0.5rem; line-height: 1.5;">
+                                                            ${log.details}
+                                                        </div>
+                                                        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem;">
+                                                            <div style="font-size: 0.85rem; color: var(--text-secondary);">
+                                                                👤 ${log.user}
+                                                            </div>
+                                                            <div style="font-size: 0.85rem; color: var(--text-secondary);">
+                                                                🕒 ${formattedDate}
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        `;
+                                    }).join('')}
+                                </div>
+                            `
+                        }
+                    </div>
+                </div>
+            `;
+        }
+
         async function resetWeeklyStats() {
-            if (window.confirm('هل تريد إعادة تعيين التقرير الأسبوعي؟\n\n⚠️ سيتم حذف جميع المعاملات نهائياً ولن تظهر مجدداً.')) {
+            if (window.confirm('هل تريد إعادة تعيين التقرير الأسبوعي؟\n\n⚠️ سيتم حذف جميع المعاملات والمحافظ وإعادة تعيين أرصدة الطلاب نهائياً ولن تظهر مجدداً.')) {
                 appData.weeklyStats.lastReset = new Date().toISOString();
                 
                 // Delete all transactions permanently
                 appData.transactions = [];
+                
+                // Reset student balances to 0 and clear portfolios
+                appData.users.filter(u => u.role === 'student').forEach(student => {
+                    student.balance = 0;
+                });
+                
+                // Clear all portfolios
+                appData.portfolios.forEach(portfolio => {
+                    portfolio.holdings = [];
+                });
                 
                 // Delete from Firebase
                 const txBatch = db.batch();
@@ -3979,8 +4069,8 @@ let confirmModal = { show: false, message: '', onConfirm: null };
                 });
                 await txBatch.commit();
                 
-                addActivityLog('إعادة تعيين التقرير', 'تم إعادة تعيين التقرير الأسبوعي وحذف جميع المعاملات');
-                showAlert('✅ تم إعادة تعيين التقرير الأسبوعي وحذف جميع المعاملات', 'success');
+                addActivityLog('إعادة تعيين التقرير', 'تم إعادة تعيين التقرير الأسبوعي وحذف جميع المعاملات والمحافظ وإعادة تعيين الأرصدة');
+                showAlert('✅ تم إعادة تعيين التقرير الأسبوعي وحذف جميع المعاملات والمحافظ وإعادة تعيين الأرصدة', 'success');
                 await saveData();
                 render();
             }
