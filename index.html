@@ -2931,7 +2931,6 @@ function renderVerify() {
                     <div class="card">
                         <h3 style="margin-bottom: 1.5rem;">إدارة الطلاب 👥</h3>
                         
-                        <!-- عدد الطلاب فقط -->
                         <div style="background: var(--bg-secondary); padding: 1.5rem; border-radius: 12px; margin-bottom: 2rem; border: 1px solid var(--border);">
                             <div style="text-align: center;">
                                 <div style="color: var(--text-secondary); font-size: 0.9rem; margin-bottom: 0.5rem;">👥 عدد الطلاب</div>
@@ -2945,13 +2944,11 @@ function renderVerify() {
                                 const portfolio = appData.portfolios.find(p => p.username === student.username);
                                 const holdings = portfolio ? portfolio.holdings : [];
                                 
-                                // حساب الرصيد المضاف لهذا الطالب من سجل النشاط
+                                // حساب الرصيد المضاف
                                 let addedBalance = 0;
                                 appData.activityLog.forEach(log => {
                                     if (log.action === 'إضافة رصيد' && log.details) {
-                                        // البحث عن اسم الطالب والمبلغ في التفاصيل
                                         if (log.details.includes(student.username)) {
-                                            // البحث عن +المبلغ أو -المبلغ
                                             const matchPositive = log.details.match(/\+(\d+\.?\d*)/);
                                             const matchNegative = log.details.match(/-(\d+\.?\d*)/);
                                             
