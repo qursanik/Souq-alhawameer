@@ -2780,7 +2780,7 @@ function renderVerify() {
             if (event) event.stopPropagation();
             
             // Convert to number for comparison since IDs are numeric
-            const numId = parseFloat(notificationId);
+            const numId = Number(notificationId);
             
             // Delete from current user's notifications by finding the matching ID
             if (appState.currentUser.notifications) {
@@ -3064,7 +3064,7 @@ function renderVerify() {
                         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
                             <h2 style="margin: 0;">سجل المعاملات 📜</h2>
                             ${userTxs.length > 0 ? `
-                                <button class="btn btn-danger btn-small" onclick="clearAllTransactions(event)" style="padding: 0.5rem 1rem; font-size: 0.9rem;">
+                                <button class="btn btn-danger btn-small" onclick="clearAllTransactions(event)" aria-label="حذف جميع المعاملات" style="padding: 0.5rem 1rem; font-size: 0.9rem;">
                                     🗑️ حذف الكل
                                 </button>
                             ` : ''}
@@ -3095,7 +3095,8 @@ function renderVerify() {
                                     </div>
                                     <button onclick="deleteTransaction('${tx.id}', event)" 
                                             style="position: absolute; top: 0.5rem; left: 0.5rem; background: none; border: none; color: var(--danger); cursor: pointer; padding: 0.3rem; font-size: 1.3rem;" 
-                                            title="حذف المعاملة">×</button>
+                                            title="حذف المعاملة"
+                                            aria-label="حذف المعاملة">×</button>
                                 </div>
                             `).join('')
                         }
@@ -3152,7 +3153,7 @@ function renderVerify() {
                                         const stock = appData.stocks.find(s => s.symbol === h.symbol);
                                         const totalValue = stock ? (stock.price * h.quantity) : 0;
                                         const profit = stock ? (stock.price - h.avgPrice) * h.quantity : 0;
-                                        const profitPercent = stock ? ((stock.price - h.avgPrice) / h.avgPrice) * 100 : 0;
+                                        const profitPercent = stock && h.avgPrice > 0 ? ((stock.price - h.avgPrice) / h.avgPrice) * 100 : 0;
                                         const profitColor = profit >= 0 ? 'var(--success)' : 'var(--danger)';
                                         return `
                                             <tr>
