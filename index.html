@@ -4373,21 +4373,11 @@ let confirmModal = { show: false, message: '', onConfirm: null };
         }
 
         async function resetWeeklyStats() {
-            if (window.confirm('هل تريد إعادة تعيين التقرير الأسبوعي؟\n\n⚠️ سيتم حذف جميع المعاملات والمحافظ وإعادة تعيين أرصدة الطلاب نهائياً ولن تظهر مجدداً.')) {
+            if (window.confirm('هل تريد إعادة تعيين التقرير الأسبوعي؟\n\n⚠️ سيتم حذف سجل المعاملات فقط.\n✅ ستبقى الأرصدة والأسهم كما هي.')) {
                 appData.weeklyStats.lastReset = new Date().toISOString();
                 
-                // Delete all transactions permanently
+                // Delete all transactions permanently (but keep balances and portfolios)
                 appData.transactions = [];
-                
-                // Reset student balances to 0 and clear portfolios
-                appData.users.filter(u => u.role === 'student').forEach(student => {
-                    student.balance = 0;
-                });
-                
-                // Clear all portfolios
-                appData.portfolios.forEach(portfolio => {
-                    portfolio.holdings = [];
-                });
                 
                 // Delete from Firebase
                 const txBatch = db.batch();
@@ -4397,8 +4387,8 @@ let confirmModal = { show: false, message: '', onConfirm: null };
                 });
                 await txBatch.commit();
                 
-                addActivityLog('إعادة تعيين التقرير', 'تم إعادة تعيين التقرير الأسبوعي وحذف جميع المعاملات والمحافظ وإعادة تعيين الأرصدة');
-                showAlert('✅ تم إعادة تعيين التقرير الأسبوعي وحذف جميع المعاملات والمحافظ وإعادة تعيين الأرصدة', 'success');
+                addActivityLog('إعادة تعيين التقرير', 'تم إعادة تعيين التقرير الأسبوعي وحذف سجل المعاملات (تم الاحتفاظ بالأرصدة والأسهم)');
+                showAlert('✅ تم إعادة تعيين التقرير الأسبوعي وحذف سجل المعاملات (تم الاحتفاظ بالأرصدة والأسهم)', 'success');
                 await saveData();
                 render();
             }
