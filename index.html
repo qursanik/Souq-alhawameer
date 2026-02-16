@@ -2551,25 +2551,13 @@ function renderVerify() {
                             onclick="appState.activeTab='portfolio'; render();">
                         📊 المحفظة
                     </button>
-                    <button class="tab ${appState.activeTab === 'stocks' ? 'active' : ''}" 
-                            onclick="appState.activeTab='stocks'; render();">
-                        📈 أسهمي
-                    </button>
                     <button class="tab ${appState.activeTab === 'transactions' ? 'active' : ''}" 
                             onclick="appState.activeTab='transactions'; render();">
                         📜 السجل
                     </button>
-                    <button class="tab ${appState.activeTab === 'leaderboard' ? 'active' : ''}" 
-                            onclick="appState.activeTab='leaderboard'; render();">
-                        🏅 المتصدرين
-                    </button>
                     <button class="tab ${appState.activeTab === 'achievements' ? 'active' : ''}" 
                             onclick="appState.activeTab='achievements'; render();">
                         🏆 الإنجازات
-                    </button>
-                    <button class="tab ${appState.activeTab === 'weeklyReport' ? 'active' : ''}" 
-                            onclick="appState.activeTab='weeklyReport'; render();">
-                        📊 التقرير الأسبوعي
                     </button>
                     <button class="tab ${appState.activeTab === 'chat' ? 'active' : ''}" 
                             onclick="appState.activeTab='chat'; render();">
@@ -2578,11 +2566,8 @@ function renderVerify() {
                 </div>
 
                 ${appState.activeTab === 'portfolio' ? renderPortfolioTab(portfolio, portfolioValue, totalValue) : ''}
-                ${appState.activeTab === 'stocks' ? renderStocksTab() : ''}
                 ${appState.activeTab === 'transactions' ? renderTransactionsTab(userTxs) : ''}
-                ${appState.activeTab === 'leaderboard' ? renderLeaderboardTab(false) : ''}
                 ${appState.activeTab === 'achievements' ? renderAchievementsTab() : ''}
-                ${appState.activeTab === 'weeklyReport' ? renderWeeklyReportTab() : ''}
                 ${appState.activeTab === 'chat' ? renderChatTab() : ''}
             `;
         }
