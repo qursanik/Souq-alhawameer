@@ -2025,7 +2025,7 @@ async function handleRegister(e) {
                 addActivityLog('شراء سهم', `${user.username} اشترى ${quantity} من ${stock.name} بسعر ${stock.price.toFixed(2)} ر.س`);
                 
                 // Notification only for admin
-                if (currentUser.role === 'admin') {
+                if (appState.currentUser.role === 'admin') {
                     addNotification(`✅ تم شراء ${quantity} من ${stock.name}`, 'success');
                 }
                 
@@ -2516,13 +2516,9 @@ function renderVerify() {
         }
 
         function clearAllNotifications() {
-            if (true) {
-
-                appData.notifications = [];
-                saveData();
-                render();
-            
-            }
+            appData.notifications = [];
+            saveData();
+            render();
         }
 
         function renderStudentDashboard() {
@@ -2892,9 +2888,18 @@ function renderVerify() {
         function renderAdminDashboard() {
             return `
                 <div class="tabs">
-                    </div>
-                    </div>
+                    <button class="tab ${appState.activeAdminTab === 'students' ? 'active' : ''}" 
+                            onclick="appState.activeAdminTab='students'; render();">
+                        👥 الطلاب
+                    </button>
+                    <button class="tab ${appState.activeAdminTab === 'stocks' ? 'active' : ''}" 
+                            onclick="appState.activeAdminTab='stocks'; render();">
+                        📈 الأسهم
+                    </button>
                 </div>
+
+                ${appState.activeAdminTab === 'students' ? renderAdminStudentsTab() : ''}
+                ${appState.activeAdminTab === 'stocks' ? renderAdminStocksTab() : ''}
             `;
         }
 
@@ -3057,7 +3062,6 @@ function renderVerify() {
                             </button>
                         </div>
                         
-                        <div class="card">
                         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 1rem;">
                             <h3>إدارة الأسهم 📈</h3>
                             <div style="display: flex; gap: 0.5rem;">
