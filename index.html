@@ -1438,7 +1438,14 @@ function changePassword(form) {
             // 2. Listen to All Users (For Leaderboard & Admin View)
             db.collection('users').onSnapshot((snapshot) => {
                 appData.users = [];
-                snapshot.forEach(doc => appData.users.push(doc.data()));
+                snapshot.forEach(doc => {
+                    const userData = doc.data();
+                    // Migrate: ensure all users have notifications array
+                    if (!userData.notifications) {
+                        userData.notifications = [];
+                    }
+                    appData.users.push(userData);
+                });
                 
                 // If I am logged in, update my own local user object too
                 if(appState.currentUser) {
@@ -1514,7 +1521,12 @@ function changePassword(form) {
                 
                 if (!usersSnapshot.empty) {
                     usersSnapshot.forEach(doc => {
-                        appData.users.push(doc.data());
+                        const userData = doc.data();
+                        // Migrate: ensure all users have notifications array
+                        if (!userData.notifications) {
+                            userData.notifications = [];
+                        }
+                        appData.users.push(userData);
                     });
                 }
 
@@ -1529,7 +1541,8 @@ function changePassword(form) {
                         balance: 0,
                         achievements: [],
                         suspended: false,
-                        color: '#d4af37'
+                        color: '#d4af37',
+                        notifications: [] // Individual notifications
                     };
                     appData.users.push(defaultAdmin);
                     // حفظ حساب المشرف في Firebase فوراً
@@ -1570,7 +1583,8 @@ function changePassword(form) {
                         balance: 0,
                         color: '#d4af37',
                         achievements: [],
-                        suspended: false
+                        suspended: false,
+                        notifications: [] // Individual notifications
                     });
 
                     appData.stocks = [
@@ -1712,7 +1726,7 @@ function changePassword(form) {
         }
 
         // Add notification
-        function addNotification(text, type = 'info') {
+        function addNotification(text, type = 'info', targetUsername = null) {
             const notification = {
                 id: Date.now(),
                 text,
@@ -1720,10 +1734,26 @@ function changePassword(form) {
                 timestamp: new Date().toISOString(),
                 read: false
             };
-            appData.notifications.unshift(notification);
-            appData.notifications = appData.notifications.slice(0, 10);
+            
+            // If targetUsername is specified, add to that user only
+            // Otherwise, add to all users
+            if (targetUsername) {
+                const user = appData.users.find(u => u.username === targetUsername);
+                if (user) {
+                    if (!user.notifications) user.notifications = [];
+                    user.notifications.unshift(notification);
+                    user.notifications = user.notifications.slice(0, 10);
+                }
+            } else {
+                // Add to all users
+                appData.users.forEach(user => {
+                    if (!user.notifications) user.notifications = [];
+                    user.notifications.unshift({...notification, id: Date.now() + Math.random()}); // Unique ID per user
+                    user.notifications = user.notifications.slice(0, 10);
+                });
+            }
+            
             saveData();
-            render();
         }
 
         // Add activity log
@@ -1984,7 +2014,8 @@ async function handleRegister(e) {
             balance: 0,
             color: '#' + Math.floor(Math.random()*16777215).toString(16),
             achievements: [],
-            suspended: false
+            suspended: false,
+            notifications: [] // Individual notifications per user
         };
 
         // الانتقال لشاشة التحقق
@@ -2207,9 +2238,17 @@ async function handleRegister(e) {
         function toggleNotifications() {
             appState.showNotifications = !appState.showNotifications;
             
-            // Mark all as read when opening
-            if (appState.showNotifications) {
-                appData.notifications.forEach(n => n.read = true);
+            // Mark all as read when opening (only for current user)
+            if (appState.showNotifications && appState.currentUser) {
+                if (!appState.currentUser.notifications) appState.currentUser.notifications = [];
+                appState.currentUser.notifications.forEach(n => n.read = true);
+                
+                // Update in appData.users array
+                const user = appData.users.find(u => u.username === appState.currentUser.username);
+                if (user) {
+                    if (!user.notifications) user.notifications = [];
+                    user.notifications.forEach(n => n.read = true);
+                }
                 saveData();
             }
             
@@ -2618,7 +2657,9 @@ function renderVerify() {
         }
 
         function renderHeader() {
-            const unreadCount = appData.notifications.filter(n => !n.read).length;
+            // Get unread count from current user's notifications
+            const userNotifications = appState.currentUser && appState.currentUser.notifications ? appState.currentUser.notifications : [];
+            const unreadCount = userNotifications.filter(n => !n.read).length;
             
             return `
                 <div class="header">
@@ -2648,19 +2689,24 @@ function renderVerify() {
         function renderNotificationDropdown() {
             if (!appState.showNotifications) return '';
             
+            // Ensure current user has notifications array
+            if (!appState.currentUser.notifications) appState.currentUser.notifications = [];
+            
+            const userNotifications = appState.currentUser.notifications;
+            
             return `
                 <div class="notification-dropdown active">
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
                         <h3>الإشعارات 🔔</h3>
-                        ${appData.notifications.length > 0 ? `
+                        ${userNotifications.length > 0 ? `
                             <button class="btn btn-danger btn-small" onclick="clearAllNotifications(event)" style="padding: 0.3rem 0.8rem; font-size: 0.8rem;">
                                 مسح الكل 🗑️
                             </button>
                         ` : ''}
                     </div>
-                    ${appData.notifications.length === 0 
+                    ${userNotifications.length === 0 
                         ? '<p style="text-align: center; color: var(--text-secondary); padding: 2rem;">لا توجد إشعارات</p>'
-                        : appData.notifications.slice(0, 10).map((n, idx) => `
+                        : userNotifications.slice(0, 10).map((n, idx) => `
                             <div class="notification-item" style="display: flex; justify-content: space-between; align-items: flex-start; gap: 0.5rem;">
                                 <div style="flex: 1;">
                                     <div>${n.text}</div>
@@ -2680,7 +2726,18 @@ function renderVerify() {
 
         function deleteNotification(index, event) {
             if (event) event.stopPropagation();
-            appData.notifications.splice(index, 1);
+            
+            // Delete from current user's notifications
+            if (appState.currentUser.notifications) {
+                appState.currentUser.notifications.splice(index, 1);
+            }
+            
+            // Update in appData.users array
+            const user = appData.users.find(u => u.username === appState.currentUser.username);
+            if (user && user.notifications) {
+                user.notifications.splice(index, 1);
+            }
+            
             saveData();
             // Update only the notification dropdown instead of full render
             const dropdown = document.querySelector('.notification-dropdown');
@@ -2693,7 +2750,18 @@ function renderVerify() {
 
         function clearAllNotifications(event) {
             if (event) event.stopPropagation();
-            appData.notifications = [];
+            
+            // Clear current user's notifications
+            if (appState.currentUser) {
+                appState.currentUser.notifications = [];
+            }
+            
+            // Update in appData.users array
+            const user = appData.users.find(u => u.username === appState.currentUser.username);
+            if (user) {
+                user.notifications = [];
+            }
+            
             saveData();
             // Update only the notification dropdown instead of full render
             const dropdown = document.querySelector('.notification-dropdown');
@@ -4375,30 +4443,30 @@ let confirmModal = { show: false, message: '', onConfirm: null };
                     appState.currentUser.username = newUsername;
                 }
                 
-                // 3. حفظ البيانات الجديدة في Firebase أولاً
+                // 3. Save to Firebase once (debounced save will handle it)
                 console.log('💾 جاري حفظ البيانات الجديدة في Firebase...');
-                await saveData();
-                console.log(`✅ تم حفظ ${newUsername} في Firebase`);
                 
-                // 4. حذف Documents القديمة من Firebase فقط بعد التأكد من الحفظ
+                // Delete old documents from Firebase
                 console.log('🗑️ جاري حذف الوثائق القديمة من Firebase...');
                 await db.collection('users').doc(oldUsername).delete();
-                await db.collection('portfolios').doc(oldUsername).delete();
+                if (portfolio) {
+                    await db.collection('portfolios').doc(oldUsername).delete();
+                }
                 console.log(`✅ تم حذف ${oldUsername} من Firebase`);
+                
+                // Save new data (this will trigger debounced save)
+                await saveData();
+                console.log(`✅ تم حفظ ${newUsername} في Firebase`);
                 
                 addActivityLog('تعديل اسم مستخدم', `تم تغيير اسم المستخدم من ${oldUsername} إلى ${newUsername}`);
                 closeEditUsernameModal();
                 showAlert(`✅ تم تغيير اسم المستخدم بنجاح`, 'success');
-                render();
+                
+                // No need to call render() - the real-time listeners will handle it
                 
             } catch (error) {
                 console.error('❌ خطأ في التعديل:', error);
                 showAlert('فشل تعديل اسم المستخدم ❌ - يرجى إعادة تحميل الصفحة', 'error');
-                // في حالة الفشل، قد تكون البيانات في حالة غير متسقة
-                // الحل الأفضل هو إعادة تحميل البيانات من Firebase
-                setTimeout(() => {
-                    location.reload();
-                }, 2000);
             }
         }
 
