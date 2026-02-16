@@ -955,11 +955,11 @@
 
     <!-- Firebase SDK -->
 
-    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    < src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></>
 
-    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+    < src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></>
 
-    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+    < src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></>
 
     <script>
     // Firebase Configuration
@@ -4470,6 +4470,40 @@ let confirmModal = { show: false, message: '', onConfirm: null };
                 onConfirm();
             }
         }
+        /* --- أضف هذا الكود في نهاية قسم الـ style --- */
+
+.tabs {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 1.5rem;
+    overflow-x: auto;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid var(--border);
+}
+
+.tab {
+    padding: 0.75rem 1.25rem;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text-secondary);
+    cursor: pointer;
+    font-weight: bold;
+    font-family: 'Cairo', sans-serif;
+    transition: all 0.2s;
+    white-space: nowrap;
+}
+
+.tab:hover {
+    background: var(--bg-primary);
+}
+
+.tab.active {
+    background: var(--primary);
+    color: white;
+    border-color: var(--primary);
+    box-shadow: 0 4px 12px rgba(26, 69, 64, 0.2);
+}
     </script>
     <script>
         // Wrapper functions for onclick handlers
