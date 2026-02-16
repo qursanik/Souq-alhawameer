@@ -448,6 +448,19 @@
             margin-top: 0.3rem;
         }
 
+        .ownership-badge {
+            position: absolute;
+            top: 0.5rem;
+            left: 0.5rem;
+            background: var(--secondary);
+            color: var(--bg-primary);
+            padding: 0.25rem 0.75rem;
+            border-radius: 12px;
+            font-size: 0.75rem;
+            font-weight: bold;
+            box-shadow: 0 2px 8px rgba(212, 175, 55, 0.3);
+        }
+
         /* Modal */
         .modal {
             display: none;
@@ -2951,7 +2964,7 @@ function renderVerify() {
                             <div class="stock-card" 
                                  onclick="appState.selectedStock=appData.stocks[${idx}]; render();" 
                                  style="cursor: pointer; position: relative;">
-                                ${owned > 0 ? `<div style="position: absolute; top: 0.5rem; left: 0.5rem; background: var(--secondary); color: var(--bg-primary); padding: 0.25rem 0.75rem; border-radius: 12px; font-size: 0.75rem; font-weight: bold; box-shadow: 0 2px 8px rgba(212,175,55,0.3);">💼 ${owned}</div>` : ''}
+                                ${owned > 0 ? `<div class="ownership-badge" role="status" aria-label="أسهم مملوكة: ${owned}">💼 ${owned}</div>` : ''}
                                 <div class="stock-info">
                                     <h3>${stock.name}</h3>
                                     <p>${stock.symbol}</p>
