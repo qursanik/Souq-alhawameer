@@ -1312,6 +1312,51 @@ function renderAdminProfileTab() {
                     </div>
                 </form>
             </div>
+
+            <div class="card" style="max-width: 800px; margin: 2rem auto 0;">
+                <h2 style="margin-bottom: 2rem; border-bottom: 1px solid var(--border); padding-bottom: 1rem;">
+                    النسخ الاحتياطي والاستعادة 🔐
+                </h2>
+                
+                <div style="background: var(--bg-secondary); padding: 1.5rem; border-radius: 12px; margin-bottom: 1.5rem; border: 1px solid var(--border);">
+                    <p style="color: var(--text-secondary); margin-bottom: 1rem; line-height: 1.6;">
+                        📌 <strong>ملاحظة مهمة:</strong> يتم حفظ جميع البيانات تلقائياً في Firebase. استخدم النسخ الاحتياطي للحصول على نسخة محلية يمكنك استعادتها في حالة حدوث مشكلة.
+                    </p>
+                </div>
+
+                <div style="display: grid; gap: 1rem;">
+                    <button onclick="exportBackup()" class="btn btn-primary" style="padding: 1rem; display: flex; align-items: center; justify-content: center; gap: 0.5rem;">
+                        <span style="font-size: 1.5rem;">📦</span>
+                        <span>تصدير نسخة احتياطية كاملة</span>
+                    </button>
+
+                    <button onclick="importBackup()" class="btn btn-warning" style="padding: 1rem; display: flex; align-items: center; justify-content: center; gap: 0.5rem;">
+                        <span style="font-size: 1.5rem;">📥</span>
+                        <span>استيراد نسخة احتياطية</span>
+                    </button>
+
+                    <button onclick="verifyDataIntegrity()" class="btn btn-secondary" style="padding: 1rem; display: flex; align-items: center; justify-content: center; gap: 0.5rem;">
+                        <span style="font-size: 1.5rem;">🔍</span>
+                        <span>التحقق من سلامة البيانات</span>
+                    </button>
+
+                    <button onclick="forceFullSave()" class="btn btn-success" style="padding: 1rem; display: flex; align-items: center; justify-content: center; gap: 0.5rem;">
+                        <span style="font-size: 1.5rem;">💾</span>
+                        <span>فرض حفظ جميع البيانات في Firebase</span>
+                    </button>
+
+                    <button onclick="reloadData()" class="btn" style="padding: 1rem; display: flex; align-items: center; justify-content: center; gap: 0.5rem; background: var(--bg-secondary); border: 1px solid var(--border);">
+                        <span style="font-size: 1.5rem;">🔄</span>
+                        <span>إعادة تحميل البيانات من Firebase</span>
+                    </button>
+                </div>
+
+                <div style="background: rgba(46, 204, 113, 0.1); padding: 1rem; border-radius: 8px; margin-top: 1.5rem; border: 1px solid var(--success);">
+                    <p style="color: var(--success); font-size: 0.9rem; line-height: 1.6; margin: 0;">
+                        ✅ <strong>جميع البيانات محفوظة تلقائياً:</strong> يتم حفظ كل تغيير تلقائياً في Firebase. استخدم "التحقق من سلامة البيانات" للتأكد من تطابق البيانات المحلية مع Firebase.
+                    </p>
+                </div>
+            </div>
         </div>
     `;
 }
@@ -1880,6 +1925,233 @@ function changePassword(form) {
             } catch (error) {
                 console.error('❌ Error reloading data:', error);
                 showAlert('فشل إعادة التحميل ❌', 'error');
+            }
+        }
+
+        // Backup: Export all data to JSON file
+        async function exportBackup() {
+            try {
+                showAlert('جاري تصدير النسخة الاحتياطية...', 'info');
+                console.log('📦 Exporting backup...');
+
+                // First, ensure all data is saved to Firebase
+                await forceFullSave();
+                
+                // Wait a bit for save to complete
+                await new Promise(resolve => setTimeout(resolve, 1000));
+
+                // Prepare complete backup data
+                const backupData = {
+                    version: '1.0',
+                    timestamp: new Date().toISOString(),
+                    appData: {
+                        users: appData.users,
+                        portfolios: appData.portfolios,
+                        transactions: appData.transactions,
+                        stocks: appData.stocks,
+                        messages: appData.messages,
+                        activityLog: appData.activityLog,
+                        settings: appData.settings,
+                        notifications: appData.notifications,
+                        weeklyStats: appData.weeklyStats
+                    }
+                };
+
+                // Convert to JSON
+                const jsonStr = JSON.stringify(backupData, null, 2);
+                const blob = new Blob([jsonStr], { type: 'application/json' });
+                
+                // Create download link
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `souq-alhawameer-backup-${new Date().toISOString().split('T')[0]}.json`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+
+                console.log('✅ Backup exported successfully');
+                showAlert('✅ تم تصدير النسخة الاحتياطية بنجاح', 'success');
+                addActivityLog('تصدير نسخة احتياطية', 'تم تصدير نسخة احتياطية كاملة من جميع البيانات');
+            } catch (error) {
+                console.error('❌ Error exporting backup:', error);
+                showAlert('فشل تصدير النسخة الاحتياطية ❌', 'error');
+            }
+        }
+
+        // Restore: Import data from JSON file
+        async function importBackup() {
+            try {
+                // Create file input
+                const input = document.createElement('input');
+                input.type = 'file';
+                input.accept = '.json';
+                
+                input.onchange = async (e) => {
+                    const file = e.target.files[0];
+                    if (!file) return;
+
+                    showAlert('جاري استيراد النسخة الاحتياطية...', 'info');
+                    console.log('📥 Importing backup...');
+
+                    try {
+                        const text = await file.text();
+                        const backupData = JSON.parse(text);
+
+                        // Validate backup data
+                        if (!backupData.appData) {
+                            throw new Error('Invalid backup file format');
+                        }
+
+                        // Ask for confirmation
+                        if (!window.confirm('⚠️ هل أنت متأكد من استيراد هذه النسخة الاحتياطية؟\n\nسيتم استبدال جميع البيانات الحالية بالبيانات من النسخة الاحتياطية.\n\nهذا الإجراء لا يمكن التراجع عنه!')) {
+                            return;
+                        }
+
+                        // Restore data
+                        appData.users = backupData.appData.users || [];
+                        appData.portfolios = backupData.appData.portfolios || [];
+                        appData.transactions = backupData.appData.transactions || [];
+                        appData.stocks = backupData.appData.stocks || [];
+                        appData.messages = backupData.appData.messages || [];
+                        appData.activityLog = backupData.appData.activityLog || [];
+                        appData.settings = backupData.appData.settings || {};
+                        appData.notifications = backupData.appData.notifications || [];
+                        appData.weeklyStats = backupData.appData.weeklyStats || {};
+
+                        // Save all restored data to Firebase
+                        console.log('💾 Saving restored data to Firebase...');
+                        
+                        // Save main app data
+                        await db.collection('appData').doc('main').set({
+                            stocks: appData.stocks,
+                            activityLog: appData.activityLog,
+                            settings: appData.settings,
+                            messages: appData.messages,
+                            notifications: appData.notifications,
+                            weeklyStats: appData.weeklyStats
+                        });
+
+                        // Save users (batch)
+                        const usersBatch = db.batch();
+                        appData.users.forEach(user => {
+                            const userRef = db.collection('users').doc(user.username);
+                            usersBatch.set(userRef, user);
+                        });
+                        await usersBatch.commit();
+
+                        // Save portfolios (batch)
+                        const portfoliosBatch = db.batch();
+                        appData.portfolios.forEach(portfolio => {
+                            const portfolioRef = db.collection('portfolios').doc(portfolio.username);
+                            portfoliosBatch.set(portfolioRef, portfolio);
+                        });
+                        await portfoliosBatch.commit();
+
+                        // Save transactions (batch)
+                        const txBatch = db.batch();
+                        appData.transactions.forEach(tx => {
+                            const txRef = db.collection('transactions').doc(tx.id.toString());
+                            txBatch.set(txRef, tx);
+                        });
+                        await txBatch.commit();
+
+                        console.log('✅ Backup restored successfully');
+                        showAlert('✅ تم استيراد النسخة الاحتياطية بنجاح', 'success');
+                        addActivityLog('استيراد نسخة احتياطية', `تم استيراد نسخة احتياطية من ${backupData.timestamp}`);
+                        
+                        // Reload page to refresh everything
+                        setTimeout(() => {
+                            window.location.reload();
+                        }, 2000);
+                    } catch (error) {
+                        console.error('❌ Error importing backup:', error);
+                        showAlert('فشل استيراد النسخة الاحتياطية: ' + error.message + ' ❌', 'error');
+                    }
+                };
+
+                input.click();
+            } catch (error) {
+                console.error('❌ Error in import process:', error);
+                showAlert('فشل عملية الاستيراد ❌', 'error');
+            }
+        }
+
+        // Verify Firebase data integrity
+        async function verifyDataIntegrity() {
+            try {
+                showAlert('جاري التحقق من سلامة البيانات...', 'info');
+                console.log('🔍 Verifying data integrity...');
+
+                const report = {
+                    local: {
+                        users: appData.users.length,
+                        portfolios: appData.portfolios.length,
+                        transactions: appData.transactions.length,
+                        stocks: appData.stocks.length,
+                        messages: appData.messages.length
+                    },
+                    firebase: {
+                        users: 0,
+                        portfolios: 0,
+                        transactions: 0,
+                        stocks: 0,
+                        messages: 0
+                    }
+                };
+
+                // Count Firebase documents
+                const usersSnapshot = await db.collection('users').get();
+                report.firebase.users = usersSnapshot.size;
+
+                const portfoliosSnapshot = await db.collection('portfolios').get();
+                report.firebase.portfolios = portfoliosSnapshot.size;
+
+                const transactionsSnapshot = await db.collection('transactions').get();
+                report.firebase.transactions = transactionsSnapshot.size;
+
+                const mainSnapshot = await db.collection('appData').doc('main').get();
+                if (mainSnapshot.exists) {
+                    const data = mainSnapshot.data();
+                    report.firebase.stocks = data.stocks?.length || 0;
+                    report.firebase.messages = data.messages?.length || 0;
+                }
+
+                console.log('📊 Data Integrity Report:', report);
+
+                // Check for discrepancies
+                const issues = [];
+                if (report.local.users !== report.firebase.users) {
+                    issues.push(`المستخدمين: محلي ${report.local.users} ≠ Firebase ${report.firebase.users}`);
+                }
+                if (report.local.portfolios !== report.firebase.portfolios) {
+                    issues.push(`المحافظ: محلي ${report.local.portfolios} ≠ Firebase ${report.firebase.portfolios}`);
+                }
+                if (report.local.transactions !== report.firebase.transactions) {
+                    issues.push(`المعاملات: محلي ${report.local.transactions} ≠ Firebase ${report.firebase.transactions}`);
+                }
+                if (report.local.stocks !== report.firebase.stocks) {
+                    issues.push(`الأسهم: محلي ${report.local.stocks} ≠ Firebase ${report.firebase.stocks}`);
+                }
+                if (report.local.messages !== report.firebase.messages) {
+                    issues.push(`الرسائل: محلي ${report.local.messages} ≠ Firebase ${report.firebase.messages}`);
+                }
+
+                if (issues.length > 0) {
+                    const message = '⚠️ تم العثور على اختلافات:\n\n' + issues.join('\n') + '\n\nهل تريد مزامنة البيانات المحلية إلى Firebase؟';
+                    if (window.confirm(message)) {
+                        await forceFullSave();
+                        showAlert('✅ تمت المزامنة بنجاح', 'success');
+                    }
+                } else {
+                    showAlert('✅ البيانات متطابقة تماماً بين المحلي وFirebase', 'success');
+                }
+
+                addActivityLog('التحقق من سلامة البيانات', `محلي: ${report.local.users} مستخدمين، Firebase: ${report.firebase.users} مستخدمين`);
+            } catch (error) {
+                console.error('❌ Error verifying data integrity:', error);
+                showAlert('فشل التحقق من سلامة البيانات ❌', 'error');
             }
         }
 
