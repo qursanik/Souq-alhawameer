@@ -1269,6 +1269,8 @@ async function handlePasswordReset(form) {
         delete user.password; // إزالة أي password غير مشفر
         
         // Mark phone as verified since they just verified it via SMS
+        // Note: This intentionally marks ALL users (including legacy users) as verified
+        // when they successfully complete SMS verification during password reset
         if (!user.phoneVerified) {
             user.phoneVerified = true;
             user.phoneVerifiedAt = new Date().toISOString();
@@ -2602,6 +2604,8 @@ function changePassword(form) {
             }
 
             // Check phone verification status (only for accounts with phoneVerified flag explicitly set to false)
+            // Note: Existing users without the flag can still log in (backward compatibility)
+            // Users who fail verification after registration starts will need to re-register
             if (user.hasOwnProperty('phoneVerified') && user.phoneVerified === false) {
                 showAlert('لم يتم التحقق من رقم الجوال. يرجى إكمال عملية التحقق ❌', 'error');
                 return;
@@ -2704,7 +2708,7 @@ async function handleRegister(e) {
             suspended: false,
             notifications: [], // Individual notifications per user
             phoneVerified: false, // Will be set to true after SMS verification
-            phoneVerifiedAt: null // Will be set after SMS verification
+            phoneVerifiedAt: undefined // Will be set after SMS verification
         };
 
         // الانتقال لشاشة التحقق
@@ -3170,6 +3174,8 @@ async function handleRegister(e) {
                 app.innerHTML = renderGuestRegister();
             } else if (appState.currentScreen === 'guestVerify') {
                 // Protect verification screen - redirect to registration if no pending registration
+                // Note: While window variables can be manipulated via console, the actual Firebase
+                // verification cannot be bypassed. This is defense in depth for a client-only app.
                 if (!window.guestConfirmationResult || !window.pendingGuestRegistration) {
                     console.warn('⚠️ Direct access to guest verification screen blocked');
                     appState.currentScreen = 'guestRegister';
@@ -3180,6 +3186,8 @@ async function handleRegister(e) {
                 }
             } else if (appState.currentScreen === 'verify') {
                 // Protect verification screen - redirect to registration if no pending registration
+                // Note: While window variables can be manipulated via console, the actual Firebase
+                // verification cannot be bypassed. This is defense in depth for a client-only app.
                 if (!window.confirmationResult || !window.pendingRegistration) {
                     console.warn('⚠️ Direct access to verification screen blocked');
                     appState.currentScreen = 'register';
@@ -3192,6 +3200,8 @@ async function handleRegister(e) {
                 app.innerHTML = renderForgotPassword();
             } else if (appState.currentScreen === 'reset') {
                 // Protect reset screen - redirect to forgot if no pending reset
+                // Note: While window variables can be manipulated via console, the actual Firebase
+                // verification cannot be bypassed. This is defense in depth for a client-only app.
                 if (!window.resetConfirmationResult || !appState.forgotPasswordPhone) {
                     console.warn('⚠️ Direct access to password reset screen blocked');
                     appState.currentScreen = 'forgot';
@@ -3487,7 +3497,7 @@ async function handleGuestRegister(e) {
             suspended: false,
             notifications: [],
             phoneVerified: false, // Will be set to true after SMS verification
-            phoneVerifiedAt: null // Will be set after SMS verification
+            phoneVerifiedAt: undefined // Will be set after SMS verification
         };
 
         // Go to verification screen
