@@ -2477,6 +2477,11 @@ function changePassword(form) {
                 try {
                     console.log(`📤 SMS sending attempt ${attempt}/${maxRetries} to: ${phoneNumber}`);
                     
+                    // Show user-friendly message on retries
+                    if (attempt > 1) {
+                        showAlert(`جاري إعادة المحاولة (${attempt}/${maxRetries})...`, 'info');
+                    }
+                    
                     const confirmationResult = await firebase.auth().signInWithPhoneNumber(
                         phoneNumber, 
                         recaptchaVerifier
@@ -2498,6 +2503,9 @@ function changePassword(form) {
                     // Calculate exponential backoff delay: 2^attempt seconds
                     const delayMs = Math.pow(2, attempt) * 1000; // 2s, 4s, 8s...
                     console.log(`⏳ Retrying in ${delayMs/1000} seconds...`);
+                    
+                    // Show user-friendly message
+                    showAlert(`فشلت المحاولة ${attempt}. سيتم إعادة المحاولة خلال ${delayMs/1000} ثانية...`, 'info');
                     
                     // Wait before retry
                     await new Promise(resolve => setTimeout(resolve, delayMs));
