@@ -2311,6 +2311,36 @@ function changePassword(form) {
             return username === 'admin' || msg.role === 'admin';
         }
 
+        function getUnreadMessageCount() {
+            if (!appState.currentUser) return 0;
+            const currentUsername = appState.currentUser.username;
+            return appData.messages.filter(msg => {
+                // Message is unread if readBy doesn't exist or doesn't include current user
+                const readBy = msg.readBy || [];
+                return !readBy.includes(currentUsername);
+            }).length;
+        }
+
+        function markMessagesAsRead() {
+            if (!appState.currentUser) return;
+            const currentUsername = appState.currentUser.username;
+            let hasChanges = false;
+            
+            appData.messages.forEach(msg => {
+                if (!msg.readBy) {
+                    msg.readBy = [];
+                }
+                if (!msg.readBy.includes(currentUsername)) {
+                    msg.readBy.push(currentUsername);
+                    hasChanges = true;
+                }
+            });
+            
+            if (hasChanges) {
+                saveData();
+            }
+        }
+
         // SMS/Phone helper functions
         function formatPhoneNumber(phone) {
             // Ensure consistent phone number formatting for Saudi Arabia
@@ -3410,8 +3440,9 @@ function renderVerify() {
                         🏆 الإنجازات
                     </button>
                     <button class="tab ${appState.activeTab === 'chat' ? 'active' : ''}" 
-                            onclick="appState.activeTab='chat'; render();">
+                            onclick="appState.activeTab='chat'; markMessagesAsRead(); render();" style="position: relative;">
                         💬 الدردشة
+                        ${getUnreadMessageCount() > 0 ? `<span class="notification-badge">${getUnreadMessageCount()}</span>` : ''}
                     </button>
                 </div>
 
@@ -3833,8 +3864,9 @@ function renderVerify() {
                         📋 سجل التداول
                     </button>
                     <button class="tab ${appState.activeAdminTab === 'chat' ? 'active' : ''}" 
-                            onclick="appState.activeAdminTab='chat'; render();">
+                            onclick="appState.activeAdminTab='chat'; markMessagesAsRead(); render();" style="position: relative;">
                         💬 الدردشة
+                        ${getUnreadMessageCount() > 0 ? `<span class="notification-badge">${getUnreadMessageCount()}</span>` : ''}
                     </button>
                     <button class="tab ${appState.activeAdminTab === 'profile' ? 'active' : ''}" 
                             onclick="appState.activeAdminTab='profile'; render();">
@@ -5392,7 +5424,8 @@ let confirmModal = { show: false, message: '', onConfirm: null };
                 text: text.trim(),
                 sender: appState.currentUser.username,
                 role: appState.currentUser.role,
-                timestamp: new Date().toISOString()
+                timestamp: new Date().toISOString(),
+                readBy: [appState.currentUser.username] // Sender has read their own message
             };
             
             appData.messages.push(message);
