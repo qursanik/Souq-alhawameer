@@ -3276,10 +3276,6 @@ function renderVerify() {
         async function clearAllTransactions(event) {
             if (event) event.stopPropagation();
             
-            if (!window.confirm('هل تريد مسح سجل جميع معاملاتك؟\n\n⚠️ ملاحظة: هذا سيمسح السجل فقط، جميع صفقاتك (الأموال والأسهم) ستبقى كما هي\n\nهذا الإجراء لا يمكن التراجع عنه!')) {
-                return;
-            }
-            
             const username = appState.currentUser.username;
             const userTransactions = appData.transactions.filter(t => t.username === username);
             
