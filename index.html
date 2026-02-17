@@ -1002,6 +1002,9 @@
         // Get Firebase db reference
         const db = window.db;
         
+        // Constants
+        const INITIAL_GUEST_BALANCE = 5000; // Starting balance for new guest accounts
+        
         // Global State
         let appState = {
             currentScreen: 'login',
@@ -1013,7 +1016,8 @@
             activeAdminTab: 'stocks',
             transactionFilter: 'all',
             forgotPasswordPhone: null,
-            resetPasswordCode: null
+            resetPasswordCode: null,
+            guestMode: false
         };
 
         let appData = {
@@ -1022,6 +1026,7 @@
             portfolios: [],
             transactions: [],
             messages: [],
+            guestMessages: [],
             activityLog: [],
             notifications: [],
             weeklyStats: {
@@ -1031,6 +1036,8 @@
             settings: {
                 tradingEnabled: false,
                 chatEnabled: true,
+                guestTradingEnabled: false,
+                guestChatEnabled: true,
                 lastBackup: null
             }
         };
@@ -1605,6 +1612,7 @@ function changePassword(form) {
                     if (data.activityLog) appData.activityLog = data.activityLog;
                     if (data.settings) appData.settings = data.settings;
                     if (data.messages) appData.messages = data.messages;
+                    if (data.guestMessages) appData.guestMessages = data.guestMessages;
                     if (data.notifications) appData.notifications = data.notifications;
                     if (data.weeklyStats) appData.weeklyStats = data.weeklyStats;
                 } else {
@@ -1831,6 +1839,7 @@ function changePassword(form) {
                         activityLog: appData.activityLog,
                         settings: appData.settings,
                         messages: appData.messages,
+                        guestMessages: appData.guestMessages,
                         notifications: appData.notifications,
                         weeklyStats: appData.weeklyStats
                     });
@@ -2342,6 +2351,57 @@ function changePassword(form) {
             }
         }
 
+        // Guest message functions
+        function getUnreadGuestMessageCount() {
+            if (!appState.currentUser) return 0;
+            const currentUsername = appState.currentUser.username;
+            return appData.guestMessages.filter(msg => {
+                const readBy = msg.readBy || [];
+                return !readBy.includes(currentUsername);
+            }).length;
+        }
+
+        function markGuestMessagesAsRead() {
+            if (!appState.currentUser) return;
+            const currentUsername = appState.currentUser.username;
+            let hasChanges = false;
+            
+            appData.guestMessages.forEach(msg => {
+                if (!msg.readBy) {
+                    msg.readBy = [];
+                }
+                if (!msg.readBy.includes(currentUsername)) {
+                    msg.readBy.push(currentUsername);
+                    hasChanges = true;
+                }
+            });
+            
+            if (hasChanges) {
+                saveData();
+            }
+        }
+
+        async function sendGuestMessage(text) {
+            if (!text.trim()) return;
+            
+            const newMessage = {
+                id: Date.now(),
+                from: appState.currentUser.username,
+                text: text.trim(),
+                timestamp: Date.now(),
+                readBy: [appState.currentUser.username]
+            };
+            
+            appData.guestMessages.push(newMessage);
+            await saveData();
+            render();
+        }
+
+        // Helper function to escape regex special characters
+        function escapeRegex(string) {
+            return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        }
+
         // SMS/Phone helper functions
         function formatPhoneNumber(phone) {
             // Ensure consistent phone number formatting for Saudi Arabia
@@ -2467,9 +2527,11 @@ async function handleRegister(e) {
         return;
     }
 
-    // التحقق من تكرار رقم الجوال (check both formats)
-    if (appData.users.find(u => u.phone === phone || u.phone === formattedPhone)) {
-        showAlert('رقم الجوال مسجل مسبقاً ❌', 'error');
+    // التحقق من تكرار رقم الجوال (check both formats across ALL users - students and guests)
+    const existingUserWithPhone = appData.users.find(u => u.phone === phone || u.phone === formattedPhone);
+    if (existingUserWithPhone) {
+        const userType = existingUserWithPhone.role === 'guest' ? 'ضيف' : 'طالب';
+        showAlert(`رقم الجوال مسجل مسبقاً كـ ${userType} ❌\nلا يمكن استخدام نفس الرقم لحسابين`, 'error');
         return;
     }
 
@@ -2721,6 +2783,44 @@ async function handleRegister(e) {
             console.log('💬 Chat status updated in Firebase');
         }
 
+        async function toggleGuestChat() {
+            appData.settings.guestChatEnabled = !appData.settings.guestChatEnabled;
+            
+            // حفظ في Firebase فوراً
+            await db.collection('appData').doc('main').update({
+                settings: appData.settings
+            });
+            
+            showAlert(`دردشة الضيوف ${appData.settings.guestChatEnabled ? 'مفتوحة' : 'مغلقة'}`, 'success');
+            render();
+            
+            console.log('💬 Guest chat status updated in Firebase');
+        }
+
+        async function sendGuestMessageAsAdmin(text) {
+            if (!text.trim()) return;
+            
+            const newMessage = {
+                id: Date.now(),
+                from: appState.currentUser.username,
+                text: text.trim(),
+                timestamp: Date.now(),
+                readBy: [appState.currentUser.username]
+            };
+            
+            appData.guestMessages.push(newMessage);
+            await saveData();
+            render();
+        }
+
+        async function deleteGuestMessage(msgId) {
+            appData.guestMessages = appData.guestMessages.filter(m => m.id !== msgId);
+            await saveData();
+            render();
+        }
+
+        function deleteGuestMessageSync(msgId) { deleteGuestMessage(msgId); }
+
         // Logout
         function logout() {
             addActivityLog('تسجيل خروج', `${appState.currentUser.username} سجل خروج`);
@@ -2775,6 +2875,16 @@ async function handleRegister(e) {
             console.log('⚙️ Trading status updated in Firebase');
         }
 
+        async function toggleGuestTrading() {
+            appData.settings.guestTradingEnabled = !appData.settings.guestTradingEnabled;
+            await saveData();
+            
+            addActivityLog('تغيير إعدادات', `تداول الضيوف ${appData.settings.guestTradingEnabled ? 'مفتوح' : 'مغلق'}`);
+            render();
+            
+            console.log('⚙️ Guest trading status updated');
+        }
+
         // Toggle user suspension
         async function toggleSuspension(username) {
             const user = appData.users.find(u => u.username === username);
@@ -2811,7 +2921,9 @@ async function handleRegister(e) {
             const oldBalance = user.balance;
             user.balance += amount;
             
-            addActivityLog('إضافة رصيد', `${user.username} +${amount.toFixed(2)}`);
+            // Log with appropriate action type based on user role
+            const actionType = user.role === 'guest' ? 'إضافة رصيد ضيف' : 'إضافة رصيد';
+            addActivityLog(actionType, `${user.username} +${amount.toFixed(2)}`);
             showAlert(`✅ تمت إضافة ${amount.toFixed(2)} ر.س`, 'success');
             saveData();
             closeBalanceModal();
@@ -2829,7 +2941,9 @@ async function handleRegister(e) {
             // السماح بالرصيد السالب - لا يوجد فحص للرصيد
             
             user.balance -= amount;
-            addActivityLog('إضافة رصيد', `${user.username} -${amount.toFixed(2)}`);
+            // Log with appropriate action type based on user role
+            const actionType = user.role === 'guest' ? 'إضافة رصيد ضيف' : 'إضافة رصيد';
+            addActivityLog(actionType, `${user.username} -${amount.toFixed(2)}`);
             showAlert(`✅ تم خصم ${amount.toFixed(2)} ر.س`, 'success');
             saveData();
             closeBalanceModal();
@@ -2908,6 +3022,10 @@ async function handleRegister(e) {
                 app.innerHTML = renderLogin();
             } else if (appState.currentScreen === 'register') {
                 app.innerHTML = renderRegister();
+            } else if (appState.currentScreen === 'guestRegister') {
+                app.innerHTML = renderGuestRegister();
+            } else if (appState.currentScreen === 'guestVerify') {
+                app.innerHTML = renderGuestVerify();
             } else if (appState.currentScreen === 'verify') {
                 app.innerHTML = renderVerify();
             } else if (appState.currentScreen === 'forgot') {
@@ -2973,10 +3091,21 @@ async function handleRegister(e) {
                             <button type="button" class="btn btn-secondary" style="width: 100%; margin-bottom: 0.5rem;" onclick="appState.currentScreen='forgot'; render();">
                                 نسيت كلمة المرور؟ 🔑
                             </button>
-                            <button type="button" class="btn btn-secondary" style="width: 100%;" onclick="appState.currentScreen='register'; render();">
+                            <button type="button" class="btn btn-secondary" style="width: 100%; margin-bottom: 0.5rem;" onclick="appState.currentScreen='register'; render();">
                                 إنشاء حساب جديد ➕
                             </button>
                         </form>
+                        
+                        <!-- Guest Login Section -->
+                        <div style="margin-top: 2rem; padding-top: 2rem; border-top: 2px solid var(--border);">
+                            <h3 style="text-align: center; color: var(--secondary); margin-bottom: 1rem;">دخول كضيف 👤</h3>
+                            <p style="text-align: center; color: var(--text-secondary); font-size: 0.9rem; margin-bottom: 1rem;">
+                                انضم كزائر واستمتع بتجربة التداول
+                            </p>
+                            <button type="button" class="btn btn-success" style="width: 100%;" onclick="appState.currentScreen='guestRegister'; render();">
+                                تسجيل كضيف 🎯
+                            </button>
+                        </div>
                     </div>
                 </div>
             `;
@@ -3094,6 +3223,181 @@ async function handleVerify(e) {
     }
 }
 
+// Guest Registration Handlers
+async function handleGuestRegister(e) {
+    e.preventDefault();
+    
+    // Get form data
+    const displayName = e.target.guestDisplayName.value.trim();
+    const username = e.target.guestUsername.value.trim();
+    const phone = e.target.guestPhone.value.trim();
+    const password = e.target.guestPassword.value;
+    const confirmPassword = e.target.guestConfirmPassword.value;
+
+    // Validate password match
+    if (password !== confirmPassword) {
+        showAlert('كلمة المرور غير متطابقة ❌', 'error');
+        return;
+    }
+
+    // Check for duplicate username
+    if (appData.users.find(u => u.username === username)) {
+        showAlert('اسم المستخدم موجود مسبقاً ❌', 'error');
+        return;
+    }
+
+    // Format phone number
+    const formattedPhone = formatPhoneNumber(phone);
+    
+    if (!formattedPhone) {
+        showAlert('رقم الجوال غير صحيح ❌', 'error');
+        return;
+    }
+
+    // Check for duplicate phone across ALL users (students and guests)
+    const existingUserWithPhone = appData.users.find(u => u.phone === phone || u.phone === formattedPhone);
+    if (existingUserWithPhone) {
+        const userType = existingUserWithPhone.role === 'guest' ? 'ضيف' : 'طالب';
+        showAlert(`رقم الجوال مسجل مسبقاً كـ ${userType} ❌\nلا يمكن استخدام نفس الرقم لحسابين`, 'error');
+        return;
+    }
+
+    try {
+        showAlert('جاري إرسال رمز التحقق...', 'info');
+
+        // Cleanup old reCAPTCHA
+        cleanupRecaptchaVerifier('guestRecaptchaVerifier');
+        
+        // Ensure container exists
+        ensureRecaptchaContainer('guest-recaptcha-container');
+        
+        // Create new reCAPTCHA
+        window.guestRecaptchaVerifier = new firebase.auth.RecaptchaVerifier('guest-recaptcha-container', {
+            'size': 'invisible',
+            'callback': (response) => { console.log('✅ Guest reCAPTCHA solved'); },
+            'expired-callback': () => { 
+                console.warn('⚠️ Guest reCAPTCHA expired');
+                cleanupRecaptchaVerifier('guestRecaptchaVerifier');
+            }
+        });
+
+        // Send SMS
+        console.log('📤 Sending SMS to guest:', formattedPhone);
+        const confirmationResult = await firebase.auth().signInWithPhoneNumber(
+            formattedPhone, 
+            window.guestRecaptchaVerifier
+        );
+
+        console.log('✅ SMS sent to guest:', formattedPhone);
+
+        // Save confirmation result
+        window.guestConfirmationResult = confirmationResult;
+        
+        // Save pending guest registration
+        window.pendingGuestRegistration = {
+            username,
+            displayName,
+            phone: formattedPhone,
+            password, // Will be hashed after verification
+            role: 'guest',
+            balance: INITIAL_GUEST_BALANCE, // Initial balance for guests
+            color: '#' + Math.floor(Math.random()*16777215).toString(16),
+            achievements: [],
+            suspended: false,
+            notifications: []
+        };
+
+        // Go to verification screen
+        appState.currentScreen = 'guestVerify';
+        render();
+        showAlert(`تم إرسال رمز التحقق إلى ${formattedPhone}`, 'success');
+
+    } catch (error) {
+        console.error('❌ Guest registration SMS error:', error);
+        
+        let errorMsg = 'فشل إرسال رمز التحقق';
+        if (error.code === 'auth/invalid-phone-number') errorMsg = 'رقم الجوال غير صحيح';
+        else if (error.code === 'auth/too-many-requests') errorMsg = 'تم تجاوز حد المحاولات. حاول بعد 5 دقائق';
+        else if (error.code === 'auth/quota-exceeded') errorMsg = 'تم تجاوز الحد المجاني. تواصل مع المشرف';
+        else if (error.code === 'auth/captcha-check-failed') errorMsg = 'فشل التحقق الأمني. أعد المحاولة';
+        
+        showAlert(errorMsg + ' ❌', 'error');
+        cleanupRecaptchaVerifier('guestRecaptchaVerifier');
+    }
+}
+
+async function handleGuestVerify(e) {
+    e.preventDefault();
+    const enteredCode = e.target.guestVerifyCode.value.trim();
+    
+    // Check if confirmation result exists
+    if (!window.guestConfirmationResult || !window.pendingGuestRegistration) {
+        showAlert('حدث خطأ. يرجى المحاولة مرة أخرى ❌', 'error');
+        appState.currentScreen = 'guestRegister';
+        render();
+        return;
+    }
+    
+    try {
+        showAlert('جاري التحقق من الرمز...', 'info');
+
+        // Verify code via Firebase
+        const result = await window.guestConfirmationResult.confirm(enteredCode);
+        
+        console.log('✅ Guest phone verified:', result.user.phoneNumber);
+
+        // Register guest in system
+        const newGuest = { ...window.pendingGuestRegistration };
+        
+        // Hash password
+        const passwordToHash = newGuest.password;
+        delete newGuest.password;
+        newGuest.passwordHash = await hashPassword(passwordToHash);
+        
+        // Add guest to users
+        appData.users.push(newGuest);
+        
+        // Create portfolio for guest
+        appData.portfolios.push({
+            username: newGuest.username,
+            holdings: []
+        });
+        
+        // Save data
+        saveData();
+        
+        // Log activity
+        addActivityLog('تسجيل ضيف جديد', `انضم الضيف ${newGuest.username} (${newGuest.displayName}) إلى السوق`);
+        
+        // Clean up temporary data
+        window.guestConfirmationResult = null;
+        window.pendingGuestRegistration = null;
+        
+        // Sign out from Firebase Auth
+        await firebase.auth().signOut();
+        
+        // Show success message
+        showAlert(`✅ تم إنشاء حساب الضيف بنجاح!\n\nمرحباً ${newGuest.displayName}\n\nيمكنك الآن تسجيل الدخول`, 'success');
+        
+        // Go to login screen
+        appState.currentScreen = 'login';
+        render();
+
+    } catch (error) {
+        console.error('❌ Guest verification error:', error);
+        
+        let errorMsg = 'رمز التحقق غير صحيح';
+        
+        if (error.code === 'auth/invalid-verification-code') {
+            errorMsg = 'رمز التحقق غير صحيح';
+        } else if (error.code === 'auth/code-expired') {
+            errorMsg = 'انتهت صلاحية الرمز. حاول التسجيل مرة أخرى';
+        }
+        
+        showAlert(errorMsg + ' ❌', 'error');
+    }
+}
+
 function renderVerify() {
     const phone = window.pendingRegistration ? window.pendingRegistration.phone : '05xxxxxxxx';
     
@@ -3128,6 +3432,86 @@ function renderVerify() {
     `;
 }
 
+// Guest Registration Functions
+function renderGuestRegister() {
+    return `
+        <div class="container">
+            <div class="card animate-slide-up" style="max-width: 500px; margin: 4rem auto;">
+                <h2 style="color: var(--secondary); margin-bottom: 1rem;">تسجيل كضيف 👤</h2>
+                <p style="color: var(--text-secondary); margin-bottom: 2rem;">
+                    املأ البيانات التالية للانضمام كضيف
+                </p>
+                
+                <!-- reCAPTCHA Container for Guest Registration -->
+                <div id="guest-recaptcha-container"></div>
+                
+                <form id="guestRegisterForm" onsubmit="handleGuestRegister(event)">
+                    <div class="form-group">
+                        <label>الاسم الظاهر</label>
+                        <input type="text" name="guestDisplayName" required placeholder="اختر الاسم الذي سيظهر للآخرين">
+                    </div>
+                    <div class="form-group">
+                        <label>اسم المستخدم</label>
+                        <input type="text" name="guestUsername" required placeholder="اختر اسم مستخدم فريد">
+                    </div>
+                    <div class="form-group">
+                        <label>رقم الجوال</label>
+                        <input type="tel" name="guestPhone" required placeholder="05xxxxxxxx" pattern="05[0-9]{8}">
+                    </div>
+                    <div class="form-group">
+                        <label>كلمة المرور</label>
+                        <input type="password" name="guestPassword" required placeholder="اختر كلمة مرور قوية" minlength="6">
+                    </div>
+                    <div class="form-group">
+                        <label>تأكيد كلمة المرور</label>
+                        <input type="password" name="guestConfirmPassword" required placeholder="أعد إدخال كلمة المرور" minlength="6">
+                    </div>
+                    <button type="submit" class="btn btn-primary" style="width: 100%; margin-bottom: 0.5rem;">
+                        إرسال رمز التحقق 📱
+                    </button>
+                    <button type="button" class="btn btn-secondary" style="width: 100%;" onclick="appState.currentScreen='login'; render();">
+                        رجوع إلى تسجيل الدخول
+                    </button>
+                </form>
+            </div>
+        </div>
+    `;
+}
+
+function renderGuestVerify() {
+    const phone = window.pendingGuestRegistration ? window.pendingGuestRegistration.phone : '05xxxxxxxx';
+    
+    return `
+        <div class="container">
+            <div class="card animate-slide-up" style="max-width: 500px; margin: 4rem auto;">
+                <h2 style="color: var(--secondary); margin-bottom: 1rem;">التحقق من رقم الجوال 📱</h2>
+                <p style="color: var(--text-secondary); margin-bottom: 2rem;">
+                    تم إرسال رمز التحقق إلى: <strong>${phone}</strong>
+                </p>
+
+                <form id="guestVerifyForm" onsubmit="handleGuestVerify(event)">
+                    <div class="form-group">
+                        <label>رمز التحقق (6 أرقام)</label>
+                        <input type="text" name="guestVerifyCode" required placeholder="أدخل الرمز المكون من 6 أرقام" 
+                               maxlength="6" pattern="[0-9]{6}" 
+                               style="font-size: 1.5rem; text-align: center; letter-spacing: 0.5rem;">
+                    </div>
+                    <button type="submit" class="btn btn-primary" style="width: 100%; margin-bottom: 0.5rem;">
+                        تأكيد الحساب ✅
+                    </button>
+                    <button type="button" class="btn btn-secondary" style="width: 100%;" onclick="appState.currentScreen='guestRegister'; render();">
+                        رجوع ⬅️
+                    </button>
+                </form>
+                
+                <p style="text-align: center; margin-top: 1.5rem; font-size: 0.85rem; color: var(--text-secondary);">
+                    لم يصلك الرمز؟ <a href="#" onclick="appState.currentScreen='guestRegister'; render();">إعادة إرسال</a>
+                </p>
+            </div>
+        </div>
+    `;
+}
+
         function renderDashboard() {
             // Check if currentUser is loaded
             if (!appState.currentUser) {
@@ -3146,12 +3530,13 @@ function renderVerify() {
             }
             
             const isAdmin = appState.currentUser.role === 'admin';
-            console.log('🎯 Rendering dashboard for:', appState.currentUser.username, 'Role:', appState.currentUser.role, 'isAdmin:', isAdmin);
+            const isGuest = appState.currentUser.role === 'guest';
+            console.log('🎯 Rendering dashboard for:', appState.currentUser.username, 'Role:', appState.currentUser.role, 'isAdmin:', isAdmin, 'isGuest:', isGuest);
             
             return `
                 <div class="container">
                     ${renderHeader()}
-                    ${isAdmin ? renderAdminDashboard() : renderStudentDashboard()}
+                    ${isAdmin ? renderAdminDashboard() : (isGuest ? renderGuestDashboard() : renderStudentDashboard())}
                     ${appState.selectedStock ? renderTradingModal() : ''}
                 </div>
             `;
@@ -3178,7 +3563,9 @@ function renderVerify() {
                         <button class="theme-toggle" onclick="toggleTheme()">
                             ${appState.theme === 'dark' ? '☀️' : '🌙'}
                         </button>
-                        <span style="color: var(--text-secondary); font-weight: 500;">${appState.currentUser.username}</span>
+                        <span style="color: var(--text-secondary); font-weight: 500;">
+                            ${appState.currentUser.role === 'guest' && appState.currentUser.displayName ? appState.currentUser.displayName : appState.currentUser.username}
+                        </span>
                         <button class="btn btn-danger btn-small" onclick="logout()">
                             خروج
                         </button>
@@ -3711,6 +4098,168 @@ function renderVerify() {
             `;
         }
 
+        // Guest Dashboard
+        function renderGuestDashboard() {
+            const portfolio = appData.portfolios.find(p => p.username === appState.currentUser.username);
+            const portfolioValue = getPortfolioValue(appState.currentUser.username);
+            const totalValue = appState.currentUser.balance + portfolioValue;
+            const userTxs = appData.transactions.filter(t => t.username === appState.currentUser.username);
+            const unreadCount = getUnreadGuestMessageCount();
+
+            return `
+                <div class="tabs">
+                    <button class="tab ${appState.activeTab === 'stocks' ? 'active' : ''}" 
+                            onclick="appState.activeTab='stocks'; render();">
+                        📈 الأسهم
+                    </button>
+                    <button class="tab ${appState.activeTab === 'portfolio' ? 'active' : ''}" 
+                            onclick="appState.activeTab='portfolio'; render();">
+                        💼 المحفظة
+                    </button>
+                    <button class="tab ${appState.activeTab === 'transactions' ? 'active' : ''}" 
+                            onclick="appState.activeTab='transactions'; render();">
+                        📜 السجل
+                    </button>
+                    <button class="tab ${appState.activeTab === 'achievements' ? 'active' : ''}" 
+                            onclick="appState.activeTab='achievements'; render();">
+                        🏆 الإنجازات
+                    </button>
+                    <button class="tab ${appState.activeTab === 'chat' ? 'active' : ''}" 
+                            onclick="appState.activeTab='chat'; markGuestMessagesAsRead(); render();">
+                        💬 دردشة الضيوف
+                        ${unreadCount > 0 ? `<span class="notification-badge">${unreadCount}</span>` : ''}
+                    </button>
+                </div>
+
+                ${appState.activeTab === 'stocks' ? renderGuestStocksTab(portfolio, portfolioValue, totalValue) : ''}
+                ${appState.activeTab === 'portfolio' ? renderPortfolioTab(portfolio, portfolioValue, totalValue) : ''}
+                ${appState.activeTab === 'transactions' ? renderTransactionsTab(userTxs) : ''}
+                ${appState.activeTab === 'achievements' ? renderAchievementsTab() : ''}
+                ${appState.activeTab === 'chat' ? renderGuestChatTab() : ''}
+            `;
+        }
+
+        function renderGuestStocksTab(portfolio, portfolioValue, totalValue) {
+            const tradingEnabled = appData.settings.guestTradingEnabled;
+            return `
+                <div class="tab-content active">
+                    <div class="stats-grid animate-slide-up">
+                        <div class="stat-card">
+                            <div class="stat-label">الرصيد المتاح</div>
+                            <div class="stat-value">${appState.currentUser.balance.toFixed(2)} ر.س</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-label">قيمة الأسهم</div>
+                            <div class="stat-value">${portfolioValue.toFixed(2)} ر.س</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-label">الإجمالي</div>
+                            <div class="stat-value" style="color: var(--secondary);">${totalValue.toFixed(2)} ر.س</div>
+                        </div>
+                    </div>
+
+                    ${!tradingEnabled ? `
+                        <div style="text-align: center; padding: 2rem 1rem; background: rgba(231,76,60,0.1); border-radius: 16px; border: 2px dashed #e74c3c; margin: 1rem 0;">
+                            <div style="font-size: 3rem; margin-bottom: 1rem;">🔒</div>
+                            <div style="font-size: 1.2rem; font-weight: bold; color: #e74c3c; margin-bottom: 0.5rem;">
+                                سوق الضيوف مغلق حالياً
+                            </div>
+                            <div style="color: var(--text-secondary);">
+                                سيتم فتحه من قبل المشرف
+                            </div>
+                        </div>
+                    ` : ''}
+
+                    <div class="card">
+                        <h3 style="margin-bottom: 1.5rem;">الأسهم المتاحة 📊</h3>
+                        <div class="stocks-grid">
+                            ${appData.stocks.map((stock, idx) => {
+                                const holding = portfolio ? portfolio.holdings.find(h => h.symbol === stock.symbol) : null;
+                                return `
+                                    <div class="stock-card animate-slide-up" 
+                                         style="animation-delay: ${idx * 0.1}s; cursor: ${tradingEnabled ? 'pointer' : 'not-allowed'};"
+                                         onclick="${tradingEnabled ? `appState.selectedStock=appData.stocks[${idx}]; render();` : 'return false;'}">
+                                        <div class="stock-header">
+                                            <div>
+                                                <div class="stock-symbol">${stock.symbol}</div>
+                                                <div class="stock-name">${stock.name}</div>
+                                            </div>
+                                            ${holding ? `<div class="badge">مملوك: ${holding.quantity}</div>` : ''}
+                                        </div>
+                                        <div class="stock-price">${stock.price.toFixed(2)} ر.س</div>
+                                        <div class="stock-change" style="color: ${stock.change >= 0 ? 'var(--success)' : 'var(--danger)'};">
+                                            ${stock.change >= 0 ? '▲' : '▼'} ${Math.abs(stock.change).toFixed(2)}%
+                                        </div>
+                                    </div>
+                                `;
+                            }).join('')}
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderGuestChatTab() {
+            const isGuest = appState.currentUser.role === 'guest';
+            const chatDisabled = !appData.settings.guestChatEnabled;
+            
+            // Auto-scroll to bottom after render
+            setTimeout(() => {
+                const chatContainer = document.querySelector('.chat-container');
+                if (chatContainer) {
+                    chatContainer.scrollTop = chatContainer.scrollHeight;
+                }
+            }, 100);
+            
+            return `
+                <div class="tab-content active">
+                    <div class="card">
+                        <h2 style="margin-bottom: 1.5rem;">غرفة الضيوف 💬</h2>
+                        
+                        ${chatDisabled ? `
+                            <div style="text-align: center; padding: 3rem 1.5rem; background: rgba(231,76,60,0.1); border-radius: 16px; border: 2px dashed #e74c3c; margin-bottom: 1.5rem;">
+                                <div style="font-size: 3.5rem; margin-bottom: 1rem;">🔒</div>
+                                <div style="font-size: 1.2rem; font-weight: bold; color: #e74c3c; margin-bottom: 0.5rem;">
+                                    دردشة الضيوف مغلقة حالياً
+                                </div>
+                                <div style="color: var(--text-secondary);">
+                                    سيتم تفعيلها من قبل المشرف
+                                </div>
+                            </div>
+                        ` : ''}
+
+                        <div class="chat-container">
+                            ${appData.guestMessages.length === 0 
+                                ? '<p style="text-align: center; color: var(--text-secondary); padding: 2rem;">لا توجد رسائل</p>'
+                                : appData.guestMessages.map(msg => {
+                                    const username = getMessageUsername(msg);
+                                    const isAdminMsg = isMessageFromAdmin(msg);
+                                    const isOwn = username === appState.currentUser.username;
+                                    return `
+                                    <div class="chat-message ${isOwn ? 'own' : 'other'}">
+                                        <div class="chat-sender" style="font-weight: bold; margin-bottom: 0.35rem; display: flex; align-items: center; gap: 0.5rem;">
+                                            ${username} ${isAdminMsg ? '<span style="background: var(--secondary); color: var(--bg-primary); padding: 0.15rem 0.5rem; border-radius: 12px; font-size: 0.7rem;">👨‍💼 مشرف</span>' : '<span style="background: var(--success); color: white; padding: 0.15rem 0.5rem; border-radius: 12px; font-size: 0.7rem;">👤 ضيف</span>'}
+                                        </div>
+                                        <div style="word-wrap: break-word;">${msg.text}</div>
+                                        <div class="chat-time" style="font-size: 0.75rem; opacity: 0.7; margin-top: 0.35rem;">
+                                            ${new Date(msg.timestamp).toLocaleString('ar-SA', {hour: '2-digit', minute: '2-digit'})}
+                                        </div>
+                                    </div>
+                                `}).join('')
+                            }
+                        </div>
+
+                        ${!chatDisabled ? `
+                            <form class="chat-input-group" onsubmit="event.preventDefault(); sendGuestMessage(this.chatInput.value); this.chatInput.value=''; return false;">
+                                <input type="text" name="chatInput" placeholder="اكتب رسالة..." required>
+                                <button type="submit" class="btn btn-primary">إرسال</button>
+                            </form>
+                        ` : ''}
+                    </div>
+                </div>
+            `;
+        }
+
         function renderChatTab() {
             const isAdmin = appState.currentUser.role === 'admin';
             const chatDisabled = !appData.settings.chatEnabled;
@@ -3841,14 +4390,140 @@ function renderVerify() {
             `;
         }
 
+        function renderGuestLeaderboardTab(isAdmin) {
+            const guests = appData.users.filter(u => u.role === 'guest');
+            const leaderboard = guests.map(guest => {
+                const portfolio = appData.portfolios.find(p => p.username === guest.username);
+                const stockCount = portfolio ? portfolio.holdings.reduce((sum, h) => sum + h.quantity, 0) : 0;
+                
+                return {
+                    username: guest.username,
+                    displayName: guest.displayName || guest.username,
+                    balance: guest.balance,
+                    stockCount: stockCount,
+                    total: guest.balance + getPortfolioValue(guest.username),
+                    color: guest.color
+                };
+            }).sort((a, b) => b.total - a.total);
+
+            return `
+                <div class="tab-content active">
+                    <div class="card">
+                        <h2 style="margin-bottom: 1.5rem;">لوحة متصدرين الضيوف 🎯</h2>
+                        ${leaderboard.length === 0 
+                            ? '<p style="text-align: center; color: var(--text-secondary); padding: 2rem;">لا يوجد ضيوف مسجلين بعد</p>'
+                            : leaderboard.map((item, index) => {
+                                let rankClass = '';
+                                if (index === 0) rankClass = 'rank-1 gold';
+                                else if (index === 1) rankClass = 'rank-2 silver';
+                                else if (index === 2) rankClass = 'rank-3 bronze';
+                                
+                                return `
+                                    <div class="leaderboard-item ${rankClass}">
+                                        <div class="rank ${rankClass}">#${index + 1}</div>
+                                        <div class="color-dot" style="background: ${item.color};"></div>
+                                        <div class="leaderboard-info">
+                                            <div class="leaderboard-name">${item.displayName} (${item.username})</div>
+                                            <div class="leaderboard-stats">الرصيد المتاح: ${item.balance.toFixed(2)} ر.س | يمتلك: ${item.stockCount} سهم</div>
+                                        </div>
+                                        <div class="leaderboard-value">${item.total.toFixed(2)} ر.س</div>
+                                    </div>
+                                `;
+                            }).join('')
+                        }
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderAdminGuestChatTab() {
+            const isAdmin = appState.currentUser.role === 'admin';
+            const chatDisabled = !appData.settings.guestChatEnabled;
+            
+            // Auto-scroll to bottom after render
+            setTimeout(() => {
+                const chatContainer = document.querySelector('.chat-container');
+                if (chatContainer) {
+                    chatContainer.scrollTop = chatContainer.scrollHeight;
+                }
+            }, 100);
+            
+            return `
+                <div class="tab-content active">
+                    <div class="card">
+                        <h2 style="margin-bottom: 1.5rem;">دردشة الضيوف 💬</h2>
+                        
+                        ${isAdmin ? `
+                            <div style="background: var(--bg-secondary); border: 2px solid var(--border); border-radius: 12px; padding: 1.25rem; margin-bottom: 1.5rem;">
+                                <div style="display: flex; justify-content: space-between; align-items: center; gap: 1rem;">
+                                    <div>
+                                        <strong style="font-size: 1rem;">🎛️ التحكم في دردشة الضيوف</strong>
+                                        <p style="color: var(--text-secondary); font-size: 0.85rem; margin: 0.5rem 0 0 0;">
+                                            يمكنك الإرسال، الحذف، وإيقاف دردشة الضيوف
+                                        </p>
+                                    </div>
+                                    <button onclick="toggleGuestChat()" class="btn ${appData.settings.guestChatEnabled ? 'btn-success' : 'btn-danger'} btn-small">
+                                        ${appData.settings.guestChatEnabled ? '🟢 مفتوحة' : '🔴 مغلقة'}
+                                    </button>
+                                </div>
+                            </div>
+                        ` : ''}
+
+                        <div class="chat-container">
+                            ${appData.guestMessages.length === 0 
+                                ? '<p style="text-align: center; color: var(--text-secondary); padding: 2rem;">لا توجد رسائل</p>'
+                                : appData.guestMessages.map(msg => {
+                                    const username = getMessageUsername(msg);
+                                    const isAdminMsg = isMessageFromAdmin(msg);
+                                    const isOwn = username === appState.currentUser.username;
+                                    const user = appData.users.find(u => u.username === username);
+                                    const displayName = user && user.displayName ? user.displayName : username;
+                                    return `
+                                    <div class="chat-message ${isOwn ? 'own' : 'other'}">
+                                        <div class="chat-sender" style="font-weight: bold; margin-bottom: 0.35rem; display: flex; align-items: center; gap: 0.5rem; justify-content: space-between;">
+                                            <div style="display: flex; align-items: center; gap: 0.5rem;">
+                                                ${displayName} ${isAdminMsg ? '<span style="background: var(--secondary); color: var(--bg-primary); padding: 0.15rem 0.5rem; border-radius: 12px; font-size: 0.7rem;">👨‍💼 مشرف</span>' : '<span style="background: var(--success); color: white; padding: 0.15rem 0.5rem; border-radius: 12px; font-size: 0.7rem;">👤 ضيف</span>'}
+                                            </div>
+                                            ${isAdmin ? `
+                                                <button onclick="deleteGuestMessageSync(${msg.id})" 
+                                                        style="background: #e74c3c; color: white; border: none; border-radius: 6px; padding: 0.25rem 0.5rem; font-size: 0.7rem; cursor: pointer; font-weight: bold;">
+                                                    حذف
+                                                </button>
+                                            ` : ''}
+                                        </div>
+                                        <div style="word-wrap: break-word;">${msg.text}</div>
+                                        <div class="chat-time" style="font-size: 0.75rem; opacity: 0.7; margin-top: 0.35rem;">
+                                            ${new Date(msg.timestamp).toLocaleString('ar-SA', {hour: '2-digit', minute: '2-digit'})}
+                                        </div>
+                                    </div>
+                                `}).join('')
+                            }
+                        </div>
+
+                        ${isAdmin || !chatDisabled ? `
+                            <form class="chat-input-group" onsubmit="event.preventDefault(); sendGuestMessageAsAdmin(this.chatInput.value); this.chatInput.value=''; return false;">
+                                <input type="text" name="chatInput" placeholder="${isAdmin ? '💬 رسالة من المشرف...' : 'اكتب رسالة...'}" required>
+                                <button type="submit" class="btn btn-primary">إرسال</button>
+                            </form>
+                        ` : ''}
+                    </div>
+                </div>
+            `;
+        }
+
         function renderAdminDashboard() {
             console.log('📋 renderAdminDashboard called, activeAdminTab:', appState.activeAdminTab);
             const unreadCount = getUnreadMessageCount();
+            const unreadGuestCount = getUnreadGuestMessageCount();
             return `
                 <div class="tabs">
                     <button class="tab ${appState.activeAdminTab === 'students' ? 'active' : ''}" 
                             onclick="appState.activeAdminTab='students'; render();">
                         👥 الطلاب
+                    </button>
+                    <button class="tab ${appState.activeAdminTab === 'guests' ? 'active' : ''}" 
+                            onclick="appState.activeAdminTab='guests'; render();">
+                        👤 الضيوف
                     </button>
                     <button class="tab ${appState.activeAdminTab === 'stocks' ? 'active' : ''}" 
                             onclick="appState.activeAdminTab='stocks'; render();">
@@ -3857,6 +4532,10 @@ function renderVerify() {
                     <button class="tab ${appState.activeAdminTab === 'leaderboard' ? 'active' : ''}" 
                             onclick="appState.activeAdminTab='leaderboard'; render();">
                         🏅 المتصدرين
+                    </button>
+                    <button class="tab ${appState.activeAdminTab === 'guestLeaderboard' ? 'active' : ''}" 
+                            onclick="appState.activeAdminTab='guestLeaderboard'; render();">
+                        🎯 متصدرين الضيوف
                     </button>
                     <button class="tab ${appState.activeAdminTab === 'weeklyReport' ? 'active' : ''}" 
                             onclick="appState.activeAdminTab='weeklyReport'; render();">
@@ -3868,8 +4547,13 @@ function renderVerify() {
                     </button>
                     <button class="tab ${appState.activeAdminTab === 'chat' ? 'active' : ''}" 
                             onclick="appState.activeAdminTab='chat'; markMessagesAsRead(); render();">
-                        💬 الدردشة
+                        💬 دردشة الطلاب
                         ${unreadCount > 0 ? `<span class="notification-badge">${unreadCount}</span>` : ''}
+                    </button>
+                    <button class="tab ${appState.activeAdminTab === 'guestChat' ? 'active' : ''}" 
+                            onclick="appState.activeAdminTab='guestChat'; markGuestMessagesAsRead(); render();">
+                        💬 دردشة الضيوف
+                        ${unreadGuestCount > 0 ? `<span class="notification-badge">${unreadGuestCount}</span>` : ''}
                     </button>
                     <button class="tab ${appState.activeAdminTab === 'profile' ? 'active' : ''}" 
                             onclick="appState.activeAdminTab='profile'; render();">
@@ -3878,11 +4562,14 @@ function renderVerify() {
                 </div>
 
                 ${appState.activeAdminTab === 'students' ? renderAdminStudentsTab() : ''}
+                ${appState.activeAdminTab === 'guests' ? renderAdminGuestsTab() : ''}
                 ${appState.activeAdminTab === 'stocks' ? renderAdminStocksTab() : ''}
                 ${appState.activeAdminTab === 'leaderboard' ? renderLeaderboardTab(true) : ''}
+                ${appState.activeAdminTab === 'guestLeaderboard' ? renderGuestLeaderboardTab(true) : ''}
                 ${appState.activeAdminTab === 'weeklyReport' ? renderWeeklyReportTab() : ''}
                 ${appState.activeAdminTab === 'activityLog' ? renderActivityLogTab() : ''}
                 ${appState.activeAdminTab === 'chat' ? renderChatTab() : ''}
+                ${appState.activeAdminTab === 'guestChat' ? renderAdminGuestChatTab() : ''}
                 ${appState.activeAdminTab === 'profile' ? renderAdminProfileTab() : ''}
             `;
         }
@@ -4034,16 +4721,146 @@ function renderVerify() {
             `;
         }
 
+        function renderAdminGuestsTab() {
+            console.log('👤 renderAdminGuestsTab called');
+            const guests = appData.users.filter(u => u.role === 'guest');
+            console.log('Guests count:', guests.length);
+            
+            return `
+                <div class="tab-content active">
+                    <div class="card">
+                        <h3 style="margin-bottom: 1.5rem;">إدارة الضيوف 👤</h3>
+                        
+                        <!-- Guest count -->
+                        <div style="background: var(--bg-secondary); padding: 1.5rem; border-radius: 12px; margin-bottom: 2rem; border: 1px solid var(--border);">
+                            <div style="text-align: center;">
+                                <div style="color: var(--text-secondary); font-size: 0.9rem; margin-bottom: 0.5rem;">👤 عدد الضيوف</div>
+                                <div style="font-size: 2rem; font-weight: 900; color: var(--text-primary);">${guests.length}</div>
+                            </div>
+                        </div>
+
+                        ${guests.length === 0 
+                            ? '<p style="text-align: center; color: var(--text-secondary); padding: 2rem;">لا يوجد ضيوف مسجلين بعد</p>'
+                            : guests.map(guest => {
+                                const portfolio = appData.portfolios.find(p => p.username === guest.username);
+                                const holdings = portfolio ? portfolio.holdings : [];
+                                
+                                // Calculate added balance for guest
+                                // NOTE: This uses activity log parsing which is a temporary solution
+                                // TODO: Implement structured balance tracking in future updates
+                                let addedBalance = 0;
+                                appData.activityLog.forEach(log => {
+                                    if (log.action === 'إضافة رصيد ضيف' && log.details) {
+                                        // Check for exact username match with word boundaries
+                                        // Escape regex special characters to prevent errors
+                                        const escapedUsername = escapeRegex(guest.username);
+                                        const usernamePattern = new RegExp(`\\b${escapedUsername}\\b`);
+                                        if (usernamePattern.test(log.details)) {
+                                            const matchPositive = log.details.match(/\+(\d+\.?\d*)/);
+                                            const matchNegative = log.details.match(/-(\d+\.?\d*)/);
+                                            
+                                            if (matchPositive) {
+                                                addedBalance += parseFloat(matchPositive[1]);
+                                            } else if (matchNegative) {
+                                                addedBalance -= parseFloat(matchNegative[1]);
+                                            }
+                                        }
+                                    }
+                                });
+                                
+                                return `
+                                    <div style="background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 12px; padding: 1.5rem; margin-bottom: 1rem; ${guest.suspended ? 'opacity: 0.5;' : ''}">
+                                        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem; margin-bottom: 1rem;">
+                                            <div style="flex: 1;">
+                                                <h4>${guest.username} ${guest.suspended ? '🔒' : ''}</h4>
+                                                <p style="color: var(--text-secondary); font-size: 0.9rem; margin-top: 0.5rem;">
+                                                    👤 الاسم الظاهر: ${guest.displayName || guest.username}<br>
+                                                    📱 ${guest.phone}
+                                                </p>
+                                                <div style="display: flex; gap: 2rem; margin-top: 0.75rem; flex-wrap: wrap;">
+                                                    <div>
+                                                        <span style="color: var(--text-secondary); font-size: 0.85rem;">💰 الرصيد المتاح:</span>
+                                                        <span style="color: ${guest.balance >= 0 ? 'var(--success)' : 'var(--danger)'}; font-weight: bold; font-size: 1.1rem; margin-right: 0.5rem;">
+                                                            ${guest.balance.toFixed(2)} ر.س
+                                                        </span>
+                                                    </div>
+                                                     <div>
+                                                        <span style="color: var(--text-secondary); font-size: 0.85rem;">📊 الرصيد المضاف:</span>
+                                                        <span style="color: ${addedBalance >= 0 ? 'var(--success)' : 'var(--danger)'}; font-weight: bold; font-size: 1.1rem; margin-right: 0.5rem;">
+                                                            ${addedBalance >= 0 ? '+' : ''}${addedBalance.toFixed(2)} ر.س
+                                                        </span>
+                                                        <button class="btn btn-warning btn-small" 
+                                                                onclick="openGuestBalanceModal('${guest.username}')"
+                                                                style="padding: 0.15rem 0.5rem; font-size: 0.75rem; margin-right: 0.5rem;">
+                                                            ✏️
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+                                                <button class="btn btn-primary btn-small" 
+                                                        onclick="openBalanceModal('${guest.username}')">
+                                                    💰 الرصيد
+                                                </button>
+                                                <button class="btn ${guest.suspended ? 'btn-success' : 'btn-danger'} btn-small" 
+                                                        onclick="toggleSuspension('${guest.username}')">
+                                                    ${guest.suspended ? 'تفعيل ✓' : 'تعليق ⛔'}
+                                                </button>
+                                                <button class="btn btn-danger btn-small" 
+                                                        onclick="confirmDeleteGuest('${guest.username}')">
+                                                    🗑️ حذف
+                                                </button>
+                                            </div>
+                                        </div>
+                                        
+                                        ${holdings.length > 0 ? `
+                                            <div style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--border);">
+                                                <div style="font-size: 0.85rem; font-weight: 600; color: var(--text-secondary); margin-bottom: 0.75rem;">📊 الأسهم المملوكة:</div>
+                                                <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 0.75rem;">
+                                                    ${holdings.map(holding => {
+                                                        const stock = appData.stocks.find(s => s.symbol === holding.symbol);
+                                                        if (!stock) return '';
+                                                        const currentValue = stock.price * holding.quantity;
+                                                        const profit = (stock.price - holding.avgPrice) * holding.quantity;
+                                                        const profitPercent = ((stock.price - holding.avgPrice) / holding.avgPrice) * 100;
+                                                        
+                                                        return `
+                                                            <div style="background: var(--bg-primary); padding: 0.75rem; border-radius: 8px; border: 1px solid var(--border);">
+                                                                <div style="font-weight: bold; color: var(--secondary); margin-bottom: 0.25rem;">${stock.symbol}</div>
+                                                                <div style="font-size: 0.8rem; color: var(--text-secondary);">الكمية: ${holding.quantity}</div>
+                                                                <div style="font-size: 0.8rem; color: var(--text-secondary);">السعر: ${stock.price.toFixed(2)} ر.س</div>
+                                                                <div style="font-size: 0.8rem; margin-top: 0.25rem; color: ${profit >= 0 ? 'var(--success)' : 'var(--danger)'};">
+                                                                    ${profit >= 0 ? '▲' : '▼'} ${Math.abs(profit).toFixed(2)} ر.س (${Math.abs(profitPercent).toFixed(1)}%)
+                                                                </div>
+                                                            </div>
+                                                        `;
+                                                    }).join('')}
+                                                </div>
+                                            </div>
+                                        ` : `
+                                            <div style="margin-top: 1rem; padding: 1rem; background: var(--bg-primary); border-radius: 8px; text-align: center; color: var(--text-secondary); font-size: 0.85rem;">
+                                                📭 لا يمتلك أي أسهم حالياً
+                                            </div>
+                                        `}
+                                    </div>
+                                `;
+                            }).join('')
+                        }
+                    </div>
+                </div>
+            `;
+        }
+
         function renderAdminStocksTab() {
             console.log('📈 renderAdminStocksTab called');
             console.log('Stocks count:', appData.stocks.length);
             return `
                 <div class="tab-content active">
                     <div class="card">
-                        <!-- Trading Control -->
-                        <div style="background: var(--bg-secondary); padding: 1rem; border-radius: 8px; margin-bottom: 1.5rem; display: flex; justify-content: space-between; align-items: center; border: 2px solid var(--border);">
+                        <!-- Student Trading Control -->
+                        <div style="background: var(--bg-secondary); padding: 1rem; border-radius: 8px; margin-bottom: 1rem; display: flex; justify-content: space-between; align-items: center; border: 2px solid var(--border);">
                             <div>
-                                <strong style="font-size: 1.1rem;">🏛️ حالة السوق</strong>
+                                <strong style="font-size: 1.1rem;">🏛️ سوق الطلاب</strong>
                                 <p style="color: var(--text-secondary); font-size: 0.9rem; margin: 0.3rem 0 0 0;">
                                     ${appData.settings.tradingEnabled ? 'السوق مفتوح - يمكن للطلاب التداول' : 'السوق مغلق - لا يمكن التداول'}
                                 </p>
@@ -4052,6 +4869,21 @@ function renderVerify() {
                                     onclick="toggleTradingSync()" 
                                     style="min-width: 120px; font-weight: bold;">
                                 ${appData.settings.tradingEnabled ? '✅ مفتوح' : '⛔ مغلق'}
+                            </button>
+                        </div>
+                        
+                        <!-- Guest Trading Control -->
+                        <div style="background: var(--bg-secondary); padding: 1rem; border-radius: 8px; margin-bottom: 1.5rem; display: flex; justify-content: space-between; align-items: center; border: 2px solid var(--border);">
+                            <div>
+                                <strong style="font-size: 1.1rem;">👤 سوق الضيوف</strong>
+                                <p style="color: var(--text-secondary); font-size: 0.9rem; margin: 0.3rem 0 0 0;">
+                                    ${appData.settings.guestTradingEnabled ? 'السوق مفتوح - يمكن للضيوف التداول' : 'السوق مغلق - لا يمكن التداول'}
+                                </p>
+                            </div>
+                            <button class="btn ${appData.settings.guestTradingEnabled ? 'btn-success' : 'btn-danger'}" 
+                                    onclick="toggleGuestTradingSync()" 
+                                    style="min-width: 120px; font-weight: bold;">
+                                ${appData.settings.guestTradingEnabled ? '✅ مفتوح' : '⛔ مغلق'}
                             </button>
                         </div>
                         
@@ -4275,7 +5107,7 @@ let confirmModal = { show: false, message: '', onConfirm: null };
         }
 
         function renderWeeklyReportTab() {
-            // Calculate stock statistics - count unique students who bought/sold
+            // Calculate stock statistics - count unique students who bought/sold (EXCLUDE guests)
             const stockStats = {};
             
             // Initialize with all stocks
@@ -4289,8 +5121,12 @@ let confirmModal = { show: false, message: '', onConfirm: null };
                 };
             });
             
-            // Calculate from transactions - track net position per student
+            // Calculate from transactions - track net position per student (EXCLUDE guests)
             appData.transactions.forEach(tx => {
+                // Skip guest transactions
+                const user = appData.users.find(u => u.username === tx.username);
+                if (user && user.role === 'guest') return;
+                
                 if (!stockStats[tx.symbol]) {
                     stockStats[tx.symbol] = {
                         name: tx.name,
@@ -5347,6 +6183,61 @@ let confirmModal = { show: false, message: '', onConfirm: null };
             }
         }
 
+        function confirmDeleteGuest(username) {
+            if (window.confirm(`هل أنت متأكد من حذف الضيف "${username}"?\n\n⚠️ سيتم حذف:\n• الحساب\n• المحفظة\n• جميع المعاملات\n\nهذا الإجراء لا يمكن التراجع عنه!`)) {
+                deleteGuest(username);
+            }
+        }
+
+        async function deleteGuest(username) {
+            try {
+                // حذف الضيف من المصفوفات المحلية
+                appData.users = appData.users.filter(u => u.username !== username);
+                
+                // حذف المحفظة
+                appData.portfolios = appData.portfolios.filter(p => p.username !== username);
+                
+                // حذف المعاملات
+                appData.transactions = appData.transactions.filter(t => t.username !== username);
+                
+                // حذف رسائل الضيف
+                // NOTE: Messages are permanently removed for privacy compliance.
+                // RECOMMENDATION: For organizations requiring audit trails or compliance with 
+                // data retention policies, implement a soft-delete system where messages are 
+                // flagged as deleted but retained in the database with a 'deletedAt' timestamp.
+                appData.guestMessages = appData.guestMessages.filter(msg => msg.from !== username);
+                
+                // حذف من Firebase مباشرة
+                await db.collection('users').doc(username).delete();
+                await db.collection('portfolios').doc(username).delete();
+                
+                // حذف جميع معاملات الضيف من Firebase
+                const txSnapshot = await db.collection('transactions').where('username', '==', username).get();
+                const deleteBatch = db.batch();
+                txSnapshot.docs.forEach(doc => {
+                    deleteBatch.delete(doc.ref);
+                });
+                await deleteBatch.commit();
+                
+                // إضافة سجل للحذف
+                addActivityLog('حذف ضيف', `تم حذف الضيف ${username} ومحفظته وجميع معاملاته`);
+                
+                // حفظ البيانات المحدثة
+                await saveData();
+                showAlert(`✅ تم حذف الضيف ${username} بنجاح`, 'success');
+                render();
+            } catch (error) {
+                console.error('Error deleting guest:', error);
+                showAlert('❌ حدث خطأ أثناء حذف الضيف', 'error');
+            }
+        }
+
+        function openGuestBalanceModal(username) {
+            // Uses the same balance modal as students for consistency
+            // Balance modifications are tracked in activity log with 'إضافة رصيد ضيف' action
+            openBalanceModal(username);
+        }
+
         function renderConfirmModal() {
             return `
                 <div style="position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.8); z-index: 99999; display: flex; align-items: center; justify-content: center; padding: 1rem; animation: fadeIn 0.2s;">
@@ -5538,6 +6429,7 @@ let confirmModal = { show: false, message: '', onConfirm: null };
         // Wrapper functions for onclick handlers
         function deleteStockSync(idx) { deleteStock(idx); }
         function toggleTradingSync() { toggleTrading(); }
+        function toggleGuestTradingSync() { toggleGuestTrading(); }
         function sendMessageSync(text) { sendMessage(text); }
         function deleteMessageSync(id) { deleteMessage(id); }
         function forceSaveStocksSync() { forceSaveStocks(); }
