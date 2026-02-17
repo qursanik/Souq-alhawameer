@@ -1002,6 +1002,9 @@
         // Get Firebase db reference
         const db = window.db;
         
+        // Constants
+        const INITIAL_GUEST_BALANCE = 5000; // Starting balance for new guest accounts
+        
         // Global State
         let appState = {
             currentScreen: 'login',
@@ -3284,7 +3287,7 @@ async function handleGuestRegister(e) {
             phone: formattedPhone,
             password, // Will be hashed after verification
             role: 'guest',
-            balance: 5000, // Guests start with 5000
+            balance: INITIAL_GUEST_BALANCE, // Initial balance for guests
             color: '#' + Math.floor(Math.random()*16777215).toString(16),
             achievements: [],
             suspended: false,
@@ -4730,10 +4733,14 @@ function renderGuestVerify() {
                                 const holdings = portfolio ? portfolio.holdings : [];
                                 
                                 // Calculate added balance for guest
+                                // NOTE: This uses activity log parsing which is a temporary solution
+                                // TODO: Implement structured balance tracking in future updates
                                 let addedBalance = 0;
                                 appData.activityLog.forEach(log => {
                                     if (log.action === 'إضافة رصيد ضيف' && log.details) {
-                                        if (log.details.includes(guest.username)) {
+                                        // Check for exact username match with word boundaries
+                                        const usernamePattern = new RegExp(`\\b${guest.username}\\b`);
+                                        if (usernamePattern.test(log.details)) {
                                             const matchPositive = log.details.match(/\+(\d+\.?\d*)/);
                                             const matchNegative = log.details.match(/-(\d+\.?\d*)/);
                                             
@@ -4768,7 +4775,7 @@ function renderGuestVerify() {
                                                             ${addedBalance >= 0 ? '+' : ''}${addedBalance.toFixed(2)} ر.س
                                                         </span>
                                                         <button class="btn btn-warning btn-small" 
-                                                                onclick="openGuestBalanceModal('${guest.username}', ${addedBalance})"
+                                                                onclick="openGuestBalanceModal('${guest.username}')"
                                                                 style="padding: 0.15rem 0.5rem; font-size: 0.75rem; margin-right: 0.5rem;">
                                                             ✏️
                                                         </button>
@@ -6179,6 +6186,8 @@ let confirmModal = { show: false, message: '', onConfirm: null };
                 appData.transactions = appData.transactions.filter(t => t.username !== username);
                 
                 // حذف رسائل الضيف
+                // NOTE: Messages are removed for privacy. Consider implementing a soft-delete
+                // or archiving system if message history needs to be preserved for audit purposes.
                 appData.guestMessages = appData.guestMessages.filter(msg => msg.from !== username);
                 
                 // حذف من Firebase مباشرة
@@ -6206,9 +6215,9 @@ let confirmModal = { show: false, message: '', onConfirm: null };
             }
         }
 
-        function openGuestBalanceModal(username, currentAddedBalance) {
-            // This will use the same balance modal as students
-            // We'll add a note about guest balance modification in activity log
+        function openGuestBalanceModal(username) {
+            // Uses the same balance modal as students for consistency
+            // Balance modifications are tracked in activity log with 'إضافة رصيد ضيف' action
             openBalanceModal(username);
         }
 
