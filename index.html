@@ -992,6 +992,29 @@
 
     console.log('🔥 Firebase initialized successfully!');
 
+    // Check if Phone Authentication is available
+    async function checkPhoneAuthAvailability() {
+        try {
+            // Try to get the current auth state to verify Firebase Auth is working
+            const auth = firebase.auth();
+            console.log('✅ Firebase Authentication is initialized');
+            
+            // Log a note about Phone Authentication setup
+            console.log('📱 Phone Authentication Info:');
+            console.log('   If you see "فشل إرسال رمز التحقق" errors:');
+            console.log('   1. Enable Phone Authentication in Firebase Console');
+            console.log('   2. Go to: https://console.firebase.google.com/');
+            console.log('   3. Select project → Authentication → Sign-in method');
+            console.log('   4. Enable "Phone" provider');
+            console.log('   See SMS_VERIFICATION_SETUP.md for complete setup guide');
+        } catch (error) {
+            console.error('❌ Firebase Authentication initialization error:', error);
+        }
+    }
+    
+    // Run the check
+    checkPhoneAuthAvailability();
+
     </script>
 </head>
 <body data-theme="dark">
@@ -1247,6 +1270,15 @@ async function handlePasswordReset(form) {
         
         console.log('✅ Reset code verified:', result.user.phoneNumber);
 
+        // Additional security check: Verify the phone number matches
+        if (result.user.phoneNumber !== appState.forgotPasswordPhone) {
+            console.error('❌ Phone number mismatch:', result.user.phoneNumber, 'vs', appState.forgotPasswordPhone);
+            showAlert('خطأ في التحقق من رقم الجوال ❌', 'error');
+            appState.currentScreen = 'forgot';
+            render();
+            return;
+        }
+
         // تحديث كلمة المرور
         const user = appData.users.find(u => u.phone === appState.forgotPasswordPhone);
         
@@ -1258,6 +1290,14 @@ async function handlePasswordReset(form) {
         // تشفير كلمة المرور الجديدة
         user.passwordHash = await hashPassword(newPassword);
         delete user.password; // إزالة أي password غير مشفر
+        
+        // Mark phone as verified since they just verified it via SMS
+        // Note: This intentionally marks ALL users (including legacy users) as verified
+        // when they successfully complete SMS verification during password reset
+        if (!user.phoneVerified) {
+            user.phoneVerified = true;
+            user.phoneVerifiedAt = new Date().toISOString();
+        }
         
         // حفظ البيانات
         saveData();
@@ -2443,18 +2483,36 @@ function changePassword(form) {
         function getAuthErrorMessage(error) {
             let errorMessage = 'فشل إرسال رمز التحقق';
             
+            // Log full error details for debugging
+            console.error('🔍 Firebase Auth Error Details:', {
+                code: error.code,
+                message: error.message,
+                fullError: error
+            });
+            
             if (error.code === 'auth/invalid-phone-number') {
-                errorMessage = 'رقم الجوال غير صحيح';
+                errorMessage = 'رقم الجوال غير صحيح. تأكد من أن الرقم يبدأ بـ 05 ويتكون من 10 أرقام';
             } else if (error.code === 'auth/too-many-requests') {
                 errorMessage = 'تم تجاوز حد المحاولات. حاول بعد 5 دقائق';
             } else if (error.code === 'auth/quota-exceeded') {
                 errorMessage = 'تم تجاوز الحد المجاني للرسائل النصية. يرجى المحاولة لاحقاً أو التواصل مع الدعم الفني';
             } else if (error.code === 'auth/captcha-check-failed') {
-                errorMessage = 'فشل التحقق الأمني. أعد المحاولة';
+                errorMessage = 'فشل التحقق الأمني (reCAPTCHA). أعد تحميل الصفحة وحاول مرة أخرى';
+            } else if (error.code === 'auth/missing-phone-number') {
+                errorMessage = 'رقم الجوال مفقود. يرجى إدخال رقم الجوال';
+            } else if (error.code === 'auth/operation-not-allowed') {
+                errorMessage = 'خدمة التحقق عبر الرسائل النصية غير مفعلة. يرجى التواصل مع الدعم الفني';
+            } else if (error.code === 'auth/requires-recent-login') {
+                errorMessage = 'انتهت الجلسة. يرجى إعادة المحاولة';
             } else if (error.message && error.message.includes('503')) {
-                errorMessage = 'خدمة Firebase غير متاحة حالياً (503). يرجى المحاولة بعد قليل أو التواصل مع الدعم الفني';
+                errorMessage = 'خدمة Firebase غير متاحة حالياً (503). يرجى المحاولة بعد قليل';
             } else if (error.message && error.message.includes('auth/error-code:-39')) {
-                errorMessage = 'خدمة التحقق عبر الرسائل النصية غير متاحة حالياً. يرجى المحاولة بعد قليل أو التواصل مع الدعم الفني';
+                errorMessage = 'خدمة التحقق عبر الرسائل النصية غير متاحة حالياً. يرجى المحاولة بعد قليل';
+            } else if (error.message && error.message.includes('network')) {
+                errorMessage = 'خطأ في الاتصال بالإنترنت. تحقق من اتصالك وحاول مرة أخرى';
+            } else {
+                // For unknown errors, provide more context
+                errorMessage = `فشل إرسال رمز التحقق. ${error.code ? `(${error.code})` : ''}\n\nتأكد من:\n• تفعيل خدمة Phone Authentication في Firebase\n• صحة رقم الجوال\n• الاتصال بالإنترنت`;
             }
             
             return errorMessage;
@@ -2586,6 +2644,14 @@ function changePassword(form) {
                 return;
             }
 
+            // Check phone verification status (only for accounts with phoneVerified flag explicitly set to false)
+            // Note: Existing users without the flag can still log in (backward compatibility)
+            // Users who fail verification after registration starts will need to re-register
+            if (user.hasOwnProperty('phoneVerified') && user.phoneVerified === false) {
+                showAlert('لم يتم التحقق من رقم الجوال. يرجى إكمال عملية التحقق ❌', 'error');
+                return;
+            }
+
             if (user.suspended) {
                 showAlert('تم تعليق هذا الحساب. تواصل مع الإدارة ⛔', 'error');
                 return;
@@ -2681,7 +2747,9 @@ async function handleRegister(e) {
             color: '#' + Math.floor(Math.random()*16777215).toString(16),
             achievements: [],
             suspended: false,
-            notifications: [] // Individual notifications per user
+            notifications: [], // Individual notifications per user
+            phoneVerified: false, // Will be set to true after SMS verification
+            phoneVerifiedAt: undefined // Will be set after SMS verification
         };
 
         // الانتقال لشاشة التحقق
@@ -3146,13 +3214,43 @@ async function handleRegister(e) {
             } else if (appState.currentScreen === 'guestRegister') {
                 app.innerHTML = renderGuestRegister();
             } else if (appState.currentScreen === 'guestVerify') {
-                app.innerHTML = renderGuestVerify();
+                // Protect verification screen - redirect to registration if no pending registration
+                // Note: While window variables can be manipulated via console, the actual Firebase
+                // verification cannot be bypassed. This is defense in depth for a client-only app.
+                if (!window.guestConfirmationResult || !window.pendingGuestRegistration) {
+                    console.warn('⚠️ Direct access to guest verification screen blocked');
+                    appState.currentScreen = 'guestRegister';
+                    app.innerHTML = renderGuestRegister();
+                    showAlert('يرجى إكمال نموذج التسجيل أولاً', 'warning');
+                } else {
+                    app.innerHTML = renderGuestVerify();
+                }
             } else if (appState.currentScreen === 'verify') {
-                app.innerHTML = renderVerify();
+                // Protect verification screen - redirect to registration if no pending registration
+                // Note: While window variables can be manipulated via console, the actual Firebase
+                // verification cannot be bypassed. This is defense in depth for a client-only app.
+                if (!window.confirmationResult || !window.pendingRegistration) {
+                    console.warn('⚠️ Direct access to verification screen blocked');
+                    appState.currentScreen = 'register';
+                    app.innerHTML = renderRegister();
+                    showAlert('يرجى إكمال نموذج التسجيل أولاً', 'warning');
+                } else {
+                    app.innerHTML = renderVerify();
+                }
             } else if (appState.currentScreen === 'forgot') {
                 app.innerHTML = renderForgotPassword();
             } else if (appState.currentScreen === 'reset') {
-                app.innerHTML = renderResetPassword();
+                // Protect reset screen - redirect to forgot if no pending reset
+                // Note: While window variables can be manipulated via console, the actual Firebase
+                // verification cannot be bypassed. This is defense in depth for a client-only app.
+                if (!window.resetConfirmationResult || !appState.forgotPasswordPhone) {
+                    console.warn('⚠️ Direct access to password reset screen blocked');
+                    appState.currentScreen = 'forgot';
+                    app.innerHTML = renderForgotPassword();
+                    showAlert('يرجى إدخال رقم الجوال أولاً', 'warning');
+                } else {
+                    app.innerHTML = renderResetPassword();
+                }
             } else if (appState.currentScreen === 'dashboard') {
                 app.innerHTML = renderDashboard();
             }
@@ -3291,6 +3389,15 @@ async function handleVerify(e) {
         
         console.log('✅ Phone verified:', result.user.phoneNumber);
 
+        // Additional security check: Verify the phone number matches
+        if (result.user.phoneNumber !== window.pendingRegistration.phone) {
+            console.error('❌ Phone number mismatch:', result.user.phoneNumber, 'vs', window.pendingRegistration.phone);
+            showAlert('خطأ في التحقق من رقم الجوال ❌', 'error');
+            appState.currentScreen = 'register';
+            render();
+            return;
+        }
+
         // تسجيل الطالب في النظام
         const newStudent = { ...window.pendingRegistration };
         
@@ -3298,6 +3405,10 @@ async function handleVerify(e) {
         const passwordToHash = newStudent.password;
         delete newStudent.password;
         newStudent.passwordHash = await hashPassword(passwordToHash);
+        
+        // Mark phone as verified with timestamp
+        newStudent.phoneVerified = true;
+        newStudent.phoneVerifiedAt = new Date().toISOString();
         
         // إضافة الطالب إلى المستخدمين
         appData.users.push(newStudent);
@@ -3425,7 +3536,9 @@ async function handleGuestRegister(e) {
             color: '#' + Math.floor(Math.random()*16777215).toString(16),
             achievements: [],
             suspended: false,
-            notifications: []
+            notifications: [],
+            phoneVerified: false, // Will be set to true after SMS verification
+            phoneVerifiedAt: undefined // Will be set after SMS verification
         };
 
         // Go to verification screen
@@ -3435,6 +3548,11 @@ async function handleGuestRegister(e) {
 
     } catch (error) {
         console.error('❌ Guest registration SMS error:', error);
+        console.error('Error details:', {
+            code: error.code,
+            message: error.message,
+            phone: formattedPhone
+        });
         
         const errorMessage = getAuthErrorMessage(error);
         showAlert(errorMessage + ' ❌', 'error');
@@ -3463,6 +3581,15 @@ async function handleGuestVerify(e) {
         
         console.log('✅ Guest phone verified:', result.user.phoneNumber);
 
+        // Additional security check: Verify the phone number matches
+        if (result.user.phoneNumber !== window.pendingGuestRegistration.phone) {
+            console.error('❌ Phone number mismatch:', result.user.phoneNumber, 'vs', window.pendingGuestRegistration.phone);
+            showAlert('خطأ في التحقق من رقم الجوال ❌', 'error');
+            appState.currentScreen = 'guestRegister';
+            render();
+            return;
+        }
+
         // Register guest in system
         const newGuest = { ...window.pendingGuestRegistration };
         
@@ -3470,6 +3597,10 @@ async function handleGuestVerify(e) {
         const passwordToHash = newGuest.password;
         delete newGuest.password;
         newGuest.passwordHash = await hashPassword(passwordToHash);
+        
+        // Mark phone as verified with timestamp
+        newGuest.phoneVerified = true;
+        newGuest.phoneVerifiedAt = new Date().toISOString();
         
         // Add guest to users
         appData.users.push(newGuest);
