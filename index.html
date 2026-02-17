@@ -3936,10 +3936,6 @@ function renderVerify() {
                             onclick="appState.activeAdminTab='weeklyReport'; render();">
                         📊 التقرير الأسبوعي
                     </button>
-                    <button class="tab ${appState.activeAdminTab === 'transactions' ? 'active' : ''}" 
-                            onclick="appState.activeAdminTab='transactions'; render();">
-                        📜 المعاملات
-                    </button>
                     <button class="tab ${appState.activeAdminTab === 'activityLog' ? 'active' : ''}" 
                             onclick="appState.activeAdminTab='activityLog'; render();">
                         📋 سجل التداول
@@ -3958,7 +3954,6 @@ function renderVerify() {
                 ${appState.activeAdminTab === 'stocks' ? renderAdminStocksTab() : ''}
                 ${appState.activeAdminTab === 'leaderboard' ? renderLeaderboardTab(true) : ''}
                 ${appState.activeAdminTab === 'weeklyReport' ? renderWeeklyReportTab() : ''}
-                ${appState.activeAdminTab === 'transactions' ? renderAdminTransactionsTab() : ''}
                 ${appState.activeAdminTab === 'activityLog' ? renderActivityLogTab() : ''}
                 ${appState.activeAdminTab === 'chat' ? renderChatTab() : ''}
                 ${appState.activeAdminTab === 'profile' ? renderAdminProfileTab() : ''}
