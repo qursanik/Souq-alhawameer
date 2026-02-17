@@ -2460,18 +2460,36 @@ function changePassword(form) {
         function getAuthErrorMessage(error) {
             let errorMessage = 'فشل إرسال رمز التحقق';
             
+            // Log full error details for debugging
+            console.error('🔍 Firebase Auth Error Details:', {
+                code: error.code,
+                message: error.message,
+                fullError: error
+            });
+            
             if (error.code === 'auth/invalid-phone-number') {
-                errorMessage = 'رقم الجوال غير صحيح';
+                errorMessage = 'رقم الجوال غير صحيح. تأكد من أن الرقم يبدأ بـ 05 ويتكون من 10 أرقام';
             } else if (error.code === 'auth/too-many-requests') {
                 errorMessage = 'تم تجاوز حد المحاولات. حاول بعد 5 دقائق';
             } else if (error.code === 'auth/quota-exceeded') {
                 errorMessage = 'تم تجاوز الحد المجاني للرسائل النصية. يرجى المحاولة لاحقاً أو التواصل مع الدعم الفني';
             } else if (error.code === 'auth/captcha-check-failed') {
-                errorMessage = 'فشل التحقق الأمني. أعد المحاولة';
+                errorMessage = 'فشل التحقق الأمني (reCAPTCHA). أعد تحميل الصفحة وحاول مرة أخرى';
+            } else if (error.code === 'auth/missing-phone-number') {
+                errorMessage = 'رقم الجوال مفقود. يرجى إدخال رقم الجوال';
+            } else if (error.code === 'auth/operation-not-allowed') {
+                errorMessage = 'خدمة التحقق عبر الرسائل النصية غير مفعلة. يرجى التواصل مع الدعم الفني';
+            } else if (error.code === 'auth/requires-recent-login') {
+                errorMessage = 'انتهت الجلسة. يرجى إعادة المحاولة';
             } else if (error.message && error.message.includes('503')) {
-                errorMessage = 'خدمة Firebase غير متاحة حالياً (503). يرجى المحاولة بعد قليل أو التواصل مع الدعم الفني';
+                errorMessage = 'خدمة Firebase غير متاحة حالياً (503). يرجى المحاولة بعد قليل';
             } else if (error.message && error.message.includes('auth/error-code:-39')) {
-                errorMessage = 'خدمة التحقق عبر الرسائل النصية غير متاحة حالياً. يرجى المحاولة بعد قليل أو التواصل مع الدعم الفني';
+                errorMessage = 'خدمة التحقق عبر الرسائل النصية غير متاحة حالياً. يرجى المحاولة بعد قليل';
+            } else if (error.message && error.message.includes('network')) {
+                errorMessage = 'خطأ في الاتصال بالإنترنت. تحقق من اتصالك وحاول مرة أخرى';
+            } else {
+                // For unknown errors, provide more context
+                errorMessage = `فشل إرسال رمز التحقق. ${error.code ? `(${error.code})` : ''}\n\nتأكد من:\n• تفعيل خدمة Phone Authentication في Firebase\n• صحة رقم الجوال\n• الاتصال بالإنترنت`;
             }
             
             return errorMessage;
@@ -3507,6 +3525,11 @@ async function handleGuestRegister(e) {
 
     } catch (error) {
         console.error('❌ Guest registration SMS error:', error);
+        console.error('Error details:', {
+            code: error.code,
+            message: error.message,
+            phone: formattedPhone
+        });
         
         const errorMessage = getAuthErrorMessage(error);
         showAlert(errorMessage + ' ❌', 'error');
