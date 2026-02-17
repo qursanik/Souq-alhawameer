@@ -5609,7 +5609,7 @@ let confirmModal = { show: false, message: '', onConfirm: null };
             
             // تحديد حالة السوق حسب نوع المستخدم
             const isGuest = appState.currentUser.role === 'guest';
-            const tradingEnabled = isGuest ? appData.settings.guestTradingEnabled : appData.settings.tradingEnabled;
+            const userTradingEnabled = isGuest ? appData.settings.guestTradingEnabled : appData.settings.tradingEnabled;
             
             // حساب الحد الأقصى للشراء (بناءً على الرصيد)
             const maxBuy = userBalance > 0 ? Math.floor(userBalance / stock.price) : 0;
@@ -5826,28 +5826,28 @@ let confirmModal = { show: false, message: '', onConfirm: null };
 
                             <!-- أزرار الشراء والبيع -->
                             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1.5rem;">
-                                <button onclick="${tradingEnabled ? `executeTradeFromModal('buy')` : `showAlert('${marketClosedMsg}', 'error')`}" 
-                                        style="padding: 1.5rem; background: linear-gradient(135deg, #2ecc71, #27ae60); color: white; border: none; border-radius: 14px; font-size: 1.1rem; font-weight: 700; cursor: ${tradingEnabled ? 'pointer' : 'not-allowed'}; transition: all 0.3s; box-shadow: 0 4px 15px rgba(46, 204, 113, 0.3); position: relative; overflow: hidden; opacity: ${tradingEnabled ? '1' : '0.5'};">
+                                <button onclick="${userTradingEnabled ? `executeTradeFromModal('buy')` : `showAlert('${marketClosedMsg}', 'error')`}" 
+                                        style="padding: 1.5rem; background: linear-gradient(135deg, #2ecc71, #27ae60); color: white; border: none; border-radius: 14px; font-size: 1.1rem; font-weight: 700; cursor: ${userTradingEnabled ? 'pointer' : 'not-allowed'}; transition: all 0.3s; box-shadow: 0 4px 15px rgba(46, 204, 113, 0.3); position: relative; overflow: hidden; opacity: ${userTradingEnabled ? '1' : '0.5'};">
                                     <div style="position: relative; z-index: 1;">
-                                        <div style="font-size: 1.8rem; margin-bottom: 0.5rem;">${tradingEnabled ? '📈' : '🔒'}</div>
-                                        <div>${tradingEnabled ? 'شراء' : 'مغلق'}</div>
-                                        ${tradingEnabled ? `<div style="font-size: 0.75rem; opacity: 0.9; margin-top: 0.25rem;">حد أقصى: ${maxBuy}</div>` : ''}
+                                        <div style="font-size: 1.8rem; margin-bottom: 0.5rem;">${userTradingEnabled ? '📈' : '🔒'}</div>
+                                        <div>${userTradingEnabled ? 'شراء' : 'مغلق'}</div>
+                                        ${userTradingEnabled ? `<div style="font-size: 0.75rem; opacity: 0.9; margin-top: 0.25rem;">حد أقصى: ${maxBuy}</div>` : ''}
                                     </div>
                                 </button>
-                                <button onclick="${tradingEnabled ? `executeTradeFromModal('sell')` : `showAlert('${marketClosedMsg}', 'error')`}" 
-                                        style="padding: 1.5rem; background: linear-gradient(135deg, #e74c3c, #c0392b); color: white; border: none; border-radius: 14px; font-size: 1.1rem; font-weight: 700; cursor: ${tradingEnabled ? 'pointer' : 'not-allowed'}; transition: all 0.3s; box-shadow: 0 4px 15px rgba(231, 76, 60, 0.3); position: relative; overflow: hidden; opacity: ${tradingEnabled ? '1' : '0.5'};">
+                                <button onclick="${userTradingEnabled ? `executeTradeFromModal('sell')` : `showAlert('${marketClosedMsg}', 'error')`}" 
+                                        style="padding: 1.5rem; background: linear-gradient(135deg, #e74c3c, #c0392b); color: white; border: none; border-radius: 14px; font-size: 1.1rem; font-weight: 700; cursor: ${userTradingEnabled ? 'pointer' : 'not-allowed'}; transition: all 0.3s; box-shadow: 0 4px 15px rgba(231, 76, 60, 0.3); position: relative; overflow: hidden; opacity: ${userTradingEnabled ? '1' : '0.5'};">
                                     <div style="position: relative; z-index: 1;">
-                                        <div style="font-size: 1.8rem; margin-bottom: 0.5rem;">${tradingEnabled ? '📉' : '🔒'}</div>
-                                        <div>${tradingEnabled ? 'بيع' : 'مغلق'}</div>
-                                        ${tradingEnabled ? `<div style="font-size: 0.75rem; opacity: 0.9; margin-top: 0.25rem;">حد أقصى: ${maxSell}</div>` : ''}
+                                        <div style="font-size: 1.8rem; margin-bottom: 0.5rem;">${userTradingEnabled ? '📉' : '🔒'}</div>
+                                        <div>${userTradingEnabled ? 'بيع' : 'مغلق'}</div>
+                                        ${userTradingEnabled ? `<div style="font-size: 0.75rem; opacity: 0.9; margin-top: 0.25rem;">حد أقصى: ${maxSell}</div>` : ''}
                                     </div>
                                 </button>
                             </div>
 
                             <!-- ملاحظات -->
-                            <div style="padding: 1.25rem; background: linear-gradient(135deg, var(--bg-secondary), var(--bg-primary)); border-radius: 12px; border-right: 4px solid ${tradingEnabled ? 'var(--secondary)' : 'var(--danger)'};">
+                            <div style="padding: 1.25rem; background: linear-gradient(135deg, var(--bg-secondary), var(--bg-primary)); border-radius: 12px; border-right: 4px solid ${userTradingEnabled ? 'var(--secondary)' : 'var(--danger)'};">
                                 <div style="font-size: 0.85rem; color: var(--text-secondary); line-height: 1.7;">
-                                    ${tradingEnabled ? `
+                                    ${userTradingEnabled ? `
                                         <div style="font-weight: bold; color: var(--text-primary); margin-bottom: 0.5rem; display: flex; align-items: center; gap: 0.5rem;">
                                             <span>💡</span> نصائح التداول:
                                         </div>
