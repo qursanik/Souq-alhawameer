@@ -1021,7 +1021,10 @@
         };
 
         let appData = {
-            users: [],
+            users: [],  // User accounts: {username, phone, password, role, balance, verified, ...}
+                        // verified: false indicates user registered during Firebase service outage
+                        // These users can access the platform but may need SMS verification later
+                        // Admins can filter/track unverified users for follow-up verification
             stocks: [],
             portfolios: [],
             transactions: [],
@@ -1185,8 +1188,8 @@ async function sendResetCode(form) {
 }
 
 function renderResetPassword() {
-    // Check if we're in bypass mode (resetPasswordCode will be a secure token, not 'BYPASS')
-    const bypassMode = appState.resetPasswordCode && !window.resetConfirmationResult;
+    // Use shared helper to check bypass mode
+    const bypassMode = isInBypassMode();
     return `
         <div class="container">
             <div class="card animate-slide-up" style="max-width: 500px; margin: 4rem auto;">
@@ -1247,8 +1250,16 @@ async function handlePasswordReset(form) {
     const newPassword = form.newPassword.value;
     const confirmPassword = form.confirmPassword.value;
     
-    // Check if we're in bypass mode (resetPasswordCode is a secure token)
-    const bypassMode = appState.resetPasswordCode && !window.resetConfirmationResult;
+    // Use shared helper to check bypass mode and validate token
+    const bypassMode = isInBypassMode();
+    
+    // Validate bypass token if in bypass mode
+    if (bypassMode && !isValidBypassToken(appState.resetPasswordCode)) {
+        showAlert('رمز التحقق غير صالح. يرجى المحاولة مرة أخرى ❌', 'error');
+        appState.currentScreen = 'forgot';
+        render();
+        return;
+    }
     
     // التحقق من وجود confirmationResult (unless in bypass mode)
     if (!bypassMode && (!window.resetConfirmationResult || !appState.forgotPasswordPhone)) {
@@ -2490,13 +2501,24 @@ function changePassword(form) {
             
             // Generate secure bypass token if bypass is allowed
             if (result.shouldBypass) {
-                // Create a cryptographically secure random token
+                // Create a cryptographically secure random token (32 hex characters)
                 const array = new Uint8Array(16);
                 crypto.getRandomValues(array);
-                result.bypassToken = Array.from(array, byte => byte.toString(16).padStart(2, '0')).join('');
+                result.bypassToken = 'BP_' + Array.from(array, byte => byte.toString(16).padStart(2, '0')).join('');
             }
             
             return result;
+        }
+
+        // Helper to check if a token is a valid bypass token
+        function isValidBypassToken(token) {
+            // Bypass tokens are 35 characters: 'BP_' + 32 hex characters
+            return token && typeof token === 'string' && /^BP_[0-9a-f]{32}$/.test(token);
+        }
+
+        // Helper to check if we're in bypass mode (shared logic)
+        function isInBypassMode() {
+            return isValidBypassToken(appState.resetPasswordCode) && !window.resetConfirmationResult;
         }
 
         function cleanupRecaptchaVerifier(verifierName) {
