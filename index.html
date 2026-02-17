@@ -1222,7 +1222,7 @@ function renderResetPassword() {
 }
 
 async function handlePasswordReset(form) {
-    const code = form.code.value.trim();
+    const code = (form.code?.value ?? '').trim();
     const newPassword = form.newPassword.value;
     const confirmPassword = form.confirmPassword.value;
     
@@ -2448,13 +2448,13 @@ function changePassword(form) {
             } else if (error.code === 'auth/too-many-requests') {
                 errorMessage = 'تم تجاوز حد المحاولات. حاول بعد 5 دقائق';
             } else if (error.code === 'auth/quota-exceeded') {
-                errorMessage = 'تم تجاوز الحد المجاني للرسائل النصية. حاول مرة أخرى لاحقاً';
+                errorMessage = 'تم تجاوز الحد المجاني للرسائل النصية. يرجى المحاولة لاحقاً أو التواصل مع الدعم الفني';
             } else if (error.code === 'auth/captcha-check-failed') {
                 errorMessage = 'فشل التحقق الأمني. أعد المحاولة';
             } else if (error.message && error.message.includes('503')) {
-                errorMessage = 'خدمة Firebase غير متاحة حالياً (503). حاول مرة أخرى لاحقاً';
+                errorMessage = 'خدمة Firebase غير متاحة حالياً (503). يرجى المحاولة بعد قليل أو التواصل مع الدعم الفني';
             } else if (error.message && error.message.includes('auth/error-code:-39')) {
-                errorMessage = 'خدمة التحقق عبر الرسائل النصية غير متاحة حالياً. حاول مرة أخرى لاحقاً';
+                errorMessage = 'خدمة التحقق عبر الرسائل النصية غير متاحة حالياً. يرجى المحاولة بعد قليل أو التواصل مع الدعم الفني';
             }
             
             return errorMessage;
