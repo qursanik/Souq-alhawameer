@@ -2444,6 +2444,14 @@ function changePassword(form) {
             return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
         }
 
+        // Helper function to escape HTML special characters to prevent XSS
+        function escapeHtml(str) {
+            if (!str) return '';
+            const div = document.createElement('div');
+            div.textContent = str;
+            return div.innerHTML;
+        }
+
         // SMS/Phone helper functions
         function formatPhoneNumber(phone) {
             // Ensure consistent phone number formatting for Saudi Arabia
@@ -4455,14 +4463,14 @@ function renderGuestVerify() {
                     <div class="card">
                         <h2 style="margin-bottom: 1.5rem;">الملف الشخصي 👤</h2>
                         
-                        <form onsubmit="event.preventDefault(); updateGuestProfile(this); return false;" style="max-width: 500px; margin: 0 auto;">
+                        <form onsubmit="event.preventDefault(); updateGuestProfile(this);" style="max-width: 500px; margin: 0 auto;">
                             <div style="margin-bottom: 1.5rem;">
                                 <label style="display: block; margin-bottom: 0.5rem; font-weight: bold; color: var(--text-primary);">
                                     اسم العرض
                                 </label>
                                 <input type="text" 
                                        name="displayName" 
-                                       value="${user.displayName || user.username}" 
+                                       value="${escapeHtml(user.displayName || user.username)}" 
                                        required 
                                        style="width: 100%; padding: 0.75rem; border: 2px solid var(--border); border-radius: 8px; font-size: 1rem; background: var(--bg-primary); color: var(--text-primary);">
                                 <p style="color: var(--text-secondary); font-size: 0.85rem; margin-top: 0.5rem;">
@@ -4475,7 +4483,7 @@ function renderGuestVerify() {
                                     اسم المستخدم
                                 </label>
                                 <input type="text" 
-                                       value="${user.username}" 
+                                       value="${escapeHtml(user.username)}" 
                                        disabled 
                                        style="width: 100%; padding: 0.75rem; border: 2px solid var(--border); border-radius: 8px; font-size: 1rem; background: var(--bg-secondary); color: var(--text-secondary); cursor: not-allowed;">
                                 <p style="color: var(--text-secondary); font-size: 0.85rem; margin-top: 0.5rem;">
@@ -4488,7 +4496,7 @@ function renderGuestVerify() {
                                     رقم الهاتف
                                 </label>
                                 <input type="text" 
-                                       value="${user.phone || 'غير محدد'}" 
+                                       value="${escapeHtml(user.phone || 'غير محدد')}" 
                                        disabled 
                                        style="width: 100%; padding: 0.75rem; border: 2px solid var(--border); border-radius: 8px; font-size: 1rem; background: var(--bg-secondary); color: var(--text-secondary); cursor: not-allowed;">
                             </div>
