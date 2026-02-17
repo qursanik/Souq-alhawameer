@@ -2212,6 +2212,25 @@ function changePassword(form) {
             saveData();
         }
 
+        // Delete activity log
+        function deleteActivityLog(logId, event) {
+            if (event) event.stopPropagation();
+            
+            if (confirm('هل تريد حذف هذا السجل؟')) {
+                // Convert to number for comparison since IDs are numeric
+                const numId = Number(logId);
+                
+                // Find and remove the log entry
+                const index = appData.activityLog.findIndex(log => log.id === numId);
+                if (index !== -1) {
+                    appData.activityLog.splice(index, 1);
+                    saveData();
+                    render();
+                    showAlert('✅ تم حذف السجل بنجاح', 'success');
+                }
+            }
+        }
+
         // Show alert
         function showAlert(text, type = 'success') {
             const alertEl = document.createElement('div');
@@ -4500,6 +4519,12 @@ let confirmModal = { show: false, message: '', onConfirm: null };
                                                             </div>
                                                         </div>
                                                     </div>
+                                                    <button class="btn btn-danger" 
+                                                            onclick="deleteActivityLog(${log.id}, event)"
+                                                            style="padding: 0.5rem 1rem; font-size: 0.85rem; white-space: nowrap;"
+                                                            title="حذف السجل">
+                                                        🗑️ حذف
+                                                    </button>
                                                 </div>
                                             </div>
                                         `;
