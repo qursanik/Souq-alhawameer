@@ -2834,11 +2834,20 @@ async function handleRegister(e) {
 
         async function executeTrade(type, quantity) {
             const stock = appState.selectedStock;
-            const portfolio = appData.portfolios.find(p => p.username === appState.currentUser.username);
+            let portfolio = appData.portfolios.find(p => p.username === appState.currentUser.username);
             const cost = stock.price * quantity;
             
             // Get fresh reference to user in appData
             const user = appData.users.find(u => u.username === appState.currentUser.username);
+
+            // Create portfolio if it doesn't exist (e.g., for guests or new users)
+            if (!portfolio) {
+                portfolio = {
+                    username: appState.currentUser.username,
+                    holdings: []
+                };
+                appData.portfolios.push(portfolio);
+            }
 
             if (type === 'buy') {
                 // Allow negative balance - no balance check
