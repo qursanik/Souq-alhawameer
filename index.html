@@ -3226,7 +3226,7 @@ function renderVerify() {
             // Find the transaction
             const txIndex = appData.transactions.findIndex(t => t.id === transactionId && t.username === appState.currentUser.username);
             if (txIndex === -1) {
-                alert('لا يمكن حذف هذه المعاملة');
+                alert('لا يمكن حذف هذا السجل');
                 return;
             }
             
@@ -3240,13 +3240,17 @@ function renderVerify() {
                 render();
             } catch (error) {
                 console.error('Error deleting transaction:', error);
-                alert('حدث خطأ في حذف المعاملة');
+                alert('حدث خطأ في حذف السجل');
             }
         }
 
         // Delete all transactions for current user
         async function clearAllTransactions(event) {
             if (event) event.stopPropagation();
+            
+            if (!window.confirm('هل تريد مسح سجل جميع معاملاتك؟\n\n⚠️ ملاحظة: هذا سيمسح السجل فقط، جميع صفقاتك (الأموال والأسهم) ستبقى كما هي\n\nهذا الإجراء لا يمكن التراجع عنه!')) {
+                return;
+            }
             
             const username = appState.currentUser.username;
             const userTransactions = appData.transactions.filter(t => t.username === username);
@@ -3266,7 +3270,7 @@ function renderVerify() {
                 render();
             } catch (error) {
                 console.error('Error deleting transactions:', error);
-                alert('حدث خطأ في حذف المعاملات');
+                alert('حدث خطأ في مسح السجل');
             }
         }
 
@@ -3274,14 +3278,14 @@ function renderVerify() {
         async function adminDeleteTransaction(transactionId, event) {
             if (event) event.stopPropagation();
             
-            if (!window.confirm('هل أنت متأكد من حذف هذه المعاملة؟')) {
+            if (!window.confirm('هل تريد حذف هذه المعاملة من السجل؟\n\n⚠️ ملاحظة: هذا سيحذف السجل فقط، الصفقة نفسها (الأموال والأسهم) لن تتأثر')) {
                 return;
             }
             
             // Find the transaction
             const txIndex = appData.transactions.findIndex(t => t.id === transactionId);
             if (txIndex === -1) {
-                alert('لا يمكن العثور على هذه المعاملة');
+                alert('لا يمكن العثور على هذا السجل');
                 return;
             }
             
@@ -3295,7 +3299,7 @@ function renderVerify() {
                 render();
             } catch (error) {
                 console.error('Error deleting transaction:', error);
-                alert('حدث خطأ في حذف المعاملة');
+                alert('حدث خطأ في حذف السجل');
             }
         }
 
@@ -3303,7 +3307,7 @@ function renderVerify() {
         async function adminClearAllTransactions(event) {
             if (event) event.stopPropagation();
             
-            if (!window.confirm('هل أنت متأكد من حذف جميع المعاملات؟\n\nهذا الإجراء لا يمكن التراجع عنه!')) {
+            if (!window.confirm('هل تريد مسح سجل جميع المعاملات؟\n\n⚠️ ملاحظة: هذا سيمسح السجل فقط، جميع الصفقات (الأموال والأسهم) ستبقى كما هي\n\nهذا الإجراء لا يمكن التراجع عنه!')) {
                 return;
             }
             
@@ -3324,7 +3328,7 @@ function renderVerify() {
                 render();
             } catch (error) {
                 console.error('Error deleting all transactions:', error);
-                alert('حدث خطأ في حذف المعاملات');
+                alert('حدث خطأ في مسح السجل');
             }
         }
 
@@ -3332,7 +3336,7 @@ function renderVerify() {
         async function adminDeleteStudentTransactions(username, event) {
             if (event) event.stopPropagation();
             
-            if (!window.confirm(`هل أنت متأكد من حذف جميع معاملات الطالب "${username}"؟\n\nهذا الإجراء لا يمكن التراجع عنه!`)) {
+            if (!window.confirm(`هل تريد مسح سجل معاملات الطالب "${username}"؟\n\n⚠️ ملاحظة: هذا سيمسح السجل فقط، جميع الصفقات (الأموال والأسهم) ستبقى كما هي\n\nهذا الإجراء لا يمكن التراجع عنه!`)) {
                 return;
             }
             
@@ -3353,7 +3357,7 @@ function renderVerify() {
                 render();
             } catch (error) {
                 console.error('Error deleting student transactions:', error);
-                alert('حدث خطأ في حذف معاملات الطالب');
+                alert('حدث خطأ في مسح سجل الطالب');
             }
         }
 
@@ -3386,8 +3390,8 @@ function renderVerify() {
                                     ${students.map(s => `<option value="${s}" ${filterStudent === s ? 'selected' : ''}>${s}</option>`).join('')}
                                 </select>
                                 ${allTransactions.length > 0 ? `
-                                    <button class="btn btn-danger btn-small" onclick="adminClearAllTransactions(event)" aria-label="حذف جميع المعاملات" style="padding: 0.5rem 1rem; font-size: 0.9rem;">
-                                        🗑️ حذف الكل
+                                    <button class="btn btn-danger btn-small" onclick="adminClearAllTransactions(event)" aria-label="مسح سجل جميع المعاملات" style="padding: 0.5rem 1rem; font-size: 0.9rem;">
+                                        🗑️ مسح السجل الكامل
                                     </button>
                                 ` : ''}
                             </div>
@@ -3438,8 +3442,8 @@ function renderVerify() {
                                                             style="position: absolute; top: 0.5rem; left: 0.5rem; background: var(--danger); border: none; color: white; cursor: pointer; padding: 0.4rem 0.6rem; font-size: 1rem; border-radius: 6px; transition: all 0.2s;" 
                                                             onmouseover="this.style.background='#c0392b'"
                                                             onmouseout="this.style.background='var(--danger)'"
-                                                            title="حذف المعاملة"
-                                                            aria-label="حذف المعاملة">🗑️</button>
+                                                            title="حذف من سجل المعاملات (الصفقة نفسها لن تتأثر)"
+                                                            aria-label="حذف من سجل المعاملات">🗑️</button>
                                                 </div>
                                                 
                                                 <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 1rem; padding: 1rem; background: var(--bg-primary); border-radius: 8px;">
@@ -3478,7 +3482,7 @@ function renderVerify() {
                                 ${filterStudent !== 'all' && filteredTransactions.length > 0 ? `
                                     <div style="text-align: center; margin-top: 1.5rem;">
                                         <button class="btn btn-danger" onclick="adminDeleteStudentTransactions('${filterStudent}', event)" style="padding: 0.75rem 2rem;">
-                                            🗑️ حذف جميع معاملات ${filterStudent}
+                                            🗑️ مسح سجل معاملات ${filterStudent}
                                         </button>
                                     </div>
                                 ` : ''}
@@ -3669,8 +3673,8 @@ function renderVerify() {
                         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
                             <h2 style="margin: 0;">سجل المعاملات 📜</h2>
                             ${userTxs.length > 0 ? `
-                                <button class="btn btn-danger btn-small" onclick="clearAllTransactions(event)" aria-label="حذف جميع المعاملات" style="padding: 0.5rem 1rem; font-size: 0.9rem;">
-                                    🗑️ حذف الكل
+                                <button class="btn btn-danger btn-small" onclick="clearAllTransactions(event)" aria-label="مسح سجل المعاملات" style="padding: 0.5rem 1rem; font-size: 0.9rem;">
+                                    🗑️ مسح السجل
                                 </button>
                             ` : ''}
                         </div>
@@ -3700,8 +3704,8 @@ function renderVerify() {
                                     </div>
                                     <button onclick="deleteTransaction('${tx.id}', event)" 
                                             style="position: absolute; top: 0.5rem; left: 0.5rem; background: none; border: none; color: var(--danger); cursor: pointer; padding: 0.3rem; font-size: 1.3rem;" 
-                                            title="حذف المعاملة"
-                                            aria-label="حذف المعاملة">×</button>
+                                            title="حذف من سجل المعاملات (الصفقة نفسها لن تتأثر)"
+                                            aria-label="حذف من سجل المعاملات">×</button>
                                 </div>
                             `).join('')
                         }
