@@ -1139,9 +1139,9 @@ async function sendResetCode(form) {
             }
         });
 
-        // 4. إرسال SMS
+        // 4. إرسال SMS مع إعادة المحاولة
         console.log('📤 Attempting to send SMS to:', formattedPhone);
-        const confirmationResult = await firebase.auth().signInWithPhoneNumber(
+        const confirmationResult = await sendSmsWithRetry(
             formattedPhone, 
             window.resetRecaptchaVerifier
         );
@@ -2460,6 +2460,63 @@ function changePassword(form) {
             return errorMessage;
         }
 
+        // Helper function to check if an error is retryable
+        function isRetryableError(error) {
+            // Check if error is a transient service error that can be retried
+            if (error.message && error.message.includes('503')) return true;
+            if (error.code && error.code.includes('-39')) return true; // Firebase error-code:-39
+            if (error.message && error.message.includes('error-code:-39')) return true; // Backup check in message
+            if (error.code === 'auth/network-request-failed') return true;
+            return false;
+        }
+
+        // Helper function to send SMS with retry logic
+        async function sendSmsWithRetry(phoneNumber, recaptchaVerifier, maxRetries = 3) {
+            let lastError = null;
+            
+            for (let attempt = 1; attempt <= maxRetries; attempt++) {
+                try {
+                    console.log(`📤 SMS sending attempt ${attempt}/${maxRetries} to: ${phoneNumber}`);
+                    
+                    // Show user-friendly message on retries
+                    if (attempt > 1) {
+                        showAlert(`جاري إعادة المحاولة (${attempt}/${maxRetries})...`, 'info');
+                    }
+                    
+                    const confirmationResult = await firebase.auth().signInWithPhoneNumber(
+                        phoneNumber, 
+                        recaptchaVerifier
+                    );
+                    
+                    console.log(`✅ SMS sent successfully on attempt ${attempt}`);
+                    return confirmationResult;
+                    
+                } catch (error) {
+                    lastError = error;
+                    console.error(`❌ SMS attempt ${attempt}/${maxRetries} failed:`, error);
+                    
+                    // Check if error is retryable
+                    if (!isRetryableError(error) || attempt === maxRetries) {
+                        // Not retryable or last attempt - throw error
+                        throw error;
+                    }
+                    
+                    // Calculate exponential backoff delay: 2^attempt seconds (2s, 4s for 3 total attempts)
+                    const delayMs = Math.pow(2, attempt) * 1000;
+                    console.log(`⏳ Retrying in ${delayMs/1000} seconds...`);
+                    
+                    // Show user-friendly message
+                    showAlert(`فشلت المحاولة ${attempt}. سيتم إعادة المحاولة خلال ${delayMs/1000} ثانية...`, 'info');
+                    
+                    // Wait before retry
+                    await new Promise(resolve => setTimeout(resolve, delayMs));
+                }
+            }
+            
+            // If we get here, all retries failed
+            throw lastError;
+        }
+
         function cleanupRecaptchaVerifier(verifierName) {
             // Safely cleanup a recaptcha verifier
             try {
@@ -2602,9 +2659,9 @@ async function handleRegister(e) {
             }
         });
 
-        // 4. إرسال الرسالة
+        // 4. إرسال الرسالة مع إعادة المحاولة
         console.log('📤 Attempting to send SMS to:', formattedPhone);
-        const confirmationResult = await firebase.auth().signInWithPhoneNumber(
+        const confirmationResult = await sendSmsWithRetry(
             formattedPhone, 
             window.recaptchaVerifier
         );
@@ -3345,9 +3402,9 @@ async function handleGuestRegister(e) {
             }
         });
 
-        // Send SMS
+        // Send SMS with retry logic
         console.log('📤 Sending SMS to guest:', formattedPhone);
-        const confirmationResult = await firebase.auth().signInWithPhoneNumber(
+        const confirmationResult = await sendSmsWithRetry(
             formattedPhone, 
             window.guestRecaptchaVerifier
         );
