@@ -1246,7 +1246,7 @@ function renderResetPassword() {
 }
 
 async function handlePasswordReset(form) {
-    const code = form.code?.value?.trim() || '';
+    const code = (form.code?.value ?? '').trim();
     const newPassword = form.newPassword.value;
     const confirmPassword = form.confirmPassword.value;
     
@@ -2518,7 +2518,9 @@ function changePassword(form) {
 
         // Helper to check if we're in bypass mode (shared logic)
         function isInBypassMode() {
-            return isValidBypassToken(appState.resetPasswordCode) && !window.resetConfirmationResult;
+            return appState.resetPasswordCode && 
+                   isValidBypassToken(appState.resetPasswordCode) && 
+                   !window.resetConfirmationResult;
         }
 
         function cleanupRecaptchaVerifier(verifierName) {
