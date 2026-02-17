@@ -2397,6 +2397,11 @@ function changePassword(form) {
             render();
         }
 
+        // Helper function to escape regex special characters
+        function escapeRegex(string) {
+            return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        }
+
         // SMS/Phone helper functions
         function formatPhoneNumber(phone) {
             // Ensure consistent phone number formatting for Saudi Arabia
@@ -2914,7 +2919,9 @@ async function handleRegister(e) {
             const oldBalance = user.balance;
             user.balance += amount;
             
-            addActivityLog('إضافة رصيد', `${user.username} +${amount.toFixed(2)}`);
+            // Log with appropriate action type based on user role
+            const actionType = user.role === 'guest' ? 'إضافة رصيد ضيف' : 'إضافة رصيد';
+            addActivityLog(actionType, `${user.username} +${amount.toFixed(2)}`);
             showAlert(`✅ تمت إضافة ${amount.toFixed(2)} ر.س`, 'success');
             saveData();
             closeBalanceModal();
@@ -2932,7 +2939,9 @@ async function handleRegister(e) {
             // السماح بالرصيد السالب - لا يوجد فحص للرصيد
             
             user.balance -= amount;
-            addActivityLog('إضافة رصيد', `${user.username} -${amount.toFixed(2)}`);
+            // Log with appropriate action type based on user role
+            const actionType = user.role === 'guest' ? 'إضافة رصيد ضيف' : 'إضافة رصيد';
+            addActivityLog(actionType, `${user.username} -${amount.toFixed(2)}`);
             showAlert(`✅ تم خصم ${amount.toFixed(2)} ر.س`, 'success');
             saveData();
             closeBalanceModal();
@@ -4739,7 +4748,9 @@ function renderGuestVerify() {
                                 appData.activityLog.forEach(log => {
                                     if (log.action === 'إضافة رصيد ضيف' && log.details) {
                                         // Check for exact username match with word boundaries
-                                        const usernamePattern = new RegExp(`\\b${guest.username}\\b`);
+                                        // Escape regex special characters to prevent errors
+                                        const escapedUsername = escapeRegex(guest.username);
+                                        const usernamePattern = new RegExp(`\\b${escapedUsername}\\b`);
                                         if (usernamePattern.test(log.details)) {
                                             const matchPositive = log.details.match(/\+(\d+\.?\d*)/);
                                             const matchNegative = log.details.match(/-(\d+\.?\d*)/);
@@ -6186,8 +6197,10 @@ let confirmModal = { show: false, message: '', onConfirm: null };
                 appData.transactions = appData.transactions.filter(t => t.username !== username);
                 
                 // حذف رسائل الضيف
-                // NOTE: Messages are removed for privacy. Consider implementing a soft-delete
-                // or archiving system if message history needs to be preserved for audit purposes.
+                // NOTE: Messages are permanently removed for privacy compliance.
+                // RECOMMENDATION: For organizations requiring audit trails or compliance with 
+                // data retention policies, implement a soft-delete system where messages are 
+                // flagged as deleted but retained in the database with a 'deletedAt' timestamp.
                 appData.guestMessages = appData.guestMessages.filter(msg => msg.from !== username);
                 
                 // حذف من Firebase مباشرة
