@@ -3594,7 +3594,7 @@ function renderVerify() {
                                         <span>الكمية: ${tx.quantity} × ${tx.price.toFixed(2)} ر.س</span>
                                         <span>${new Date(tx.timestamp).toLocaleString('ar-SA')}</span>
                                     </div>
-                                    <button onclick="deleteTransaction('${tx.id}', event)" 
+                                    <button onclick="deleteTransaction(${tx.id}, event)" 
                                             style="position: absolute; top: 0.5rem; left: 0.5rem; background: none; border: none; color: var(--danger); cursor: pointer; padding: 0.3rem; font-size: 1.3rem;" 
                                             title="حذف من سجل المعاملات (الصفقة نفسها لن تتأثر)"
                                             aria-label="حذف من سجل المعاملات">×</button>
@@ -4649,7 +4649,7 @@ let confirmModal = { show: false, message: '', onConfirm: null };
                                     <svg width="100%" height="100%" style="position: absolute; top: 0; left: 0; overflow: visible; opacity: 0.3;">
                                         <defs>
                                             <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
-                                                <path d="M 40 0 L 0 0 0 40" fill="none" stroke="var(--border)" stroke-width="0.5"/>
+                                                <path d="M 40 0 L 0 0 L 0 40" fill="none" stroke="var(--border)" stroke-width="0.5"/>
                                             </pattern>
                                         </defs>
                                         <rect width="100%" height="100%" fill="url(#grid)" />
