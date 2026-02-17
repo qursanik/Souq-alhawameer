@@ -3614,10 +3614,10 @@ function renderVerify() {
                                         const tradingEnabled = appData.settings.tradingEnabled;
                                         
                                         return `
-                                            <div style="background: linear-gradient(135deg, var(--bg-secondary), var(--bg-primary)); border: 1px solid var(--border); border-radius: 16px; padding: 1.5rem; transition: transform 0.2s, box-shadow 0.2s; cursor: ${tradingEnabled ? 'pointer' : 'default'}; opacity: 1;" 
-                                                 onclick="${tradingEnabled ? `appState.selectedStock=appData.stocks.find(s => s.symbol === '${stock.symbol}'); render();` : ''}"
-                                                 onmouseover="${tradingEnabled ? `this.style.transform='translateY(-4px)'; this.style.boxShadow='0 8px 24px rgba(0,0,0,0.3)';` : ''}"
-                                                 onmouseout="${tradingEnabled ? `this.style.transform='translateY(0)'; this.style.boxShadow='none';` : ''}">
+                                            <div style="background: linear-gradient(135deg, var(--bg-secondary), var(--bg-primary)); border: 1px solid var(--border); border-radius: 16px; padding: 1.5rem; transition: transform 0.2s, box-shadow 0.2s; cursor: pointer; opacity: 1;" 
+                                                 onclick="appState.selectedStock=appData.stocks.find(s => s.symbol === '${stock.symbol}'); render();"
+                                                 onmouseover="this.style.transform='translateY(-4px)'; this.style.boxShadow='0 8px 24px rgba(0,0,0,0.3)';"
+                                                 onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='none';">
                                                 
                                                 ${!tradingEnabled ? '<div style="position: absolute; top: 1rem; left: 1rem; background: var(--danger); color: white; padding: 0.25rem 0.75rem; border-radius: 20px; font-size: 0.75rem; font-weight: bold;">🔒 مغلق</div>' : ''}
                                                 
