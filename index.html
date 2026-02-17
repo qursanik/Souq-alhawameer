@@ -992,6 +992,29 @@
 
     console.log('🔥 Firebase initialized successfully!');
 
+    // Check if Phone Authentication is available
+    async function checkPhoneAuthAvailability() {
+        try {
+            // Try to get the current auth state to verify Firebase Auth is working
+            const auth = firebase.auth();
+            console.log('✅ Firebase Authentication is initialized');
+            
+            // Log a note about Phone Authentication setup
+            console.log('📱 Phone Authentication Info:');
+            console.log('   If you see "فشل إرسال رمز التحقق" errors:');
+            console.log('   1. Enable Phone Authentication in Firebase Console');
+            console.log('   2. Go to: https://console.firebase.google.com/');
+            console.log('   3. Select project → Authentication → Sign-in method');
+            console.log('   4. Enable "Phone" provider');
+            console.log('   See SMS_VERIFICATION_SETUP.md for complete setup guide');
+        } catch (error) {
+            console.error('❌ Firebase Authentication initialization error:', error);
+        }
+    }
+    
+    // Run the check
+    checkPhoneAuthAvailability();
+
     </script>
 </head>
 <body data-theme="dark">

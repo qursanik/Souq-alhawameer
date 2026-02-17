@@ -2,6 +2,62 @@
 
 This document describes how SMS verification works in Souq-alhawameer and how to configure Firebase Phone Authentication.
 
+## ⚠️ TROUBLESHOOTING: "Fail to Send" Error
+
+**If you see "فشل إرسال رمز التحقق" (fail to send verification code), follow these steps:**
+
+### Quick Fix Checklist
+
+1. **✅ Enable Phone Authentication in Firebase Console** (Most Common Issue)
+   - Go to https://console.firebase.google.com/
+   - Select project: `souq-alhawameer`
+   - Navigate to **Authentication** → **Sign-in method**
+   - Find **Phone** provider and click on it
+   - Toggle **Enable** and click **Save**
+   - **This is the most common cause of "fail to send" errors!**
+
+2. **✅ Check Browser Console for Error Details**
+   - Press F12 to open Developer Tools
+   - Go to Console tab
+   - Look for errors starting with "🔍 Firebase Auth Error Details:"
+   - Note the error code (e.g., `auth/operation-not-allowed`)
+
+3. **✅ Verify Phone Number Format**
+   - Must be Saudi phone number starting with `05`
+   - Must be exactly 10 digits
+   - Examples: `0501234567`, `0551234567`
+   - Invalid: `501234567`, `+966501234567` (these are auto-converted)
+
+4. **✅ Add Authorized Domain**
+   - In Firebase Console: **Authentication** → **Settings** → **Authorized domains**
+   - Add your domain (e.g., `localhost` for testing, your domain for production)
+
+5. **✅ Enable Billing (For Production)**
+   - Firebase Phone Auth requires billing enabled for production use
+   - Free tier includes limited SMS sends per month
+   - Go to Firebase Console → **Billing** to enable
+
+### Common Error Codes and Solutions
+
+| Error Code | Meaning | Solution |
+|------------|---------|----------|
+| `auth/operation-not-allowed` | Phone Authentication not enabled | Enable Phone provider in Firebase Console |
+| `auth/invalid-phone-number` | Wrong phone format | Use 05xxxxxxxx format (10 digits) |
+| `auth/too-many-requests` | Rate limit exceeded | Wait 5 minutes and try again |
+| `auth/quota-exceeded` | SMS quota reached | Enable billing or wait for quota reset |
+| `auth/captcha-check-failed` | reCAPTCHA failed | Reload page and try again |
+| No error code | Firebase not configured | Check Firebase setup steps below |
+
+### Development Testing Without SMS
+
+For development, you can add test phone numbers that don't send actual SMS:
+
+1. Firebase Console → **Authentication** → **Sign-in method** → **Phone**
+2. Scroll to **Phone numbers for testing**
+3. Add: Phone `+966501234567`, Code `123456`
+4. Use this number during registration - no SMS will be sent
+5. Enter code `123456` to complete verification
+
 ## Overview
 
 SMS verification is required for:
