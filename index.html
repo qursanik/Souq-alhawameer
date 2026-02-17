@@ -3263,7 +3263,7 @@ function renderVerify() {
             
             // Remove from Firebase
             try {
-                await db.collection('transactions').doc(transactionId).delete();
+                await db.collection('transactions').doc(String(transactionId)).delete();
                 saveData();
                 render();
             } catch (error) {
@@ -3286,7 +3286,7 @@ function renderVerify() {
             try {
                 const batch = db.batch();
                 userTransactions.forEach(tx => {
-                    const docRef = db.collection('transactions').doc(tx.id);
+                    const docRef = db.collection('transactions').doc(String(tx.id));
                     batch.delete(docRef);
                 });
                 await batch.commit();
