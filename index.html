@@ -3169,13 +3169,37 @@ async function handleRegister(e) {
             } else if (appState.currentScreen === 'guestRegister') {
                 app.innerHTML = renderGuestRegister();
             } else if (appState.currentScreen === 'guestVerify') {
-                app.innerHTML = renderGuestVerify();
+                // Protect verification screen - redirect to registration if no pending registration
+                if (!window.guestConfirmationResult || !window.pendingGuestRegistration) {
+                    console.warn('⚠️ Direct access to guest verification screen blocked');
+                    appState.currentScreen = 'guestRegister';
+                    app.innerHTML = renderGuestRegister();
+                    showAlert('يرجى إكمال نموذج التسجيل أولاً', 'warning');
+                } else {
+                    app.innerHTML = renderGuestVerify();
+                }
             } else if (appState.currentScreen === 'verify') {
-                app.innerHTML = renderVerify();
+                // Protect verification screen - redirect to registration if no pending registration
+                if (!window.confirmationResult || !window.pendingRegistration) {
+                    console.warn('⚠️ Direct access to verification screen blocked');
+                    appState.currentScreen = 'register';
+                    app.innerHTML = renderRegister();
+                    showAlert('يرجى إكمال نموذج التسجيل أولاً', 'warning');
+                } else {
+                    app.innerHTML = renderVerify();
+                }
             } else if (appState.currentScreen === 'forgot') {
                 app.innerHTML = renderForgotPassword();
             } else if (appState.currentScreen === 'reset') {
-                app.innerHTML = renderResetPassword();
+                // Protect reset screen - redirect to forgot if no pending reset
+                if (!window.resetConfirmationResult || !appState.forgotPasswordPhone) {
+                    console.warn('⚠️ Direct access to password reset screen blocked');
+                    appState.currentScreen = 'forgot';
+                    app.innerHTML = renderForgotPassword();
+                    showAlert('يرجى إدخال رقم الجوال أولاً', 'warning');
+                } else {
+                    app.innerHTML = renderResetPassword();
+                }
             } else if (appState.currentScreen === 'dashboard') {
                 app.innerHTML = renderDashboard();
             }
