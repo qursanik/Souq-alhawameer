@@ -381,6 +381,7 @@
             border-bottom: 2px solid transparent;
             transition: all 0.3s ease;
             white-space: nowrap;
+            position: relative;
         }
 
         .tab.active {
@@ -3420,6 +3421,7 @@ function renderVerify() {
             const portfolioValue = getPortfolioValue(appState.currentUser.username);
             const totalValue = appState.currentUser.balance + portfolioValue;
             const userTxs = appData.transactions.filter(t => t.username === appState.currentUser.username);
+            const unreadCount = getUnreadMessageCount();
 
             return `
                 <div class="tabs">
@@ -3440,9 +3442,9 @@ function renderVerify() {
                         🏆 الإنجازات
                     </button>
                     <button class="tab ${appState.activeTab === 'chat' ? 'active' : ''}" 
-                            onclick="appState.activeTab='chat'; markMessagesAsRead(); render();" style="position: relative;">
+                            onclick="appState.activeTab='chat'; markMessagesAsRead(); render();">
                         💬 الدردشة
-                        ${getUnreadMessageCount() > 0 ? `<span class="notification-badge">${getUnreadMessageCount()}</span>` : ''}
+                        ${unreadCount > 0 ? `<span class="notification-badge">${unreadCount}</span>` : ''}
                     </button>
                 </div>
 
@@ -3841,6 +3843,7 @@ function renderVerify() {
 
         function renderAdminDashboard() {
             console.log('📋 renderAdminDashboard called, activeAdminTab:', appState.activeAdminTab);
+            const unreadCount = getUnreadMessageCount();
             return `
                 <div class="tabs">
                     <button class="tab ${appState.activeAdminTab === 'students' ? 'active' : ''}" 
@@ -3864,9 +3867,9 @@ function renderVerify() {
                         📋 سجل التداول
                     </button>
                     <button class="tab ${appState.activeAdminTab === 'chat' ? 'active' : ''}" 
-                            onclick="appState.activeAdminTab='chat'; markMessagesAsRead(); render();" style="position: relative;">
+                            onclick="appState.activeAdminTab='chat'; markMessagesAsRead(); render();">
                         💬 الدردشة
-                        ${getUnreadMessageCount() > 0 ? `<span class="notification-badge">${getUnreadMessageCount()}</span>` : ''}
+                        ${unreadCount > 0 ? `<span class="notification-badge">${unreadCount}</span>` : ''}
                     </button>
                     <button class="tab ${appState.activeAdminTab === 'profile' ? 'active' : ''}" 
                             onclick="appState.activeAdminTab='profile'; render();">
