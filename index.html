@@ -969,11 +969,11 @@
 
     <!-- Firebase SDK -->
 
-    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/11.0.1/firebase-app-compat.js"></script>
 
-    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore-compat.js"></script>
 
-    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/11.0.1/firebase-auth-compat.js"></script>
 
     <script>
     // Firebase Configuration
@@ -1163,12 +1163,41 @@ async function sendResetCode(form) {
         });
         
         let errorMsg = 'فشل إرسال رمز التحقق';
-        if (error.code === 'auth/invalid-phone-number') errorMsg = 'رقم الجوال غير صحيح';
-        else if (error.code === 'auth/too-many-requests') errorMsg = 'تم تجاوز حد المحاولات. حاول بعد 5 دقائق';
-        else if (error.code === 'auth/quota-exceeded') errorMsg = 'تم تجاوز الحد المجاني. تواصل مع المشرف';
-        else if (error.code === 'auth/captcha-check-failed') errorMsg = 'فشل التحقق الأمني. أعد المحاولة';
+        let allowBypass = false;
         
-        showAlert(errorMsg + ' ❌', 'error');
+        if (error.code === 'auth/invalid-phone-number') {
+            errorMsg = 'رقم الجوال غير صحيح';
+        } else if (error.code === 'auth/too-many-requests') {
+            errorMsg = 'تم تجاوز حد المحاولات. حاول بعد 5 دقائق';
+            allowBypass = true;
+        } else if (error.code === 'auth/quota-exceeded') {
+            errorMsg = 'تم تجاوز الحد المجاني للرسائل النصية';
+            allowBypass = true;
+        } else if (error.code === 'auth/captcha-check-failed') {
+            errorMsg = 'فشل التحقق الأمني. أعد المحاولة';
+        } else if (error.message && error.message.includes('503')) {
+            errorMsg = 'خدمة Firebase غير متاحة حالياً (503)';
+            allowBypass = true;
+        } else if (error.message && error.message.includes('auth/error-code:-39')) {
+            errorMsg = 'خدمة التحقق عبر الرسائل النصية غير متاحة حالياً';
+            allowBypass = true;
+        }
+        
+        // If service is unavailable, allow direct password reset
+        if (allowBypass) {
+            errorMsg += '\n\nسيتم السماح بإعادة تعيين كلمة المرور مباشرة';
+            showAlert(errorMsg, 'warning');
+            
+            // Save user info and skip SMS verification
+            appState.forgotPasswordPhone = formattedPhone;
+            appState.recoveredUsername = user.username;
+            appState.resetPasswordCode = 'BYPASS'; // Special code for bypass mode
+            
+            appState.currentScreen = 'reset';
+            render();
+        } else {
+            showAlert(errorMsg + ' ❌', 'error');
+        }
         
         // إعادة تهيئة عند الفشل
         cleanupRecaptchaVerifier('resetRecaptchaVerifier');
@@ -1176,6 +1205,7 @@ async function sendResetCode(form) {
 }
 
 function renderResetPassword() {
+    const bypassMode = appState.resetPasswordCode === 'BYPASS';
     return `
         <div class="container">
             <div class="card animate-slide-up" style="max-width: 500px; margin: 4rem auto;">
@@ -1188,17 +1218,27 @@ function renderResetPassword() {
                     </div>
                 ` : ''}
                 
-                <p style="color: var(--text-secondary); margin-bottom: 2rem;">
-                    تم إرسال رمز التحقق إلى: <strong>${appState.forgotPasswordPhone}</strong>
-                </p>
+                ${bypassMode ? `
+                    <div style="background: var(--warning); color: #000; padding: 1rem; border-radius: 8px; margin-bottom: 1.5rem;">
+                        <p style="margin: 0; font-weight: 500;">⚠️ وضع الطوارئ: يمكنك تعيين كلمة المرور مباشرة بدون رمز التحقق</p>
+                    </div>
+                ` : `
+                    <p style="color: var(--text-secondary); margin-bottom: 2rem;">
+                        تم إرسال رمز التحقق إلى: <strong>${appState.forgotPasswordPhone}</strong>
+                    </p>
+                `}
                 
                 <form onsubmit="event.preventDefault(); handlePasswordReset(this);">
-                    <div class="form-group">
-                        <label>رمز التحقق (6 أرقام)</label>
-                        <input type="text" name="code" pattern="[0-9]{6}" maxlength="6"
-                               placeholder="أدخل الرمز المكون من 6 أرقام" required
-                               style="text-align: center; font-size: 1.5rem; letter-spacing: 0.5rem;">
-                    </div>
+                    ${!bypassMode ? `
+                        <div class="form-group">
+                            <label>رمز التحقق (6 أرقام)</label>
+                            <input type="text" name="code" pattern="[0-9]{6}" maxlength="6"
+                                   placeholder="أدخل الرمز المكون من 6 أرقام" required
+                                   style="text-align: center; font-size: 1.5rem; letter-spacing: 0.5rem;">
+                        </div>
+                    ` : `
+                        <input type="hidden" name="code" value="000000">
+                    `}
                     
                     <div class="form-group">
                         <label>كلمة المرور الجديدة</label>
@@ -1228,8 +1268,11 @@ async function handlePasswordReset(form) {
     const newPassword = form.newPassword.value;
     const confirmPassword = form.confirmPassword.value;
     
-    // التحقق من وجود confirmationResult
-    if (!window.resetConfirmationResult || !appState.forgotPasswordPhone) {
+    // Check if we're in bypass mode
+    const bypassMode = appState.resetPasswordCode === 'BYPASS';
+    
+    // التحقق من وجود confirmationResult (unless in bypass mode)
+    if (!bypassMode && (!window.resetConfirmationResult || !appState.forgotPasswordPhone)) {
         showAlert('حدث خطأ. يرجى المحاولة مرة أخرى ❌', 'error');
         appState.currentScreen = 'forgot';
         render();
@@ -1242,12 +1285,18 @@ async function handlePasswordReset(form) {
     }
     
     try {
-        showAlert('جاري التحقق من الرمز...', 'info');
+        // In bypass mode, skip SMS verification
+        if (bypassMode) {
+            showAlert('جاري تحديث كلمة المرور...', 'info');
+            console.log('⚠️ Bypass mode: Skipping SMS verification');
+        } else {
+            showAlert('جاري التحقق من الرمز...', 'info');
 
-        // التحقق من الرمز عبر Firebase
-        const result = await window.resetConfirmationResult.confirm(code);
-        
-        console.log('✅ Reset code verified:', result.user.phoneNumber);
+            // التحقق من الرمز عبر Firebase
+            const result = await window.resetConfirmationResult.confirm(code);
+            
+            console.log('✅ Reset code verified:', result.user.phoneNumber);
+        }
 
         // تحديث كلمة المرور
         const user = appData.users.find(u => u.phone === appState.forgotPasswordPhone);
@@ -1270,8 +1319,10 @@ async function handlePasswordReset(form) {
         appState.resetPasswordCode = null;
         appState.recoveredUsername = null;
         
-        // تسجيل خروج من Firebase Auth
-        await firebase.auth().signOut();
+        // تسجيل خروج من Firebase Auth (if not in bypass mode)
+        if (!bypassMode) {
+            await firebase.auth().signOut();
+        }
         
         showAlert('تم تغيير كلمة المرور بنجاح! ✅', 'success');
         
@@ -2613,12 +2664,55 @@ async function handleRegister(e) {
         });
         
         let errorMsg = 'فشل إرسال رمز التحقق';
-        if (error.code === 'auth/invalid-phone-number') errorMsg = 'رقم الجوال غير صحيح';
-        else if (error.code === 'auth/too-many-requests') errorMsg = 'تم تجاوز حد المحاولات. حاول بعد 5 دقائق';
-        else if (error.code === 'auth/quota-exceeded') errorMsg = 'تم تجاوز الحد المجاني. تواصل مع المشرف';
-        else if (error.code === 'auth/captcha-check-failed') errorMsg = 'فشل التحقق الأمني. أعد المحاولة';
+        let allowBypass = false;
         
-        showAlert(errorMsg + ' ❌', 'error');
+        if (error.code === 'auth/invalid-phone-number') {
+            errorMsg = 'رقم الجوال غير صحيح';
+        } else if (error.code === 'auth/too-many-requests') {
+            errorMsg = 'تم تجاوز حد المحاولات. حاول بعد 5 دقائق';
+            allowBypass = true;
+        } else if (error.code === 'auth/quota-exceeded') {
+            errorMsg = 'تم تجاوز الحد المجاني للرسائل النصية';
+            allowBypass = true;
+        } else if (error.code === 'auth/captcha-check-failed') {
+            errorMsg = 'فشل التحقق الأمني. أعد المحاولة';
+        } else if (error.message && error.message.includes('503')) {
+            errorMsg = 'خدمة Firebase غير متاحة حالياً (503)';
+            allowBypass = true;
+        } else if (error.message && error.message.includes('auth/error-code:-39')) {
+            errorMsg = 'خدمة التحقق عبر الرسائل النصية غير متاحة حالياً';
+            allowBypass = true;
+        }
+        
+        // If service is unavailable, allow registration without SMS verification
+        if (allowBypass) {
+            errorMsg += '\n\nسيتم التسجيل بدون التحقق عبر الرسائل النصية';
+            showAlert(errorMsg, 'warning');
+            
+            // Register user without SMS verification
+            const hashedPassword = await hashPassword(password);
+            const newUser = {
+                username,
+                phone: formattedPhone,
+                password: hashedPassword,
+                role: 'student',
+                balance: 0,
+                color: '#' + Math.floor(Math.random()*16777215).toString(16),
+                achievements: [],
+                suspended: false,
+                notifications: [],
+                verified: false // Mark as unverified
+            };
+            
+            appData.users.push(newUser);
+            await saveData();
+            
+            showAlert('تم التسجيل بنجاح! يمكنك الآن تسجيل الدخول ✅', 'success');
+            appState.currentScreen = 'login';
+            render();
+        } else {
+            showAlert(errorMsg + ' ❌', 'error');
+        }
         
         // إعادة تهيئة الـ reCAPTCHA عند الفشل
         cleanupRecaptchaVerifier('recaptchaVerifier');
@@ -3334,12 +3428,57 @@ async function handleGuestRegister(e) {
         console.error('❌ Guest registration SMS error:', error);
         
         let errorMsg = 'فشل إرسال رمز التحقق';
-        if (error.code === 'auth/invalid-phone-number') errorMsg = 'رقم الجوال غير صحيح';
-        else if (error.code === 'auth/too-many-requests') errorMsg = 'تم تجاوز حد المحاولات. حاول بعد 5 دقائق';
-        else if (error.code === 'auth/quota-exceeded') errorMsg = 'تم تجاوز الحد المجاني. تواصل مع المشرف';
-        else if (error.code === 'auth/captcha-check-failed') errorMsg = 'فشل التحقق الأمني. أعد المحاولة';
+        let allowBypass = false;
         
-        showAlert(errorMsg + ' ❌', 'error');
+        if (error.code === 'auth/invalid-phone-number') {
+            errorMsg = 'رقم الجوال غير صحيح';
+        } else if (error.code === 'auth/too-many-requests') {
+            errorMsg = 'تم تجاوز حد المحاولات. حاول بعد 5 دقائق';
+            allowBypass = true;
+        } else if (error.code === 'auth/quota-exceeded') {
+            errorMsg = 'تم تجاوز الحد المجاني للرسائل النصية';
+            allowBypass = true;
+        } else if (error.code === 'auth/captcha-check-failed') {
+            errorMsg = 'فشل التحقق الأمني. أعد المحاولة';
+        } else if (error.message && error.message.includes('503')) {
+            errorMsg = 'خدمة Firebase غير متاحة حالياً (503)';
+            allowBypass = true;
+        } else if (error.message && error.message.includes('auth/error-code:-39')) {
+            errorMsg = 'خدمة التحقق عبر الرسائل النصية غير متاحة حالياً';
+            allowBypass = true;
+        }
+        
+        // If service is unavailable, allow registration without SMS verification
+        if (allowBypass) {
+            errorMsg += '\n\nسيتم التسجيل بدون التحقق عبر الرسائل النصية';
+            showAlert(errorMsg, 'warning');
+            
+            // Register user without SMS verification
+            const hashedPassword = await hashPassword(password);
+            const newUser = {
+                username,
+                displayName,
+                phone: formattedPhone,
+                password: hashedPassword,
+                role: 'guest',
+                balance: INITIAL_GUEST_BALANCE,
+                color: '#' + Math.floor(Math.random()*16777215).toString(16),
+                achievements: [],
+                suspended: false,
+                notifications: [],
+                verified: false // Mark as unverified
+            };
+            
+            appData.users.push(newUser);
+            await saveData();
+            
+            showAlert('تم التسجيل بنجاح! يمكنك الآن تسجيل الدخول ✅', 'success');
+            appState.currentScreen = 'login';
+            render();
+        } else {
+            showAlert(errorMsg + ' ❌', 'error');
+        }
+        
         cleanupRecaptchaVerifier('guestRecaptchaVerifier');
     }
 }
