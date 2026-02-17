@@ -2428,6 +2428,7 @@ function changePassword(form) {
             const newMessage = {
                 id: Date.now(),
                 from: appState.currentUser.username,
+                role: appState.currentUser.role,
                 text: text.trim(),
                 timestamp: Date.now(),
                 readBy: [appState.currentUser.username]
@@ -2935,6 +2936,7 @@ async function handleRegister(e) {
             const newMessage = {
                 id: Date.now(),
                 from: appState.currentUser.username,
+                role: appState.currentUser.role,
                 text: text.trim(),
                 timestamp: Date.now(),
                 readBy: [appState.currentUser.username]
@@ -2952,6 +2954,28 @@ async function handleRegister(e) {
         }
 
         function deleteGuestMessageSync(msgId) { deleteGuestMessage(msgId); }
+
+        async function updateGuestProfile(form) {
+            const newDisplayName = form.displayName.value.trim();
+            
+            if (!newDisplayName) {
+                showAlert('يرجى إدخال اسم صحيح ❌', 'error');
+                return;
+            }
+            
+            // Update in appData.users
+            const user = appData.users.find(u => u.username === appState.currentUser.username);
+            if (user) {
+                user.displayName = newDisplayName;
+            }
+            
+            // Update current user
+            appState.currentUser.displayName = newDisplayName;
+            
+            await saveData();
+            showAlert('تم تحديث الملف الشخصي بنجاح ✅', 'success');
+            render();
+        }
 
         // Logout
         function logout() {
@@ -4286,6 +4310,10 @@ function renderGuestVerify() {
                         💬 دردشة الضيوف
                         ${unreadCount > 0 ? `<span class="notification-badge">${unreadCount}</span>` : ''}
                     </button>
+                    <button class="tab ${appState.activeTab === 'profile' ? 'active' : ''}" 
+                            onclick="appState.activeTab='profile'; render();">
+                        👤 الملف الشخصي
+                    </button>
                 </div>
 
                 ${appState.activeTab === 'stocks' ? renderGuestStocksTab(portfolio, portfolioValue, totalValue) : ''}
@@ -4293,6 +4321,7 @@ function renderGuestVerify() {
                 ${appState.activeTab === 'transactions' ? renderTransactionsTab(userTxs) : ''}
                 ${appState.activeTab === 'achievements' ? renderAchievementsTab() : ''}
                 ${appState.activeTab === 'chat' ? renderGuestChatTab() : ''}
+                ${appState.activeTab === 'profile' ? renderGuestProfileTab() : ''}
             `;
         }
 
@@ -4414,6 +4443,60 @@ function renderGuestVerify() {
                                 <button type="submit" class="btn btn-primary">إرسال</button>
                             </form>
                         ` : ''}
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderGuestProfileTab() {
+            const user = appState.currentUser;
+            return `
+                <div class="tab-content active">
+                    <div class="card">
+                        <h2 style="margin-bottom: 1.5rem;">الملف الشخصي 👤</h2>
+                        
+                        <form onsubmit="event.preventDefault(); updateGuestProfile(this); return false;" style="max-width: 500px; margin: 0 auto;">
+                            <div style="margin-bottom: 1.5rem;">
+                                <label style="display: block; margin-bottom: 0.5rem; font-weight: bold; color: var(--text-primary);">
+                                    اسم العرض
+                                </label>
+                                <input type="text" 
+                                       name="displayName" 
+                                       value="${user.displayName || user.username}" 
+                                       required 
+                                       style="width: 100%; padding: 0.75rem; border: 2px solid var(--border); border-radius: 8px; font-size: 1rem; background: var(--bg-primary); color: var(--text-primary);">
+                                <p style="color: var(--text-secondary); font-size: 0.85rem; margin-top: 0.5rem;">
+                                    هذا الاسم سيظهر في الدردشة والمحفظة
+                                </p>
+                            </div>
+                            
+                            <div style="margin-bottom: 1.5rem;">
+                                <label style="display: block; margin-bottom: 0.5rem; font-weight: bold; color: var(--text-primary);">
+                                    اسم المستخدم
+                                </label>
+                                <input type="text" 
+                                       value="${user.username}" 
+                                       disabled 
+                                       style="width: 100%; padding: 0.75rem; border: 2px solid var(--border); border-radius: 8px; font-size: 1rem; background: var(--bg-secondary); color: var(--text-secondary); cursor: not-allowed;">
+                                <p style="color: var(--text-secondary); font-size: 0.85rem; margin-top: 0.5rem;">
+                                    لا يمكن تعديل اسم المستخدم
+                                </p>
+                            </div>
+                            
+                            <div style="margin-bottom: 1.5rem;">
+                                <label style="display: block; margin-bottom: 0.5rem; font-weight: bold; color: var(--text-primary);">
+                                    رقم الهاتف
+                                </label>
+                                <input type="text" 
+                                       value="${user.phone || 'غير محدد'}" 
+                                       disabled 
+                                       style="width: 100%; padding: 0.75rem; border: 2px solid var(--border); border-radius: 8px; font-size: 1rem; background: var(--bg-secondary); color: var(--text-secondary); cursor: not-allowed;">
+                            </div>
+                            
+                            <button type="submit" class="btn btn-primary" style="width: 100%; padding: 1rem; font-size: 1rem;">
+                                💾 حفظ التعديلات
+                            </button>
+                        </form>
                     </div>
                 </div>
             `;
