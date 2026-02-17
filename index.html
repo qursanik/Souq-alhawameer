@@ -2846,10 +2846,10 @@ async function handleRegister(e) {
             }
 
             // Find or create portfolio
-            let portfolio = appData.portfolios.find(p => p.username === appState.currentUser.username);
+            let portfolio = appData.portfolios.find(p => p.username === user.username);
             if (!portfolio) {
                 portfolio = {
-                    username: appState.currentUser.username,
+                    username: user.username,
                     holdings: []
                 };
                 appData.portfolios.push(portfolio);
