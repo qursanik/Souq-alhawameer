@@ -2441,6 +2441,21 @@ function changePassword(form) {
                     verifier.clear();
                     window[verifierName] = null;
                 }
+                
+                // Also clear the container content based on verifier name
+                const containerMap = {
+                    'recaptchaVerifier': 'recaptcha-container',
+                    'guestRecaptchaVerifier': 'guest-recaptcha-container',
+                    'resetRecaptchaVerifier': 'reset-recaptcha-container'
+                };
+                
+                const containerId = containerMap[verifierName];
+                if (containerId) {
+                    const container = document.getElementById(containerId);
+                    if (container) {
+                        container.innerHTML = '';
+                    }
+                }
             } catch (error) {
                 console.warn(`⚠️ Error cleaning ${verifierName}:`, error);
                 // Force null even if cleanup fails
@@ -2449,13 +2464,16 @@ function changePassword(form) {
         }
 
         function ensureRecaptchaContainer(containerId) {
-            // Ensure recaptcha container exists in DOM
+            // Ensure recaptcha container exists in DOM and is clean
             let container = document.getElementById(containerId);
             if (!container) {
                 console.warn(`⚠️ Recaptcha container ${containerId} not found, creating...`);
                 container = document.createElement('div');
                 container.id = containerId;
                 document.body.appendChild(container);
+            } else {
+                // Clear any existing reCAPTCHA widgets from the container
+                container.innerHTML = '';
             }
             return container;
         }
