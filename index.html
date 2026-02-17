@@ -2527,9 +2527,11 @@ async function handleRegister(e) {
         return;
     }
 
-    // التحقق من تكرار رقم الجوال (check both formats)
-    if (appData.users.find(u => u.phone === phone || u.phone === formattedPhone)) {
-        showAlert('رقم الجوال مسجل مسبقاً ❌', 'error');
+    // التحقق من تكرار رقم الجوال (check both formats across ALL users - students and guests)
+    const existingUserWithPhone = appData.users.find(u => u.phone === phone || u.phone === formattedPhone);
+    if (existingUserWithPhone) {
+        const userType = existingUserWithPhone.role === 'guest' ? 'ضيف' : 'طالب';
+        showAlert(`رقم الجوال مسجل مسبقاً كـ ${userType} ❌\nلا يمكن استخدام نفس الرقم لحسابين`, 'error');
         return;
     }
 
@@ -3252,9 +3254,11 @@ async function handleGuestRegister(e) {
         return;
     }
 
-    // Check for duplicate phone
-    if (appData.users.find(u => u.phone === phone || u.phone === formattedPhone)) {
-        showAlert('رقم الجوال مسجل مسبقاً ❌', 'error');
+    // Check for duplicate phone across ALL users (students and guests)
+    const existingUserWithPhone = appData.users.find(u => u.phone === phone || u.phone === formattedPhone);
+    if (existingUserWithPhone) {
+        const userType = existingUserWithPhone.role === 'guest' ? 'ضيف' : 'طالب';
+        showAlert(`رقم الجوال مسجل مسبقاً كـ ${userType} ❌\nلا يمكن استخدام نفس الرقم لحسابين`, 'error');
         return;
     }
 
