@@ -1247,6 +1247,15 @@ async function handlePasswordReset(form) {
         
         console.log('✅ Reset code verified:', result.user.phoneNumber);
 
+        // Additional security check: Verify the phone number matches
+        if (result.user.phoneNumber !== appState.forgotPasswordPhone) {
+            console.error('❌ Phone number mismatch:', result.user.phoneNumber, 'vs', appState.forgotPasswordPhone);
+            showAlert('خطأ في التحقق من رقم الجوال ❌', 'error');
+            appState.currentScreen = 'forgot';
+            render();
+            return;
+        }
+
         // تحديث كلمة المرور
         const user = appData.users.find(u => u.phone === appState.forgotPasswordPhone);
         
@@ -1258,6 +1267,12 @@ async function handlePasswordReset(form) {
         // تشفير كلمة المرور الجديدة
         user.passwordHash = await hashPassword(newPassword);
         delete user.password; // إزالة أي password غير مشفر
+        
+        // Mark phone as verified since they just verified it via SMS
+        if (!user.phoneVerified) {
+            user.phoneVerified = true;
+            user.phoneVerifiedAt = new Date().toISOString();
+        }
         
         // حفظ البيانات
         saveData();
@@ -2586,6 +2601,12 @@ function changePassword(form) {
                 return;
             }
 
+            // Check phone verification status (only for accounts with phoneVerified flag explicitly set to false)
+            if (user.hasOwnProperty('phoneVerified') && user.phoneVerified === false) {
+                showAlert('لم يتم التحقق من رقم الجوال. يرجى إكمال عملية التحقق ❌', 'error');
+                return;
+            }
+
             if (user.suspended) {
                 showAlert('تم تعليق هذا الحساب. تواصل مع الإدارة ⛔', 'error');
                 return;
@@ -2681,7 +2702,9 @@ async function handleRegister(e) {
             color: '#' + Math.floor(Math.random()*16777215).toString(16),
             achievements: [],
             suspended: false,
-            notifications: [] // Individual notifications per user
+            notifications: [], // Individual notifications per user
+            phoneVerified: false, // Will be set to true after SMS verification
+            phoneVerifiedAt: null // Will be set after SMS verification
         };
 
         // الانتقال لشاشة التحقق
@@ -3291,6 +3314,15 @@ async function handleVerify(e) {
         
         console.log('✅ Phone verified:', result.user.phoneNumber);
 
+        // Additional security check: Verify the phone number matches
+        if (result.user.phoneNumber !== window.pendingRegistration.phone) {
+            console.error('❌ Phone number mismatch:', result.user.phoneNumber, 'vs', window.pendingRegistration.phone);
+            showAlert('خطأ في التحقق من رقم الجوال ❌', 'error');
+            appState.currentScreen = 'register';
+            render();
+            return;
+        }
+
         // تسجيل الطالب في النظام
         const newStudent = { ...window.pendingRegistration };
         
@@ -3298,6 +3330,10 @@ async function handleVerify(e) {
         const passwordToHash = newStudent.password;
         delete newStudent.password;
         newStudent.passwordHash = await hashPassword(passwordToHash);
+        
+        // Mark phone as verified with timestamp
+        newStudent.phoneVerified = true;
+        newStudent.phoneVerifiedAt = new Date().toISOString();
         
         // إضافة الطالب إلى المستخدمين
         appData.users.push(newStudent);
@@ -3425,7 +3461,9 @@ async function handleGuestRegister(e) {
             color: '#' + Math.floor(Math.random()*16777215).toString(16),
             achievements: [],
             suspended: false,
-            notifications: []
+            notifications: [],
+            phoneVerified: false, // Will be set to true after SMS verification
+            phoneVerifiedAt: null // Will be set after SMS verification
         };
 
         // Go to verification screen
@@ -3463,6 +3501,15 @@ async function handleGuestVerify(e) {
         
         console.log('✅ Guest phone verified:', result.user.phoneNumber);
 
+        // Additional security check: Verify the phone number matches
+        if (result.user.phoneNumber !== window.pendingGuestRegistration.phone) {
+            console.error('❌ Phone number mismatch:', result.user.phoneNumber, 'vs', window.pendingGuestRegistration.phone);
+            showAlert('خطأ في التحقق من رقم الجوال ❌', 'error');
+            appState.currentScreen = 'guestRegister';
+            render();
+            return;
+        }
+
         // Register guest in system
         const newGuest = { ...window.pendingGuestRegistration };
         
@@ -3470,6 +3517,10 @@ async function handleGuestVerify(e) {
         const passwordToHash = newGuest.password;
         delete newGuest.password;
         newGuest.passwordHash = await hashPassword(passwordToHash);
+        
+        // Mark phone as verified with timestamp
+        newGuest.phoneVerified = true;
+        newGuest.phoneVerifiedAt = new Date().toISOString();
         
         // Add guest to users
         appData.users.push(newGuest);
