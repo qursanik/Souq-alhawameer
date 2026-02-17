@@ -3361,138 +3361,6 @@ function renderVerify() {
             }
         }
 
-        // Render admin transactions tab
-        function renderAdminTransactionsTab() {
-            const allTransactions = [...appData.transactions].sort((a, b) => {
-                const timeA = new Date(a.timestamp).getTime();
-                const timeB = new Date(b.timestamp).getTime();
-                return timeB - timeA;
-            });
-
-            // Get unique students for filter
-            const students = [...new Set(allTransactions.map(t => t.username))];
-
-            // Filter state (if we want to add filtering later)
-            const filterStudent = appState.transactionFilter || 'all';
-            const filteredTransactions = filterStudent === 'all' 
-                ? allTransactions 
-                : allTransactions.filter(t => t.username === filterStudent);
-
-            return `
-                <div class="tab-content active">
-                    <div class="card">
-                        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem; margin-bottom: 1.5rem;">
-                            <h2 style="margin: 0;">إدارة المعاملات 📜</h2>
-                            <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
-                                <select onchange="appState.transactionFilter = this.value; render();" 
-                                        style="padding: 0.5rem 1rem; border-radius: 8px; border: 1px solid var(--border); background: var(--bg-secondary); color: var(--text-primary); font-family: 'Tajawal', sans-serif;">
-                                    <option value="all" ${filterStudent === 'all' ? 'selected' : ''}>جميع الطلاب</option>
-                                    ${students.map(s => `<option value="${s}" ${filterStudent === s ? 'selected' : ''}>${s}</option>`).join('')}
-                                </select>
-                                ${allTransactions.length > 0 ? `
-                                    <button class="btn btn-danger btn-small" onclick="adminClearAllTransactions(event)" aria-label="مسح سجل جميع المعاملات" style="padding: 0.5rem 1rem; font-size: 0.9rem;">
-                                        🗑️ مسح السجل الكامل
-                                    </button>
-                                ` : ''}
-                            </div>
-                        </div>
-
-                        <div style="background: var(--bg-secondary); padding: 1.5rem; border-radius: 12px; margin-bottom: 1.5rem; border: 1px solid var(--border);">
-                            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; text-align: center;">
-                                <div>
-                                    <div style="color: var(--text-secondary); font-size: 0.9rem; margin-bottom: 0.5rem;">إجمالي المعاملات</div>
-                                    <div style="font-size: 2rem; font-weight: 900; color: var(--text-primary);">${filteredTransactions.length}</div>
-                                </div>
-                                <div>
-                                    <div style="color: var(--text-secondary); font-size: 0.9rem; margin-bottom: 0.5rem;">عمليات الشراء</div>
-                                    <div style="font-size: 2rem; font-weight: 900; color: var(--success);">${filteredTransactions.filter(t => t.type === 'buy').length}</div>
-                                </div>
-                                <div>
-                                    <div style="color: var(--text-secondary); font-size: 0.9rem; margin-bottom: 0.5rem;">عمليات البيع</div>
-                                    <div style="font-size: 2rem; font-weight: 900; color: var(--danger);">${filteredTransactions.filter(t => t.type === 'sell').length}</div>
-                                </div>
-                            </div>
-                        </div>
-
-                        ${filteredTransactions.length === 0 
-                            ? '<p style="text-align: center; color: var(--text-secondary); padding: 3rem; background: var(--bg-secondary); border-radius: 12px; border: 2px dashed var(--border);">📭 لا توجد معاملات</p>'
-                            : `
-                                <div style="display: grid; gap: 1rem;">
-                                    ${filteredTransactions.map(tx => {
-                                        const date = new Date(tx.timestamp);
-                                        const dateStr = date.toLocaleDateString('ar-SA', { year: 'numeric', month: 'short', day: 'numeric' });
-                                        const timeStr = date.toLocaleTimeString('ar-SA', { hour: '2-digit', minute: '2-digit' });
-                                        
-                                        return `
-                                            <div class="transaction-item" style="position: relative; background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 12px; padding: 1.5rem;">
-                                                <div class="transaction-header" style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1rem;">
-                                                    <div style="flex: 1;">
-                                                        <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem;">
-                                                            <span class="transaction-badge ${tx.type}" style="display: inline-block; padding: 0.25rem 0.75rem; border-radius: 20px; font-size: 0.85rem; font-weight: bold; ${tx.type === 'buy' ? 'background: var(--success); color: white;' : 'background: var(--danger); color: white;'}">
-                                                                ${tx.type === 'buy' ? '📈 شراء' : '📉 بيع'}
-                                                            </span>
-                                                            <span style="font-weight: bold; font-size: 1.1rem;">${tx.symbol}</span>
-                                                            <span style="color: var(--text-secondary); font-size: 0.9rem;">${tx.name}</span>
-                                                        </div>
-                                                        <div style="color: var(--text-secondary); font-size: 0.85rem;">
-                                                            👤 ${tx.username}
-                                                        </div>
-                                                    </div>
-                                                    <button onclick="adminDeleteTransaction(${tx.id}, event)" 
-                                                            style="position: absolute; top: 0.5rem; left: 0.5rem; background: var(--danger); border: none; color: white; cursor: pointer; padding: 0.4rem 0.6rem; font-size: 1rem; border-radius: 6px; transition: all 0.2s;" 
-                                                            onmouseover="this.style.background='#c0392b'"
-                                                            onmouseout="this.style.background='var(--danger)'"
-                                                            title="حذف من سجل المعاملات (الصفقة نفسها لن تتأثر)"
-                                                            aria-label="حذف من سجل المعاملات">🗑️</button>
-                                                </div>
-                                                
-                                                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 1rem; padding: 1rem; background: var(--bg-primary); border-radius: 8px;">
-                                                    <div>
-                                                        <div style="color: var(--text-secondary); font-size: 0.8rem; margin-bottom: 0.25rem;">الكمية:</div>
-                                                        <div style="font-weight: bold;">${tx.quantity}</div>
-                                                    </div>
-                                                    <div>
-                                                        <div style="color: var(--text-secondary); font-size: 0.8rem; margin-bottom: 0.25rem;">السعر:</div>
-                                                        <div style="font-weight: bold;">${tx.price.toFixed(2)} ر.س</div>
-                                                    </div>
-                                                    <div>
-                                                        <div style="color: var(--text-secondary); font-size: 0.8rem; margin-bottom: 0.25rem;">الإجمالي:</div>
-                                                        <div style="font-weight: bold; color: ${tx.type === 'buy' ? 'var(--danger)' : 'var(--success)'};">${tx.total.toFixed(2)} ر.س</div>
-                                                    </div>
-                                                    ${tx.profit !== undefined ? `
-                                                        <div>
-                                                            <div style="color: var(--text-secondary); font-size: 0.8rem; margin-bottom: 0.25rem;">الربح:</div>
-                                                            <div style="font-weight: bold; color: ${tx.profit >= 0 ? 'var(--success)' : 'var(--danger)'};">${tx.profit >= 0 ? '+' : ''}${tx.profit.toFixed(2)} ر.س</div>
-                                                        </div>
-                                                    ` : ''}
-                                                    <div>
-                                                        <div style="color: var(--text-secondary); font-size: 0.8rem; margin-bottom: 0.25rem;">التاريخ:</div>
-                                                        <div style="font-weight: bold; font-size: 0.85rem;">${dateStr}</div>
-                                                    </div>
-                                                    <div>
-                                                        <div style="color: var(--text-secondary); font-size: 0.8rem; margin-bottom: 0.25rem;">الوقت:</div>
-                                                        <div style="font-weight: bold; font-size: 0.85rem;">${timeStr}</div>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        `;
-                                    }).join('')}
-                                </div>
-
-                                ${filterStudent !== 'all' && filteredTransactions.length > 0 ? `
-                                    <div style="text-align: center; margin-top: 1.5rem;">
-                                        <button class="btn btn-danger" onclick="adminDeleteStudentTransactions('${filterStudent}', event)" style="padding: 0.75rem 2rem;">
-                                            🗑️ مسح سجل معاملات ${filterStudent}
-                                        </button>
-                                    </div>
-                                ` : ''}
-                            `
-                        }
-                    </div>
-                </div>
-            `;
-        }
-
         function renderStudentDashboard() {
             const portfolio = appData.portfolios.find(p => p.username === appState.currentUser.username);
             const portfolioValue = getPortfolioValue(appState.currentUser.username);
@@ -3936,10 +3804,6 @@ function renderVerify() {
                             onclick="appState.activeAdminTab='weeklyReport'; render();">
                         📊 التقرير الأسبوعي
                     </button>
-                    <button class="tab ${appState.activeAdminTab === 'transactions' ? 'active' : ''}" 
-                            onclick="appState.activeAdminTab='transactions'; render();">
-                        📜 المعاملات
-                    </button>
                     <button class="tab ${appState.activeAdminTab === 'activityLog' ? 'active' : ''}" 
                             onclick="appState.activeAdminTab='activityLog'; render();">
                         📋 سجل التداول
@@ -3958,7 +3822,6 @@ function renderVerify() {
                 ${appState.activeAdminTab === 'stocks' ? renderAdminStocksTab() : ''}
                 ${appState.activeAdminTab === 'leaderboard' ? renderLeaderboardTab(true) : ''}
                 ${appState.activeAdminTab === 'weeklyReport' ? renderWeeklyReportTab() : ''}
-                ${appState.activeAdminTab === 'transactions' ? renderAdminTransactionsTab() : ''}
                 ${appState.activeAdminTab === 'activityLog' ? renderActivityLogTab() : ''}
                 ${appState.activeAdminTab === 'chat' ? renderChatTab() : ''}
                 ${appState.activeAdminTab === 'profile' ? renderAdminProfileTab() : ''}
