@@ -2216,18 +2216,16 @@ function changePassword(form) {
         function deleteActivityLog(logId, event) {
             if (event) event.stopPropagation();
             
-            if (confirm('هل تريد حذف هذا السجل؟')) {
-                // Convert to number for comparison since IDs are numeric
-                const numId = Number(logId);
-                
-                // Find and remove the log entry
-                const index = appData.activityLog.findIndex(log => log.id === numId);
-                if (index !== -1) {
-                    appData.activityLog.splice(index, 1);
-                    saveData();
-                    render();
-                    showAlert('✅ تم حذف السجل بنجاح', 'success');
-                }
+            // Convert to number for comparison since IDs are numeric
+            const numId = Number(logId);
+            
+            // Find and remove the log entry
+            const index = appData.activityLog.findIndex(log => log.id === numId);
+            if (index !== -1) {
+                appData.activityLog.splice(index, 1);
+                saveData();
+                render();
+                showAlert('✅ تم حذف السجل بنجاح', 'success');
             }
         }
 
