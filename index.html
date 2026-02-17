@@ -2231,6 +2231,17 @@ function changePassword(form) {
             }
         }
 
+        // Delete all activity logs without confirmation
+        function deleteAllActivityLog(event) {
+            if (event) event.stopPropagation();
+            
+            // Clear all activity log entries
+            appData.activityLog = [];
+            saveData();
+            render();
+            showAlert('✅ تم حذف جميع السجلات بنجاح', 'success');
+        }
+
         // Show alert
         function showAlert(text, type = 'success') {
             const alertEl = document.createElement('div');
@@ -4464,7 +4475,14 @@ let confirmModal = { show: false, message: '', onConfirm: null };
             return `
                 <div class="tab-content active">
                     <div class="card">
-                        <h2 style="margin-bottom: 1.5rem;">سجل التداول 📋</h2>
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+                            <h2 style="margin: 0;">سجل التداول 📋</h2>
+                            ${filteredLog.length > 0 ? `
+                                <button class="btn btn-danger" onclick="deleteAllActivityLog(event)" style="padding: 0.5rem 1rem; font-size: 0.85rem;">
+                                    🗑️ حذف الكل
+                                </button>
+                            ` : ''}
+                        </div>
                         
                         ${filteredLog.length === 0 
                             ? '<p style="text-align: center; color: var(--text-secondary); padding: 3rem; background: var(--bg-secondary); border-radius: 12px; border: 2px dashed var(--border);">لا يوجد نشاط</p>'
