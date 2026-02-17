@@ -3547,7 +3547,9 @@ function renderGuestVerify() {
                         <button class="theme-toggle" onclick="toggleTheme()">
                             ${appState.theme === 'dark' ? '☀️' : '🌙'}
                         </button>
-                        <span style="color: var(--text-secondary); font-weight: 500;">${appState.currentUser.username}</span>
+                        <span style="color: var(--text-secondary); font-weight: 500;">
+                            ${appState.currentUser.role === 'guest' && appState.currentUser.displayName ? appState.currentUser.displayName : appState.currentUser.username}
+                        </span>
                         <button class="btn btn-danger btn-small" onclick="logout()">
                             خروج
                         </button>
