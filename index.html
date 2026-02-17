@@ -4392,10 +4392,12 @@ function renderGuestVerify() {
                                     const username = getMessageUsername(msg);
                                     const isAdminMsg = isMessageFromAdmin(msg);
                                     const isOwn = username === appState.currentUser.username;
+                                    const user = appData.users.find(u => u.username === username);
+                                    const displayName = user && user.displayName ? user.displayName : username;
                                     return `
                                     <div class="chat-message ${isOwn ? 'own' : 'other'}">
                                         <div class="chat-sender" style="font-weight: bold; margin-bottom: 0.35rem; display: flex; align-items: center; gap: 0.5rem;">
-                                            ${username} ${isAdminMsg ? '<span style="background: var(--secondary); color: var(--bg-primary); padding: 0.15rem 0.5rem; border-radius: 12px; font-size: 0.7rem;">👨‍💼 مشرف</span>' : '<span style="background: var(--success); color: white; padding: 0.15rem 0.5rem; border-radius: 12px; font-size: 0.7rem;">👤 ضيف</span>'}
+                                            ${displayName} ${isAdminMsg ? '<span style="background: var(--secondary); color: var(--bg-primary); padding: 0.15rem 0.5rem; border-radius: 12px; font-size: 0.7rem;">👨‍💼 مشرف</span>' : ''}
                                         </div>
                                         <div style="word-wrap: break-word;">${msg.text}</div>
                                         <div class="chat-time" style="font-size: 0.75rem; opacity: 0.7; margin-top: 0.35rem;">
@@ -4639,7 +4641,7 @@ function renderGuestVerify() {
                                     <div class="chat-message ${isOwn ? 'own' : 'other'}">
                                         <div class="chat-sender" style="font-weight: bold; margin-bottom: 0.35rem; display: flex; align-items: center; gap: 0.5rem; justify-content: space-between;">
                                             <div style="display: flex; align-items: center; gap: 0.5rem;">
-                                                ${displayName} ${isAdminMsg ? '<span style="background: var(--secondary); color: var(--bg-primary); padding: 0.15rem 0.5rem; border-radius: 12px; font-size: 0.7rem;">👨‍💼 مشرف</span>' : '<span style="background: var(--success); color: white; padding: 0.15rem 0.5rem; border-radius: 12px; font-size: 0.7rem;">👤 ضيف</span>'}
+                                                ${displayName} ${isAdminMsg ? '<span style="background: var(--secondary); color: var(--bg-primary); padding: 0.15rem 0.5rem; border-radius: 12px; font-size: 0.7rem;">👨‍💼 مشرف</span>' : ''}
                                             </div>
                                             ${isAdmin ? `
                                                 <button onclick="deleteGuestMessageSync(${msg.id})" 
@@ -5605,6 +5607,10 @@ let confirmModal = { show: false, message: '', onConfirm: null };
             const holding = portfolio ? portfolio.holdings.find(h => h.symbol === stock.symbol) : null;
             const userBalance = appState.currentUser.balance;
             
+            // تحديد حالة السوق حسب نوع المستخدم
+            const isGuest = appState.currentUser.role === 'guest';
+            const userTradingEnabled = isGuest ? appData.settings.guestTradingEnabled : appData.settings.tradingEnabled;
+            
             // حساب الحد الأقصى للشراء (بناءً على الرصيد)
             const maxBuy = userBalance > 0 ? Math.floor(userBalance / stock.price) : 0;
             
@@ -5820,28 +5826,28 @@ let confirmModal = { show: false, message: '', onConfirm: null };
 
                             <!-- أزرار الشراء والبيع -->
                             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1.5rem;">
-                                <button onclick="${appData.settings.tradingEnabled ? `executeTradeFromModal('buy')` : `showAlert('${marketClosedMsg}', 'error')`}" 
-                                        style="padding: 1.5rem; background: linear-gradient(135deg, #2ecc71, #27ae60); color: white; border: none; border-radius: 14px; font-size: 1.1rem; font-weight: 700; cursor: ${appData.settings.tradingEnabled ? 'pointer' : 'not-allowed'}; transition: all 0.3s; box-shadow: 0 4px 15px rgba(46, 204, 113, 0.3); position: relative; overflow: hidden; opacity: ${appData.settings.tradingEnabled ? '1' : '0.5'};">
+                                <button onclick="${userTradingEnabled ? `executeTradeFromModal('buy')` : `showAlert('${marketClosedMsg}', 'error')`}" 
+                                        style="padding: 1.5rem; background: linear-gradient(135deg, #2ecc71, #27ae60); color: white; border: none; border-radius: 14px; font-size: 1.1rem; font-weight: 700; cursor: ${userTradingEnabled ? 'pointer' : 'not-allowed'}; transition: all 0.3s; box-shadow: 0 4px 15px rgba(46, 204, 113, 0.3); position: relative; overflow: hidden; opacity: ${userTradingEnabled ? '1' : '0.5'};">
                                     <div style="position: relative; z-index: 1;">
-                                        <div style="font-size: 1.8rem; margin-bottom: 0.5rem;">${appData.settings.tradingEnabled ? '📈' : '🔒'}</div>
-                                        <div>${appData.settings.tradingEnabled ? 'شراء' : 'مغلق'}</div>
-                                        ${appData.settings.tradingEnabled ? `<div style="font-size: 0.75rem; opacity: 0.9; margin-top: 0.25rem;">حد أقصى: ${maxBuy}</div>` : ''}
+                                        <div style="font-size: 1.8rem; margin-bottom: 0.5rem;">${userTradingEnabled ? '📈' : '🔒'}</div>
+                                        <div>${userTradingEnabled ? 'شراء' : 'مغلق'}</div>
+                                        ${userTradingEnabled ? `<div style="font-size: 0.75rem; opacity: 0.9; margin-top: 0.25rem;">حد أقصى: ${maxBuy}</div>` : ''}
                                     </div>
                                 </button>
-                                <button onclick="${appData.settings.tradingEnabled ? `executeTradeFromModal('sell')` : `showAlert('${marketClosedMsg}', 'error')`}" 
-                                        style="padding: 1.5rem; background: linear-gradient(135deg, #e74c3c, #c0392b); color: white; border: none; border-radius: 14px; font-size: 1.1rem; font-weight: 700; cursor: ${appData.settings.tradingEnabled ? 'pointer' : 'not-allowed'}; transition: all 0.3s; box-shadow: 0 4px 15px rgba(231, 76, 60, 0.3); position: relative; overflow: hidden; opacity: ${appData.settings.tradingEnabled ? '1' : '0.5'};">
+                                <button onclick="${userTradingEnabled ? `executeTradeFromModal('sell')` : `showAlert('${marketClosedMsg}', 'error')`}" 
+                                        style="padding: 1.5rem; background: linear-gradient(135deg, #e74c3c, #c0392b); color: white; border: none; border-radius: 14px; font-size: 1.1rem; font-weight: 700; cursor: ${userTradingEnabled ? 'pointer' : 'not-allowed'}; transition: all 0.3s; box-shadow: 0 4px 15px rgba(231, 76, 60, 0.3); position: relative; overflow: hidden; opacity: ${userTradingEnabled ? '1' : '0.5'};">
                                     <div style="position: relative; z-index: 1;">
-                                        <div style="font-size: 1.8rem; margin-bottom: 0.5rem;">${appData.settings.tradingEnabled ? '📉' : '🔒'}</div>
-                                        <div>${appData.settings.tradingEnabled ? 'بيع' : 'مغلق'}</div>
-                                        ${appData.settings.tradingEnabled ? `<div style="font-size: 0.75rem; opacity: 0.9; margin-top: 0.25rem;">حد أقصى: ${maxSell}</div>` : ''}
+                                        <div style="font-size: 1.8rem; margin-bottom: 0.5rem;">${userTradingEnabled ? '📉' : '🔒'}</div>
+                                        <div>${userTradingEnabled ? 'بيع' : 'مغلق'}</div>
+                                        ${userTradingEnabled ? `<div style="font-size: 0.75rem; opacity: 0.9; margin-top: 0.25rem;">حد أقصى: ${maxSell}</div>` : ''}
                                     </div>
                                 </button>
                             </div>
 
                             <!-- ملاحظات -->
-                            <div style="padding: 1.25rem; background: linear-gradient(135deg, var(--bg-secondary), var(--bg-primary)); border-radius: 12px; border-right: 4px solid ${appData.settings.tradingEnabled ? 'var(--secondary)' : 'var(--danger)'};">
+                            <div style="padding: 1.25rem; background: linear-gradient(135deg, var(--bg-secondary), var(--bg-primary)); border-radius: 12px; border-right: 4px solid ${userTradingEnabled ? 'var(--secondary)' : 'var(--danger)'};">
                                 <div style="font-size: 0.85rem; color: var(--text-secondary); line-height: 1.7;">
-                                    ${appData.settings.tradingEnabled ? `
+                                    ${userTradingEnabled ? `
                                         <div style="font-weight: bold; color: var(--text-primary); margin-bottom: 0.5rem; display: flex; align-items: center; gap: 0.5rem;">
                                             <span>💡</span> نصائح التداول:
                                         </div>
