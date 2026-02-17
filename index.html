@@ -2464,7 +2464,8 @@ function changePassword(form) {
         function isRetryableError(error) {
             // Check if error is a transient service error that can be retried
             if (error.message && error.message.includes('503')) return true;
-            if (error.message && error.message.includes('auth/error-code:-39')) return true;
+            if (error.code && error.code.includes('-39')) return true; // Firebase error-code:-39
+            if (error.message && error.message.includes('error-code:-39')) return true; // Backup check in message
             if (error.code === 'auth/network-request-failed') return true;
             return false;
         }
@@ -2500,8 +2501,8 @@ function changePassword(form) {
                         throw error;
                     }
                     
-                    // Calculate exponential backoff delay: 2^attempt seconds
-                    const delayMs = Math.pow(2, attempt) * 1000; // 2s, 4s, 8s...
+                    // Calculate exponential backoff delay: 2^attempt seconds (2s, 4s for 3 total attempts)
+                    const delayMs = Math.pow(2, attempt) * 1000;
                     console.log(`⏳ Retrying in ${delayMs/1000} seconds...`);
                     
                     // Show user-friendly message
