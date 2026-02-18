@@ -1152,21 +1152,32 @@ async function sendResetCode(form) {
         // 2. التأكد من وجود الـ container
         ensureRecaptchaContainer('reset-recaptcha-container');
         
-        // 3. إنشاء reCAPTCHA جديد
-        window.resetRecaptchaVerifier = new firebase.auth.RecaptchaVerifier('reset-recaptcha-container', {
-            'size': 'invisible',
-            'callback': (response) => { console.log('✅ reCAPTCHA solved for reset'); },
-            'expired-callback': () => { 
-                console.warn('⚠️ reCAPTCHA expired for reset');
-                cleanupRecaptchaVerifier('resetRecaptchaVerifier');
-            }
-        });
+        // 3. Create factory function for reCAPTCHA to enable retries with fresh verifiers
+        const createResetRecaptchaVerifier = () => {
+            // Cleanup any existing verifier before creating new one
+            cleanupRecaptchaVerifier('resetRecaptchaVerifier');
+            
+            // Ensure container is ready
+            ensureRecaptchaContainer('reset-recaptcha-container');
+            
+            // Create and return new verifier
+            window.resetRecaptchaVerifier = new firebase.auth.RecaptchaVerifier('reset-recaptcha-container', {
+                'size': 'invisible',
+                'callback': (response) => { console.log('✅ reCAPTCHA solved for reset'); },
+                'expired-callback': () => { 
+                    console.warn('⚠️ reCAPTCHA expired for reset');
+                    cleanupRecaptchaVerifier('resetRecaptchaVerifier');
+                }
+            });
+            
+            return window.resetRecaptchaVerifier;
+        };
 
-        // 4. إرسال SMS مع إعادة المحاولة
+        // 4. إرسال SMS مع إعادة المحاولة using factory function
         console.log('📤 Attempting to send SMS to:', formattedPhone);
         const confirmationResult = await sendSmsWithRetry(
             formattedPhone, 
-            window.resetRecaptchaVerifier
+            createResetRecaptchaVerifier
         );
 
         console.log('✅ Reset SMS sent via Firebase to:', formattedPhone);
@@ -2529,8 +2540,12 @@ function changePassword(form) {
         }
 
         // Helper function to send SMS with retry logic
-        async function sendSmsWithRetry(phoneNumber, recaptchaVerifier, maxRetries = 3) {
+        async function sendSmsWithRetry(phoneNumber, recaptchaVerifierOrFactory, maxRetries = 3) {
             let lastError = null;
+            let currentVerifier = null;
+            
+            // Check if parameter is a factory function or a verifier instance
+            const isFactory = typeof recaptchaVerifierOrFactory === 'function';
             
             for (let attempt = 1; attempt <= maxRetries; attempt++) {
                 try {
@@ -2541,9 +2556,16 @@ function changePassword(form) {
                         showAlert(`جاري إعادة المحاولة (${attempt}/${maxRetries})...`, 'info');
                     }
                     
+                    // Create fresh verifier for each attempt if factory provided
+                    if (isFactory) {
+                        currentVerifier = recaptchaVerifierOrFactory();
+                    } else {
+                        currentVerifier = recaptchaVerifierOrFactory;
+                    }
+                    
                     const confirmationResult = await firebase.auth().signInWithPhoneNumber(
                         phoneNumber, 
-                        recaptchaVerifier
+                        currentVerifier
                     );
                     
                     console.log(`✅ SMS sent successfully on attempt ${attempt}`);
@@ -2715,21 +2737,32 @@ async function handleRegister(e) {
         // 2. التأكد من وجود الـ container
         ensureRecaptchaContainer('recaptcha-container');
         
-        // 3. إنشاء reCAPTCHA جديد
-        window.recaptchaVerifier = new firebase.auth.RecaptchaVerifier('recaptcha-container', {
-            'size': 'invisible',
-            'callback': (response) => { console.log('✅ reCAPTCHA solved'); },
-            'expired-callback': () => { 
-                console.warn('⚠️ reCAPTCHA expired');
-                cleanupRecaptchaVerifier('recaptchaVerifier');
-            }
-        });
+        // 3. Create factory function for reCAPTCHA to enable retries with fresh verifiers
+        const createRecaptchaVerifier = () => {
+            // Cleanup any existing verifier before creating new one
+            cleanupRecaptchaVerifier('recaptchaVerifier');
+            
+            // Ensure container is ready
+            ensureRecaptchaContainer('recaptcha-container');
+            
+            // Create and return new verifier
+            window.recaptchaVerifier = new firebase.auth.RecaptchaVerifier('recaptcha-container', {
+                'size': 'invisible',
+                'callback': (response) => { console.log('✅ reCAPTCHA solved'); },
+                'expired-callback': () => { 
+                    console.warn('⚠️ reCAPTCHA expired');
+                    cleanupRecaptchaVerifier('recaptchaVerifier');
+                }
+            });
+            
+            return window.recaptchaVerifier;
+        };
 
-        // 4. إرسال الرسالة مع إعادة المحاولة
+        // 4. إرسال الرسالة مع إعادة المحاولة using factory function
         console.log('📤 Attempting to send SMS to:', formattedPhone);
         const confirmationResult = await sendSmsWithRetry(
             formattedPhone, 
-            window.recaptchaVerifier
+            createRecaptchaVerifier
         );
 
         console.log('✅ SMS sent via Firebase to:', formattedPhone);
@@ -3518,21 +3551,32 @@ async function handleGuestRegister(e) {
         // Ensure container exists
         ensureRecaptchaContainer('guest-recaptcha-container');
         
-        // Create new reCAPTCHA
-        window.guestRecaptchaVerifier = new firebase.auth.RecaptchaVerifier('guest-recaptcha-container', {
-            'size': 'invisible',
-            'callback': (response) => { console.log('✅ Guest reCAPTCHA solved'); },
-            'expired-callback': () => { 
-                console.warn('⚠️ Guest reCAPTCHA expired');
-                cleanupRecaptchaVerifier('guestRecaptchaVerifier');
-            }
-        });
+        // Create factory function for reCAPTCHA to enable retries with fresh verifiers
+        const createGuestRecaptchaVerifier = () => {
+            // Cleanup any existing verifier before creating new one
+            cleanupRecaptchaVerifier('guestRecaptchaVerifier');
+            
+            // Ensure container is ready
+            ensureRecaptchaContainer('guest-recaptcha-container');
+            
+            // Create and return new verifier
+            window.guestRecaptchaVerifier = new firebase.auth.RecaptchaVerifier('guest-recaptcha-container', {
+                'size': 'invisible',
+                'callback': (response) => { console.log('✅ Guest reCAPTCHA solved'); },
+                'expired-callback': () => { 
+                    console.warn('⚠️ Guest reCAPTCHA expired');
+                    cleanupRecaptchaVerifier('guestRecaptchaVerifier');
+                }
+            });
+            
+            return window.guestRecaptchaVerifier;
+        };
 
-        // Send SMS with retry logic
+        // Send SMS with retry logic using factory function
         console.log('📤 Sending SMS to guest:', formattedPhone);
         const confirmationResult = await sendSmsWithRetry(
             formattedPhone, 
-            window.guestRecaptchaVerifier
+            createGuestRecaptchaVerifier
         );
 
         console.log('✅ SMS sent to guest:', formattedPhone);
