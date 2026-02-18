@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>سوق الهوامير - النسخة المتطورة</title>
+    <link rel="icon" type="image/svg+xml" href="favicon.svg">
     <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@300;400;500;700;800&family=Cairo:wght@300;400;600;700;900&display=swap" rel="stylesheet">
 
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -1167,7 +1168,8 @@ async function sendResetCode(form) {
                 'expired-callback': () => { 
                     console.warn('⚠️ reCAPTCHA expired for reset');
                     cleanupRecaptchaVerifier('resetRecaptchaVerifier');
-                }
+                },
+                'timeout': 120000
             });
             
             return window.resetRecaptchaVerifier;
@@ -2536,6 +2538,9 @@ function changePassword(form) {
             if (error.code && error.code.includes('-39')) return true; // Firebase error-code:-39
             if (error.message && error.message.includes('error-code:-39')) return true; // Backup check in message
             if (error.code === 'auth/network-request-failed') return true;
+            if (error.code === 'auth/captcha-check-failed') return true; // Retry on captcha failures
+            if (error.code === 'auth/timeout') return true; // Retry on timeout
+            if (error.message && error.message.toLowerCase().includes('timeout')) return true;
             return false;
         }
 
@@ -2752,7 +2757,8 @@ async function handleRegister(e) {
                 'expired-callback': () => { 
                     console.warn('⚠️ reCAPTCHA expired');
                     cleanupRecaptchaVerifier('recaptchaVerifier');
-                }
+                },
+                'timeout': 120000
             });
             
             return window.recaptchaVerifier;
@@ -3566,7 +3572,8 @@ async function handleGuestRegister(e) {
                 'expired-callback': () => { 
                     console.warn('⚠️ Guest reCAPTCHA expired');
                     cleanupRecaptchaVerifier('guestRecaptchaVerifier');
-                }
+                },
+                'timeout': 120000
             });
             
             return window.guestRecaptchaVerifier;
