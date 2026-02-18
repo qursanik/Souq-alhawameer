@@ -1191,7 +1191,7 @@ async function sendResetCode(form) {
         
         appState.currentScreen = 'reset';
         render();
-        showAlert(`تم إرسال رمز التحقق إلى ${formattedPhone}`, 'success');
+        showAlert(`تم إرسال رمز التحقق إلى ${formattedPhone}. قد يستغرق الأمر بضع دقائق. تحقق من صندوق الرسائل.`, 'success');
 
     } catch (error) {
         console.error('❌ Firebase Reset SMS error:', error);
@@ -2568,6 +2568,9 @@ function changePassword(form) {
                         currentVerifier = recaptchaVerifierOrFactory;
                     }
                     
+                    console.log('📱 Sending SMS to:', phoneNumber);
+                    console.log('🔐 Using verifier:', currentVerifier ? 'Ready' : 'Not ready');
+                    
                     const confirmationResult = await firebase.auth().signInWithPhoneNumber(
                         phoneNumber, 
                         currentVerifier
@@ -2794,7 +2797,7 @@ async function handleRegister(e) {
         // الانتقال لشاشة التحقق
         appState.currentScreen = 'verify';
         render();
-        showAlert(`تم إرسال رمز التحقق إلى ${formattedPhone}`, 'success');
+        showAlert(`تم إرسال رمز التحقق إلى ${formattedPhone}. قد يستغرق الأمر بضع دقائق. تحقق من صندوق الرسائل.`, 'success');
 
     } catch (error) {
         console.error('❌ Firebase SMS error:', error);
@@ -3610,7 +3613,7 @@ async function handleGuestRegister(e) {
         // Go to verification screen
         appState.currentScreen = 'guestVerify';
         render();
-        showAlert(`تم إرسال رمز التحقق إلى ${formattedPhone}`, 'success');
+        showAlert(`تم إرسال رمز التحقق إلى ${formattedPhone}. قد يستغرق الأمر بضع دقائق. تحقق من صندوق الرسائل.`, 'success');
 
     } catch (error) {
         console.error('❌ Guest registration SMS error:', error);
