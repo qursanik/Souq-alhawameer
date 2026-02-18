@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>سوق الهوامير - النسخة المتطورة</title>
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg">
     <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@300;400;500;700;800&family=Cairo:wght@300;400;600;700;900&display=swap" rel="stylesheet">
 
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -1167,7 +1168,8 @@ async function sendResetCode(form) {
                 'expired-callback': () => { 
                     console.warn('⚠️ reCAPTCHA expired for reset');
                     cleanupRecaptchaVerifier('resetRecaptchaVerifier');
-                }
+                },
+                'timeout': 120000
             });
             
             return window.resetRecaptchaVerifier;
@@ -1189,7 +1191,7 @@ async function sendResetCode(form) {
         
         appState.currentScreen = 'reset';
         render();
-        showAlert(`تم إرسال رمز التحقق إلى ${formattedPhone}`, 'success');
+        showAlert(`تم إرسال رمز التحقق إلى ${formattedPhone}. قد يستغرق الأمر بضع دقائق. تحقق من صندوق الرسائل.`, 'success');
 
     } catch (error) {
         console.error('❌ Firebase Reset SMS error:', error);
@@ -1542,17 +1544,28 @@ function changePassword(form) {
                     const data = doc.data();
                     const oldMessagesLength = appData.messages.length;
                     const oldLastMessageId = appData.messages.length > 0 ? appData.messages[appData.messages.length - 1].id : null;
+                    const oldGuestMessagesLength = appData.guestMessages.length;
+                    const oldStocksLength = appData.stocks.length;
+                    const oldStockPrices = appData.stocks.map(s => s.price).join(','); // Track price changes
+                    const oldActivityLogLength = appData.activityLog.length;
                     
                     appData.stocks = data.stocks || [];
                     appData.messages = data.messages || [];
+                    appData.guestMessages = data.guestMessages || [];
                     appData.settings = data.settings || appData.settings;
                     appData.activityLog = data.activityLog || [];
                     appData.notifications = data.notifications || [];
                     
-                    // Check if we're in chat tab and messages changed
-                    const inChatTab = (appState.activeTab === 'chat' || appState.activeAdminTab === 'chat');
+                    // Check if data actually changed
+                    const newStockPrices = appData.stocks.map(s => s.price).join(',');
+                    const stocksChanged = appData.stocks.length !== oldStocksLength || newStockPrices !== oldStockPrices;
                     const messagesChanged = appData.messages.length !== oldMessagesLength || 
                                           (appData.messages.length > 0 && appData.messages[appData.messages.length - 1].id !== oldLastMessageId);
+                    const guestMessagesChanged = appData.guestMessages.length !== oldGuestMessagesLength;
+                    const activityLogChanged = appData.activityLog.length !== oldActivityLogLength;
+                    
+                    // Check if we're in chat tab and messages changed
+                    const inChatTab = (appState.activeTab === 'chat' || appState.activeAdminTab === 'chat');
                     
                     // If in chat and messages changed, update chat container directly
                     if (inChatTab && messagesChanged) {
@@ -1593,8 +1606,8 @@ function changePassword(form) {
                                 chatContainer.scrollTop = chatContainer.scrollHeight;
                             }
                         }
-                    } else {
-                        // Use debounced render to prevent cutoffs for other data updates
+                    } else if (stocksChanged || messagesChanged || guestMessagesChanged || activityLogChanged) {
+                        // Only re-render if data actually changed
                         debouncedRender();
                     }
                 }
@@ -2536,6 +2549,9 @@ function changePassword(form) {
             if (error.code && error.code.includes('-39')) return true; // Firebase error-code:-39
             if (error.message && error.message.includes('error-code:-39')) return true; // Backup check in message
             if (error.code === 'auth/network-request-failed') return true;
+            if (error.code === 'auth/captcha-check-failed') return true; // Retry on captcha failures
+            if (error.code === 'auth/timeout') return true; // Retry on timeout
+            if (error.message && error.message.toLowerCase().includes('timeout')) return true;
             return false;
         }
 
@@ -2562,6 +2578,9 @@ function changePassword(form) {
                     } else {
                         currentVerifier = recaptchaVerifierOrFactory;
                     }
+                    
+                    console.log('📱 Sending SMS to:', phoneNumber);
+                    console.log('🔐 Using verifier:', currentVerifier ? 'Ready' : 'Not ready');
                     
                     const confirmationResult = await firebase.auth().signInWithPhoneNumber(
                         phoneNumber, 
@@ -2752,7 +2771,8 @@ async function handleRegister(e) {
                 'expired-callback': () => { 
                     console.warn('⚠️ reCAPTCHA expired');
                     cleanupRecaptchaVerifier('recaptchaVerifier');
-                }
+                },
+                'timeout': 120000
             });
             
             return window.recaptchaVerifier;
@@ -2788,7 +2808,7 @@ async function handleRegister(e) {
         // الانتقال لشاشة التحقق
         appState.currentScreen = 'verify';
         render();
-        showAlert(`تم إرسال رمز التحقق إلى ${formattedPhone}`, 'success');
+        showAlert(`تم إرسال رمز التحقق إلى ${formattedPhone}. قد يستغرق الأمر بضع دقائق. تحقق من صندوق الرسائل.`, 'success');
 
     } catch (error) {
         console.error('❌ Firebase SMS error:', error);
@@ -3566,7 +3586,8 @@ async function handleGuestRegister(e) {
                 'expired-callback': () => { 
                     console.warn('⚠️ Guest reCAPTCHA expired');
                     cleanupRecaptchaVerifier('guestRecaptchaVerifier');
-                }
+                },
+                'timeout': 120000
             });
             
             return window.guestRecaptchaVerifier;
@@ -3603,7 +3624,7 @@ async function handleGuestRegister(e) {
         // Go to verification screen
         appState.currentScreen = 'guestVerify';
         render();
-        showAlert(`تم إرسال رمز التحقق إلى ${formattedPhone}`, 'success');
+        showAlert(`تم إرسال رمز التحقق إلى ${formattedPhone}. قد يستغرق الأمر بضع دقائق. تحقق من صندوق الرسائل.`, 'success');
 
     } catch (error) {
         console.error('❌ Guest registration SMS error:', error);
