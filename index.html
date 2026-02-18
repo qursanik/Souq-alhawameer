@@ -3178,11 +3178,22 @@ async function handleRegister(e) {
             const oldBalance = user.balance;
             user.balance += amount;
             
-            // Log with appropriate action type based on user role
-            const actionType = user.role === 'guest' ? 'إضافة رصيد ضيف' : 'إضافة رصيد';
-            addActivityLog(actionType, `${user.username} +${amount.toFixed(2)}`);
-            showAlert(`✅ تمت إضافة ${amount.toFixed(2)} ر.س`, 'success');
-            saveData();
+            // Save balance immediately to Firebase to prevent race condition with realtime listeners
+            try {
+                await db.collection('users').doc(user.username).update({ balance: user.balance });
+                
+                // Log with appropriate action type based on user role (only after successful save)
+                const actionType = user.role === 'guest' ? 'إضافة رصيد ضيف' : 'إضافة رصيد';
+                addActivityLog(actionType, `${user.username} +${amount.toFixed(2)}`);
+                
+                await saveData(); // Also trigger full save for activity log
+                showAlert(`✅ تمت إضافة ${amount.toFixed(2)} ر.س`, 'success');
+            } catch (error) {
+                console.error('Error saving balance:', error);
+                showAlert('حدث خطأ في حفظ الرصيد', 'error');
+                user.balance = oldBalance; // Rollback on error
+            }
+            
             closeBalanceModal();
         }
 
@@ -3195,14 +3206,26 @@ async function handleRegister(e) {
             }
             
             const user = appData.users.find(u => u.username === balanceModalState.username);
+            const oldBalance = user.balance;
             // السماح بالرصيد السالب - لا يوجد فحص للرصيد
-            
             user.balance -= amount;
-            // Log with appropriate action type based on user role
-            const actionType = user.role === 'guest' ? 'إضافة رصيد ضيف' : 'إضافة رصيد';
-            addActivityLog(actionType, `${user.username} -${amount.toFixed(2)}`);
-            showAlert(`✅ تم خصم ${amount.toFixed(2)} ر.س`, 'success');
-            saveData();
+            
+            // Save balance immediately to Firebase to prevent race condition with realtime listeners
+            try {
+                await db.collection('users').doc(user.username).update({ balance: user.balance });
+                
+                // Log with appropriate action type based on user role (only after successful save)
+                const actionType = user.role === 'guest' ? 'إضافة رصيد ضيف' : 'إضافة رصيد';
+                addActivityLog(actionType, `${user.username} -${amount.toFixed(2)}`);
+                
+                await saveData(); // Also trigger full save for activity log
+                showAlert(`✅ تم خصم ${amount.toFixed(2)} ر.س`, 'success');
+            } catch (error) {
+                console.error('Error saving balance:', error);
+                showAlert('حدث خطأ في حفظ الرصيد', 'error');
+                user.balance = oldBalance; // Rollback on error
+            }
+            
             closeBalanceModal();
         }
 
@@ -3218,9 +3241,21 @@ async function handleRegister(e) {
             const oldBalance = user.balance;
             user.balance = amount;
             
-            addActivityLog('تعيين رصيد', `${user.username}: ${oldBalance.toFixed(2)} → ${amount.toFixed(2)} ر.س`);
-            showAlert(`✅ تم تعيين الرصيد إلى ${amount.toFixed(2)} ر.س`, 'success');
-            saveData();
+            // Save balance immediately to Firebase to prevent race condition with realtime listeners
+            try {
+                await db.collection('users').doc(user.username).update({ balance: user.balance });
+                
+                // Log activity only after successful save
+                addActivityLog('تعيين رصيد', `${user.username}: ${oldBalance.toFixed(2)} → ${amount.toFixed(2)} ر.س`);
+                
+                await saveData(); // Also trigger full save for activity log
+                showAlert(`✅ تم تعيين الرصيد إلى ${amount.toFixed(2)} ر.س`, 'success');
+            } catch (error) {
+                console.error('Error saving balance:', error);
+                showAlert('حدث خطأ في حفظ الرصيد', 'error');
+                user.balance = oldBalance; // Rollback on error
+            }
+            
             closeBalanceModal();
         }
 
