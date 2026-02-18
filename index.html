@@ -1546,6 +1546,7 @@ function changePassword(form) {
                     const oldLastMessageId = appData.messages.length > 0 ? appData.messages[appData.messages.length - 1].id : null;
                     const oldGuestMessagesLength = appData.guestMessages.length;
                     const oldStocksLength = appData.stocks.length;
+                    const oldStockPrices = appData.stocks.map(s => s.price).join(','); // Track price changes
                     const oldActivityLogLength = appData.activityLog.length;
                     
                     appData.stocks = data.stocks || [];
@@ -1556,7 +1557,8 @@ function changePassword(form) {
                     appData.notifications = data.notifications || [];
                     
                     // Check if data actually changed
-                    const stocksChanged = appData.stocks.length !== oldStocksLength;
+                    const newStockPrices = appData.stocks.map(s => s.price).join(',');
+                    const stocksChanged = appData.stocks.length !== oldStocksLength || newStockPrices !== oldStockPrices;
                     const messagesChanged = appData.messages.length !== oldMessagesLength || 
                                           (appData.messages.length > 0 && appData.messages[appData.messages.length - 1].id !== oldLastMessageId);
                     const guestMessagesChanged = appData.guestMessages.length !== oldGuestMessagesLength;
