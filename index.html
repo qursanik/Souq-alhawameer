@@ -3182,9 +3182,9 @@ async function handleRegister(e) {
             const actionType = user.role === 'guest' ? 'إضافة رصيد ضيف' : 'إضافة رصيد';
             addActivityLog(actionType, `${user.username} +${amount.toFixed(2)}`);
             
-            // Save user immediately to Firebase to prevent race condition with realtime listeners
+            // Save balance immediately to Firebase to prevent race condition with realtime listeners
             try {
-                await db.collection('users').doc(user.username).set(user);
+                await db.collection('users').doc(user.username).update({ balance: user.balance });
                 await saveData(); // Also trigger full save for activity log
                 showAlert(`✅ تمت إضافة ${amount.toFixed(2)} ر.س`, 'success');
             } catch (error) {
@@ -3205,17 +3205,17 @@ async function handleRegister(e) {
             }
             
             const user = appData.users.find(u => u.username === balanceModalState.username);
-            // السماح بالرصيد السالب - لا يوجد فحص للرصيد
             const oldBalance = user.balance;
+            // السماح بالرصيد السالب - لا يوجد فحص للرصيد
             user.balance -= amount;
             
             // Log with appropriate action type based on user role
             const actionType = user.role === 'guest' ? 'إضافة رصيد ضيف' : 'إضافة رصيد';
             addActivityLog(actionType, `${user.username} -${amount.toFixed(2)}`);
             
-            // Save user immediately to Firebase to prevent race condition with realtime listeners
+            // Save balance immediately to Firebase to prevent race condition with realtime listeners
             try {
-                await db.collection('users').doc(user.username).set(user);
+                await db.collection('users').doc(user.username).update({ balance: user.balance });
                 await saveData(); // Also trigger full save for activity log
                 showAlert(`✅ تم خصم ${amount.toFixed(2)} ر.س`, 'success');
             } catch (error) {
@@ -3241,9 +3241,9 @@ async function handleRegister(e) {
             
             addActivityLog('تعيين رصيد', `${user.username}: ${oldBalance.toFixed(2)} → ${amount.toFixed(2)} ر.س`);
             
-            // Save user immediately to Firebase to prevent race condition with realtime listeners
+            // Save balance immediately to Firebase to prevent race condition with realtime listeners
             try {
-                await db.collection('users').doc(user.username).set(user);
+                await db.collection('users').doc(user.username).update({ balance: user.balance });
                 await saveData(); // Also trigger full save for activity log
                 showAlert(`✅ تم تعيين الرصيد إلى ${amount.toFixed(2)} ر.س`, 'success');
             } catch (error) {
