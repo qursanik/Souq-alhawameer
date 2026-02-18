@@ -1544,17 +1544,26 @@ function changePassword(form) {
                     const data = doc.data();
                     const oldMessagesLength = appData.messages.length;
                     const oldLastMessageId = appData.messages.length > 0 ? appData.messages[appData.messages.length - 1].id : null;
+                    const oldGuestMessagesLength = appData.guestMessages.length;
+                    const oldStocksLength = appData.stocks.length;
+                    const oldActivityLogLength = appData.activityLog.length;
                     
                     appData.stocks = data.stocks || [];
                     appData.messages = data.messages || [];
+                    appData.guestMessages = data.guestMessages || [];
                     appData.settings = data.settings || appData.settings;
                     appData.activityLog = data.activityLog || [];
                     appData.notifications = data.notifications || [];
                     
-                    // Check if we're in chat tab and messages changed
-                    const inChatTab = (appState.activeTab === 'chat' || appState.activeAdminTab === 'chat');
+                    // Check if data actually changed
+                    const stocksChanged = appData.stocks.length !== oldStocksLength;
                     const messagesChanged = appData.messages.length !== oldMessagesLength || 
                                           (appData.messages.length > 0 && appData.messages[appData.messages.length - 1].id !== oldLastMessageId);
+                    const guestMessagesChanged = appData.guestMessages.length !== oldGuestMessagesLength;
+                    const activityLogChanged = appData.activityLog.length !== oldActivityLogLength;
+                    
+                    // Check if we're in chat tab and messages changed
+                    const inChatTab = (appState.activeTab === 'chat' || appState.activeAdminTab === 'chat');
                     
                     // If in chat and messages changed, update chat container directly
                     if (inChatTab && messagesChanged) {
@@ -1595,8 +1604,8 @@ function changePassword(form) {
                                 chatContainer.scrollTop = chatContainer.scrollHeight;
                             }
                         }
-                    } else {
-                        // Use debounced render to prevent cutoffs for other data updates
+                    } else if (stocksChanged || messagesChanged || guestMessagesChanged || activityLogChanged) {
+                        // Only re-render if data actually changed
                         debouncedRender();
                     }
                 }
