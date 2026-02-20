@@ -2909,8 +2909,11 @@ async function handleRegister(e) {
             }
 
             if (type === 'buy') {
-                // Allow negative balance - no balance check
-                // Removed balance check to allow margin trading
+                // Block students and guests from buying with insufficient or negative balance
+                if (appState.currentUser.role !== 'admin' && user.balance < cost) {
+                    showAlert('رصيدك غير كافٍ لإتمام عملية الشراء ❌', 'error');
+                    return;
+                }
                 
                 // Update balance
                 user.balance -= cost;
@@ -4166,6 +4169,62 @@ function renderGuestVerify() {
             }
         }
 
+        // Admin: Sell all shares of a specific stock on behalf of a student or guest
+        async function adminSellStock(username, symbol) {
+            const stock = appData.stocks.find(s => s.symbol === symbol);
+            if (!stock) {
+                showAlert('السهم غير موجود ❌', 'error');
+                return;
+            }
+            const user = appData.users.find(u => u.username === username);
+            if (!user) {
+                showAlert('المستخدم غير موجود ❌', 'error');
+                return;
+            }
+            const portfolio = appData.portfolios.find(p => p.username === username);
+            const holding = portfolio ? portfolio.holdings.find(h => h.symbol === symbol) : null;
+            if (!holding || holding.quantity <= 0) {
+                showAlert('لا يوجد أسهم للبيع ❌', 'error');
+                return;
+            }
+            if (!window.confirm(`هل تريد بيع ${holding.quantity} سهم من "${stock.name}" لـ "${username}"؟`)) {
+                return;
+            }
+            const quantity = holding.quantity;
+            const total = stock.price * quantity;
+            const profit = (stock.price - holding.avgPrice) * quantity;
+            const oldBalance = user.balance;
+            const oldHoldings = portfolio.holdings.slice();
+            user.balance += total;
+            portfolio.holdings = portfolio.holdings.filter(h => h.symbol !== symbol);
+            const tx = {
+                id: Date.now(),
+                username,
+                symbol: stock.symbol,
+                name: stock.name,
+                type: 'sell',
+                quantity,
+                price: stock.price,
+                total,
+                profit,
+                timestamp: new Date().toISOString()
+            };
+            appData.transactions.unshift(tx);
+            addActivityLog('بيع سهم (مشرف)', `المشرف باع ${quantity} من ${stock.name} لـ ${username} بسعر ${stock.price.toFixed(2)} ر.س (ربح: ${profit.toFixed(2)} ر.س)`);
+            try {
+                await db.collection('users').doc(username).update({ balance: user.balance });
+                await saveData();
+                showAlert(`✅ تم بيع ${quantity} سهم من ${stock.name} لـ ${username}`, 'success');
+            } catch (error) {
+                console.error('Error in admin sell:', error);
+                user.balance = oldBalance;
+                portfolio.holdings = oldHoldings;
+                appData.transactions = appData.transactions.filter(t => t !== tx);
+                showAlert('❌ حدث خطأ أثناء البيع', 'error');
+            }
+            render();
+        }
+
         function renderStudentDashboard() {
             const portfolio = appData.portfolios.find(p => p.username === appState.currentUser.username);
             const portfolioValue = getPortfolioValue(appState.currentUser.username);
@@ -5126,6 +5185,11 @@ function renderGuestVerify() {
                                                                         ${profit >= 0 ? '+' : ''}${profit.toFixed(2)} (${profitPercent >= 0 ? '+' : ''}${profitPercent.toFixed(1)}%)
                                                                     </strong>
                                                                 </div>
+                                                                <div style="margin-top: 0.5rem; text-align: center;">
+                                                                    <button class="btn btn-danger btn-small" onclick="adminSellStock('${student.username}', '${holding.symbol}')" style="width: 100%; font-size: 0.75rem;">
+                                                                        📉 بيع الكل
+                                                                    </button>
+                                                                </div>
                                                             </div>
                                                         `;
                                                     }).join('')}
@@ -5255,6 +5319,11 @@ function renderGuestVerify() {
                                                                 <div style="font-size: 0.8rem; color: var(--text-secondary);">السعر: ${stock.price.toFixed(2)} ر.س</div>
                                                                 <div style="font-size: 0.8rem; margin-top: 0.25rem; color: ${profit >= 0 ? 'var(--success)' : 'var(--danger)'};">
                                                                     ${profit >= 0 ? '▲' : '▼'} ${Math.abs(profit).toFixed(2)} ر.س (${Math.abs(profitPercent).toFixed(1)}%)
+                                                                </div>
+                                                                <div style="margin-top: 0.5rem; text-align: center;">
+                                                                    <button class="btn btn-danger btn-small" onclick="adminSellStock('${guest.username}', '${holding.symbol}')" style="width: 100%; font-size: 0.75rem;">
+                                                                        📉 بيع الكل
+                                                                    </button>
                                                                 </div>
                                                             </div>
                                                         `;
