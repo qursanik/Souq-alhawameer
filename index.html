@@ -1168,8 +1168,7 @@ async function sendResetCode(form) {
                 'expired-callback': () => { 
                     console.warn('⚠️ reCAPTCHA expired for reset');
                     cleanupRecaptchaVerifier('resetRecaptchaVerifier');
-                },
-                'timeout': 120000
+                }
             });
             
             return window.resetRecaptchaVerifier;
@@ -2582,6 +2581,10 @@ function changePassword(form) {
                     console.log('📱 Sending SMS to:', phoneNumber);
                     console.log('🔐 Using verifier:', currentVerifier ? 'Ready' : 'Not ready');
                     
+                    // Pre-render the verifier to ensure the reCAPTCHA widget is fully
+                    // initialized before use — this is critical for mobile browsers
+                    await currentVerifier.render();
+                    
                     const confirmationResult = await firebase.auth().signInWithPhoneNumber(
                         phoneNumber, 
                         currentVerifier
@@ -2771,8 +2774,7 @@ async function handleRegister(e) {
                 'expired-callback': () => { 
                     console.warn('⚠️ reCAPTCHA expired');
                     cleanupRecaptchaVerifier('recaptchaVerifier');
-                },
-                'timeout': 120000
+                }
             });
             
             return window.recaptchaVerifier;
@@ -3624,8 +3626,7 @@ async function handleGuestRegister(e) {
                 'expired-callback': () => { 
                     console.warn('⚠️ Guest reCAPTCHA expired');
                     cleanupRecaptchaVerifier('guestRecaptchaVerifier');
-                },
-                'timeout': 120000
+                }
             });
             
             return window.guestRecaptchaVerifier;
