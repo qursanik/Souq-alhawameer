@@ -993,6 +993,14 @@ const firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 window.db = firebase.firestore(); // Make db globally accessible
 
+// Configure auth for better mobile compatibility
+try {
+    firebase.auth().useDeviceLanguage();
+    if (firebase.auth().settings) {
+        firebase.auth().settings.appVerificationDisabledForTesting = false;
+    }
+} catch(e) { console.warn('Auth settings config:', e); }
+
 console.log('🔥 Firebase initialized successfully!');
 
 // Check if Phone Authentication is available
@@ -1104,7 +1112,7 @@ return `
 
 ```
             <!-- reCAPTCHA Container for Forgot Password -->
-            <div id="reset-recaptcha-container"></div>
+            <div id="reset-recaptcha-container" style="display: flex; justify-content: center; margin: 1rem 0;"></div>
             
             <form onsubmit="event.preventDefault(); sendResetCode(this);">
                 <div class="form-group">
@@ -1174,7 +1182,7 @@ try {
         
         // Create and return new verifier
         window.resetRecaptchaVerifier = new firebase.auth.RecaptchaVerifier('reset-recaptcha-container', {
-            'size': 'invisible',
+            'size': getRecaptchaSize(),
             'callback': (response) => { console.log('✅ reCAPTCHA solved for reset'); },
             'expired-callback': () => { 
                 console.warn('⚠️ reCAPTCHA expired for reset');
@@ -2505,6 +2513,19 @@ form.reset();
     }
 
     // SMS/Phone helper functions
+    // Detect mobile devices - mobile gets 'normal' reCAPTCHA for higher trust score
+    function isMobileDevice() {
+        return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) 
+            || (navigator.maxTouchPoints && navigator.maxTouchPoints > 2);
+    }
+    
+    // Get reCAPTCHA size based on device - 'normal' on mobile for better trust, 'invisible' on desktop
+    function getRecaptchaSize() {
+        const mobile = isMobileDevice();
+        console.log(`📱 Device: ${mobile ? 'Mobile' : 'Desktop'}, reCAPTCHA size: ${mobile ? 'normal' : 'invisible'}`);
+        return mobile ? 'normal' : 'invisible';
+    }
+
     function formatPhoneNumber(phone) {
         // Ensure consistent phone number formatting for Saudi Arabia
         if (!phone) return null;
@@ -2819,7 +2840,7 @@ try {
         
         // Create and return new verifier
         window.recaptchaVerifier = new firebase.auth.RecaptchaVerifier('recaptcha-container', {
-            'size': 'invisible',
+            'size': getRecaptchaSize(),
             'callback': (response) => { console.log('✅ reCAPTCHA solved'); },
             'expired-callback': () => { 
                 console.warn('⚠️ reCAPTCHA expired');
@@ -3498,7 +3519,7 @@ return `
             <h2 style="color: var(--secondary); margin-bottom: 2rem;">إنشاء حساب جديد</h2>
             
             <!-- reCAPTCHA Container for Firebase Phone Auth -->
-            <div id="recaptcha-container"></div>
+            <div id="recaptcha-container" style="display: flex; justify-content: center; margin: 1rem 0;"></div>
             
             <form id="registerForm" onsubmit="handleRegister(event)">
                 <div class="form-group">
@@ -3679,7 +3700,7 @@ try {
         
         // Create and return new verifier
         window.guestRecaptchaVerifier = new firebase.auth.RecaptchaVerifier('guest-recaptcha-container', {
-            'size': 'invisible',
+            'size': getRecaptchaSize(),
             'callback': (response) => { console.log('✅ Guest reCAPTCHA solved'); },
             'expired-callback': () => { 
                 console.warn('⚠️ Guest reCAPTCHA expired');
@@ -3877,7 +3898,7 @@ return `
 
 ```
             <!-- reCAPTCHA Container for Guest Registration -->
-            <div id="guest-recaptcha-container"></div>
+            <div id="guest-recaptcha-container" style="display: flex; justify-content: center; margin: 1rem 0;"></div>
             
             <form id="guestRegisterForm" onsubmit="handleGuestRegister(event)">
                 <div class="form-group">
