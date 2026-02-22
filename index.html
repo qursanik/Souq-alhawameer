@@ -1257,9 +1257,7 @@ return `
 أدخل رقم جوالك المسجل لاستعادة اسم المستخدم وإعادة تعيين كلمة المرور
 </p>
 
-            <!-- reCAPTCHA Container for Forgot Password -->
-            <div id="reset-recaptcha-container" style="display: flex; justify-content: center; margin: 1rem 0;"></div>
-            
+            <!-- reCAPTCHA Container for Forgot Password -->            
             <form onsubmit="event.preventDefault(); sendResetCode(this);">
                 <div class="form-group">
                     <label>رقم الجوال</label>
@@ -1310,39 +1308,9 @@ if (!user) {
 try {
     showAlert('جاري إرسال رمز التحقق...', 'info');
 
-    // 1. تنظيف الـ reCAPTCHA القديم باستخدام helper
-    cleanupRecaptchaVerifier('resetRecaptchaVerifier');
-    
-    // 2. التأكد من وجود الـ container
-    ensureRecaptchaContainer('reset-recaptcha-container');
-    
-    // 3. Create factory function for reCAPTCHA to enable retries with fresh verifiers
-    const createResetRecaptchaVerifier = () => {
-        // Cleanup any existing verifier before creating new one
-        cleanupRecaptchaVerifier('resetRecaptchaVerifier');
-        
-        // Ensure container is ready
-        ensureRecaptchaContainer('reset-recaptcha-container');
-        
-        // Create and return new verifier
-        window.resetRecaptchaVerifier = new firebase.auth.RecaptchaVerifier('reset-recaptcha-container', {
-            'size': getRecaptchaSize(),
-            'callback': (response) => { console.log('✅ reCAPTCHA solved for reset'); },
-            'expired-callback': () => { 
-                console.warn('⚠️ reCAPTCHA expired for reset');
-                cleanupRecaptchaVerifier('resetRecaptchaVerifier');
-            }
-        });
-        
-        return window.resetRecaptchaVerifier;
-    };
-
-    // 4. إرسال SMS مع إعادة المحاولة using factory function
+    // إرسال SMS مباشرة بدون reCAPTCHA
     console.log('📤 Attempting to send SMS to:', formattedPhone);
-    const confirmationResult = await sendSmsWithRetry(
-        formattedPhone, 
-        createResetRecaptchaVerifier
-    );
+    const confirmationResult = await sendSmsCode(formattedPhone);
 
     console.log('✅ Reset SMS sent via Firebase to:', formattedPhone);
 
@@ -1366,8 +1334,6 @@ try {
     const errorMessage = getAuthErrorMessage(error);
     showAlert(errorMessage + ' ❌', 'error');
     
-    // إعادة تهيئة عند الفشل
-    cleanupRecaptchaVerifier('resetRecaptchaVerifier');
 }
 
 }
@@ -2712,20 +2678,75 @@ form.reset();
     }
 
     // SMS/Phone helper functions
-    // Detect mobile devices - mobile gets 'normal' reCAPTCHA for higher trust score
-    function isMobileDevice() {
-        return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) 
-            || (navigator.maxTouchPoints && navigator.maxTouchPoints > 2);
+
+
+    // ============================================================
+    // إرسال SMS عبر Firebase REST API - بدون reCAPTCHA تماماً
+    // ============================================================
+    async function sendSmsCode(phoneNumber) {
+        const apiKey = "AIzaSyC_Tb2a3FklDJhd_zWg_sE5kAaz7XG8mHM";
+        const url = `https://identitytoolkit.googleapis.com/v1/accounts:sendVerificationCode?key=${apiKey}`;
+        
+        const response = await fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ phoneNumber: phoneNumber })
+        });
+        
+        const data = await response.json();
+        
+        if (!response.ok) {
+            const code = data?.error?.message || 'UNKNOWN_ERROR';
+            const messages = {
+                'INVALID_PHONE_NUMBER': 'رقم الجوال غير صحيح',
+                'TOO_MANY_ATTEMPTS_TRY_LATER': 'محاولات كثيرة، انتظر قليلاً ثم أعد المحاولة',
+                'QUOTA_EXCEEDED': 'تم تجاوز الحد اليومي لإرسال الرسائل',
+                'OPERATION_NOT_ALLOWED': 'خدمة SMS غير مفعّلة في Firebase',
+            };
+            const msg = messages[code] || `فشل إرسال الرمز: ${code}`;
+            const err = new Error(msg);
+            err.code = code;
+            throw err;
+        }
+        
+        const sessionInfo = data.sessionInfo;
+        return {
+            sessionInfo,
+            confirm: async function(otp) {
+                return await verifyOtpCode(sessionInfo, otp);
+            }
+        };
     }
     
-    // Get reCAPTCHA size based on device - 'normal' on mobile for better trust, 'invisible' on desktop
-    function getRecaptchaSize() {
-        const mobile = isMobileDevice();
-        console.log(`📱 Device: ${mobile ? 'Mobile' : 'Desktop'}, reCAPTCHA size: ${mobile ? 'normal' : 'invisible'}`);
-        return mobile ? 'normal' : 'invisible';
+    async function verifyOtpCode(sessionInfo, otp) {
+        const apiKey = "AIzaSyC_Tb2a3FklDJhd_zWg_sE5kAaz7XG8mHM";
+        const url = `https://identitytoolkit.googleapis.com/v1/accounts:signInWithPhoneNumber?key=${apiKey}`;
+        
+        const response = await fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ sessionInfo, code: otp })
+        });
+        
+        const data = await response.json();
+        
+        if (!response.ok) {
+            const code = data?.error?.message || 'UNKNOWN_ERROR';
+            const messages = {
+                'INVALID_CODE': 'رمز التحقق غير صحيح ❌',
+                'CODE_EXPIRED': 'انتهت صلاحية الرمز، أعد إرسال الرمز',
+                'SESSION_EXPIRED': 'انتهت الجلسة، أعد إرسال الرمز',
+                'INVALID_SESSION_INFO': 'بيانات الجلسة غير صالحة، أعد المحاولة',
+            };
+            const err = new Error(messages[code] || `خطأ في التحقق: ${code}`);
+            err.code = code;
+            throw err;
+        }
+        
+        return data;
     }
 
-    function formatPhoneNumber(phone) {
+        function formatPhoneNumber(phone) {
         // Ensure consistent phone number formatting for Saudi Arabia
         if (!phone) return null;
         
@@ -2772,7 +2793,7 @@ form.reset();
         } else if (error.code === 'auth/quota-exceeded') {
             errorMessage = 'تم تجاوز الحد المجاني للرسائل النصية. يرجى المحاولة لاحقاً أو التواصل مع الدعم الفني';
         } else if (error.code === 'auth/captcha-check-failed') {
-            errorMessage = 'فشل التحقق الأمني (reCAPTCHA). أعد تحميل الصفحة وحاول مرة أخرى';
+            errorMessage = 'فشل إرسال رمز التحقق. أعد المحاولة';
         } else if (error.code === 'auth/missing-phone-number') {
             errorMessage = 'رقم الجوال مفقود. يرجى إدخال رقم الجوال';
         } else if (error.code === 'auth/operation-not-allowed') {
@@ -2804,140 +2825,22 @@ form.reset();
         if (error.code === 'auth/captcha-check-failed') return true; // Retry on captcha failures
         if (error.code === 'auth/timeout') return true; // Retry on timeout
         if (error.message && error.message.toLowerCase().includes('timeout')) return true;
-        if (error.message && error.message.includes('reCAPTCHA has already been rendered')) return true; // Mobile reCAPTCHA cleanup issue
         return false;
     }
 
-    // Helper function to send SMS with retry logic
-    async function sendSmsWithRetry(phoneNumber, recaptchaVerifierOrFactory, maxRetries = 3) {
-        let lastError = null;
-        let currentVerifier = null;
-        
-        // Check if parameter is a factory function or a verifier instance
-        const isFactory = typeof recaptchaVerifierOrFactory === 'function';
-        
-        for (let attempt = 1; attempt <= maxRetries; attempt++) {
-            try {
-                console.log(`📤 SMS sending attempt ${attempt}/${maxRetries} to: ${phoneNumber}`);
-                
-                // Show user-friendly message on retries
-                if (attempt > 1) {
-                    showAlert(`جاري إعادة المحاولة (${attempt}/${maxRetries})...`, 'info');
-                }
-                
-                // Create fresh verifier for each attempt if factory provided
-                if (isFactory) {
-                    currentVerifier = recaptchaVerifierOrFactory();
-                } else {
-                    currentVerifier = recaptchaVerifierOrFactory;
-                }
-                
-                console.log('📱 Sending SMS to:', phoneNumber);
-                console.log('🔐 Using verifier:', currentVerifier ? 'Ready' : 'Not ready');
-                
-                // Pre-render the verifier to ensure the reCAPTCHA widget is fully
-                // initialized before use — this is critical for mobile browsers
-                await currentVerifier.render();
-                
-                const confirmationResult = await firebase.auth().signInWithPhoneNumber(
-                    phoneNumber, 
-                    currentVerifier
-                );
-                
-                console.log(`✅ SMS sent successfully on attempt ${attempt}`);
-                return confirmationResult;
-                
-            } catch (error) {
-                lastError = error;
-                console.error(`❌ SMS attempt ${attempt}/${maxRetries} failed:`, error);
-                
-                // Check if error is retryable
-                if (!isRetryableError(error) || attempt === maxRetries) {
-                    // Not retryable or last attempt - throw error
-                    throw error;
-                }
-                
-                // Calculate retry delay based on error type
-                let delayMs;
-                if (error.code === 'auth/error-code:-39' || (error.code && error.code.includes('-39'))) {
-                    // Provider rejection - wait longer (8s, 15s)
-                    delayMs = attempt === 1 ? 8000 : 15000;
-                } else {
-                    // Other retryable errors - exponential backoff: 2^attempt seconds (2s, 4s)
-                    delayMs = Math.pow(2, attempt) * 1000;
-                }
-                console.log(`⏳ Retrying in ${delayMs/1000} seconds...`);
-                
-                // Show user-friendly message
-                showAlert(`فشلت المحاولة ${attempt}. سيتم إعادة المحاولة خلال ${delayMs/1000} ثانية...`, 'info');
-                
-                // Wait before retry
-                await new Promise(resolve => setTimeout(resolve, delayMs));
-            }
-        }
-        
-        // If we get here, all retries failed
-        throw lastError;
+
+    function isRetryableError(error) {
+        if (!error) return false;
+        const code = error.code || '';
+        if (code === 'TOO_MANY_ATTEMPTS_TRY_LATER') return false; // Don't retry this
+        if (code === 'auth/network-request-failed') return true;
+        return false;
     }
 
-    function cleanupRecaptchaVerifier(verifierName) {
-        // Safely cleanup a recaptcha verifier
-        try {
-            const verifier = window[verifierName];
-            if (verifier) {
-                console.log(`🧹 Cleaning up ${verifierName}...`);
-                try { verifier.clear(); } catch(e) { console.warn('clear() failed:', e); }
-                window[verifierName] = null;
-            }
-            
-            // Also clear the container content based on verifier name
-            const containerMap = {
-                'recaptchaVerifier': 'recaptcha-container',
-                'guestRecaptchaVerifier': 'guest-recaptcha-container',
-                'resetRecaptchaVerifier': 'reset-recaptcha-container'
-            };
-            
-            const containerId = containerMap[verifierName];
-            if (containerId) {
-                const container = document.getElementById(containerId);
-                if (container) {
-                    container.innerHTML = '';
-                }
-            }
-            
-            // Remove any orphaned reCAPTCHA badges/iframes injected by Google
-            document.querySelectorAll('.grecaptcha-badge, iframe[src*="recaptcha"]').forEach(el => {
-                try { el.remove(); } catch(e) {}
-            });
-        } catch (error) {
-            console.warn(`⚠️ Error cleaning ${verifierName}:`, error);
-            // Force null even if cleanup fails
-            window[verifierName] = null;
-        }
-    }
-
-    function ensureRecaptchaContainer(containerId) {
-        // NOTE: cleanupRecaptchaVerifier() is always called before this function,
-        // which invokes Firebase's verifier.clear() and clears the container's
-        // innerHTML. This function just ensures the container element exists in
-        // its original DOM position (inside the form) so the reCAPTCHA widget
-        // remains visible and accessible to the user.
-        let container = document.getElementById(containerId);
-        if (container) {
-            // Secondary safety clear in case any residual content remains
-            container.innerHTML = '';
-        } else {
-            // Fallback: should not occur in normal flow since containers are
-            // always rendered by the screen's render function before handlers run
-            console.warn(`⚠️ reCAPTCHA container #${containerId} not found in DOM; appending to body as fallback`);
-            container = document.createElement('div');
-            container.id = containerId;
-            document.body.appendChild(container);
-        }
-        console.log(`✅ Fresh reCAPTCHA container: ${containerId}`);
-        return container;
-    }
-
+    // Legacy stub - no longer used but kept to avoid reference errors
+    function cleanupRecaptchaVerifier(name) { /* reCAPTCHA removed */ }
+    function ensureRecaptchaContainer(id) { /* reCAPTCHA removed */ }
+    
     // Login
     async function handleLogin(e) {
         e.preventDefault();
@@ -3026,39 +2929,9 @@ if (existingUserWithPhone) {
 try {
     showAlert('جاري إرسال رمز التحقق...', 'info');
 
-    // 1. تنظيف الـ reCAPTCHA القديم باستخدام helper
-    cleanupRecaptchaVerifier('recaptchaVerifier');
-    
-    // 2. التأكد من وجود الـ container
-    ensureRecaptchaContainer('recaptcha-container');
-    
-    // 3. Create factory function for reCAPTCHA to enable retries with fresh verifiers
-    const createRecaptchaVerifier = () => {
-        // Cleanup any existing verifier before creating new one
-        cleanupRecaptchaVerifier('recaptchaVerifier');
-        
-        // Ensure container is ready
-        ensureRecaptchaContainer('recaptcha-container');
-        
-        // Create and return new verifier
-        window.recaptchaVerifier = new firebase.auth.RecaptchaVerifier('recaptcha-container', {
-            'size': getRecaptchaSize(),
-            'callback': (response) => { console.log('✅ reCAPTCHA solved'); },
-            'expired-callback': () => { 
-                console.warn('⚠️ reCAPTCHA expired');
-                cleanupRecaptchaVerifier('recaptchaVerifier');
-            }
-        });
-        
-        return window.recaptchaVerifier;
-    };
-
-    // 4. إرسال الرسالة مع إعادة المحاولة using factory function
+    // إرسال SMS مباشرة بدون reCAPTCHA
     console.log('📤 Attempting to send SMS to:', formattedPhone);
-    const confirmationResult = await sendSmsWithRetry(
-        formattedPhone, 
-        createRecaptchaVerifier
-    );
+    const confirmationResult = await sendSmsCode(formattedPhone);
 
     console.log('✅ SMS sent via Firebase to:', formattedPhone);
 
@@ -3096,8 +2969,6 @@ try {
     const errorMessage = getAuthErrorMessage(error);
     showAlert(errorMessage + ' ❌', 'error');
     
-    // إعادة تهيئة الـ reCAPTCHA عند الفشل
-    cleanupRecaptchaVerifier('recaptchaVerifier');
 }
 
 }
@@ -3718,9 +3589,7 @@ return `
         <div class="card animate-slide-up" style="max-width: 500px; margin: 4rem auto;">
             <h2 style="color: var(--secondary); margin-bottom: 2rem;">إنشاء حساب جديد</h2>
             
-            <!-- reCAPTCHA Container for Firebase Phone Auth -->
-            <div id="recaptcha-container" style="display: flex; justify-content: center; margin: 1rem 0;"></div>
-            
+            <!-- reCAPTCHA Container for Firebase Phone Auth -->            
             <form id="registerForm" onsubmit="handleRegister(event)">
                 <div class="form-group">
                     <label>اسم المستخدم</label>
@@ -3880,39 +3749,9 @@ if (existingUserWithPhone) {
 try {
     showAlert('جاري إرسال رمز التحقق...', 'info');
 
-    // Cleanup old reCAPTCHA
-    cleanupRecaptchaVerifier('guestRecaptchaVerifier');
-    
-    // Ensure container exists
-    ensureRecaptchaContainer('guest-recaptcha-container');
-    
-    // Create factory function for reCAPTCHA to enable retries with fresh verifiers
-    const createGuestRecaptchaVerifier = () => {
-        // Cleanup any existing verifier before creating new one
-        cleanupRecaptchaVerifier('guestRecaptchaVerifier');
-        
-        // Ensure container is ready
-        ensureRecaptchaContainer('guest-recaptcha-container');
-        
-        // Create and return new verifier
-        window.guestRecaptchaVerifier = new firebase.auth.RecaptchaVerifier('guest-recaptcha-container', {
-            'size': getRecaptchaSize(),
-            'callback': (response) => { console.log('✅ Guest reCAPTCHA solved'); },
-            'expired-callback': () => { 
-                console.warn('⚠️ Guest reCAPTCHA expired');
-                cleanupRecaptchaVerifier('guestRecaptchaVerifier');
-            }
-        });
-        
-        return window.guestRecaptchaVerifier;
-    };
-
-    // Send SMS with retry logic using factory function
+    // إرسال SMS مباشرة بدون reCAPTCHA
     console.log('📤 Sending SMS to guest:', formattedPhone);
-    const confirmationResult = await sendSmsWithRetry(
-        formattedPhone, 
-        createGuestRecaptchaVerifier
-    );
+    const confirmationResult = await sendSmsCode(formattedPhone);
 
     console.log('✅ SMS sent to guest:', formattedPhone);
 
@@ -3951,7 +3790,6 @@ try {
     const errorMessage = getAuthErrorMessage(error);
     showAlert(errorMessage + ' ❌', 'error');
     
-    cleanupRecaptchaVerifier('guestRecaptchaVerifier');
 }
 
 }
@@ -4087,10 +3925,7 @@ return `
 املأ البيانات التالية للانضمام كضيف
 </p>
 
-            <!-- reCAPTCHA Container for Guest Registration -->
-            <div id="guest-recaptcha-container" style="display: flex; justify-content: center; margin: 1rem 0;"></div>
-            
-            <form id="guestRegisterForm" onsubmit="handleGuestRegister(event)">
+<form id="guestRegisterForm" onsubmit="handleGuestRegister(event)">
                 <div class="form-group">
                     <label>الاسم الظاهر</label>
                     <input type="text" name="guestDisplayName" required placeholder="اختر الاسم الذي سيظهر للآخرين">
