@@ -1271,7 +1271,7 @@ return `
 }
 
 async function handlePasswordReset(form) {
-const code = (form.code?.value ?? ‘’).trim();
+const code = (form.code?.value ?? '').trim();
 const newPassword = form.newPassword.value;
 const confirmPassword = form.confirmPassword.value;
 
@@ -3818,7 +3818,7 @@ try {
 }
 
 function renderVerify() {
-const phone = window.pendingRegistration ? window.pendingRegistration.phone : ‘05xxxxxxxx’;
+const phone = window.pendingRegistration ? window.pendingRegistration.phone : '05xxxxxxxx';
 
 return `
     <div class="container">
@@ -3900,7 +3900,7 @@ return `
 }
 
 function renderGuestVerify() {
-const phone = window.pendingGuestRegistration ? window.pendingGuestRegistration.phone : ‘05xxxxxxxx’;
+const phone = window.pendingGuestRegistration ? window.pendingGuestRegistration.phone : '05xxxxxxxx';
 
 return `
     <div class="container">
@@ -5568,7 +5568,7 @@ username: null
 
 };
 
-let confirmModal = { show: false, message: ‘’, onConfirm: null };
+let confirmModal = { show: false, message: '', onConfirm: null };
 
     function openStockPriceModal(idx) {
         const stock = appData.stocks[idx];
@@ -6836,7 +6836,7 @@ let confirmModal = { show: false, message: ‘’, onConfirm: null };
 // 🟢 NEW: CLOUD INIT FUNCTION
 // Paste this right before the “// Initialize app” section at the bottom
 async function init() {
-console.log(‘🚀 Starting Cloud App…’);
+console.log('🚀 Starting Cloud App…');
 
         // 1. تحميل البيانات من Firebase (الأسهم، المستخدمين، المعاملات)
         await loadData();
