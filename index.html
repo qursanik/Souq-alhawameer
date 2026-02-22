@@ -989,8 +989,14 @@ const firebaseConfig = {
 };
 
 // Initialize Firebase
-firebase.initializeApp(firebaseConfig);
-window.db = firebase.firestore(); // Make db globally accessible
+try {
+    firebase.initializeApp(firebaseConfig);
+    window.db = firebase.firestore(); // Make db globally accessible
+    console.log('🔥 Firebase initialized successfully!');
+} catch (e) {
+    console.error('❌ Firebase initialization failed. Please check your internet connection and refresh the page.', e);
+    window.db = null;
+}
 
 // Configure auth for better mobile compatibility
 try {
@@ -999,8 +1005,6 @@ try {
         firebase.auth().settings.appVerificationDisabledForTesting = false;
     }
 } catch(e) { console.warn('Auth settings config:', e); }
-
-console.log('🔥 Firebase initialized successfully!');
 
 // Check if Phone Authentication is available
 async function checkPhoneAuthAvailability() {
@@ -1554,6 +1558,10 @@ form.reset();
     }
 
     function setupRealtimeListeners() {
+        if (!db) {
+            console.warn('⚠️ Firebase not available - realtime sync disabled');
+            return;
+        }
         console.log('📡 Activating Live Cloud Sync...');
         
         // 1. Listen to Main Data (Stocks, Chat, Settings, Logs)
