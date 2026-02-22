@@ -969,16 +969,14 @@ button, .btn {
 
     </style>
 
-<!-- Firebase SDK -->
-
-<script src="https://www.gstatic.com/firebasejs/11.0.1/firebase-app-compat.js"></script>
-
-<script src="https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore-compat.js"></script>
-
-<script src="https://www.gstatic.com/firebasejs/11.0.1/firebase-auth-compat.js"></script>
-
+<!-- Firebase SDK - with fallback CDN for mobile reliability -->
 <script>
-// Firebase Configuration
+// ============================================================
+// Firebase Loader - Retry system for iOS/Mobile compatibility
+// ============================================================
+window._firebaseReady = false;
+window._appStarted = false;
+
 const firebaseConfig = {
   apiKey: "AIzaSyC_Tb2a3FklDJhd_zWg_sE5kAaz7XG8mHM",
   authDomain: "souq-alhawameer.firebaseapp.com",
@@ -988,15 +986,164 @@ const firebaseConfig = {
   appId: "1:7274083119:web:800b10fb25272d7348e7da"
 };
 
-// Initialize Firebase
-try {
-    firebase.initializeApp(firebaseConfig);
-    window.db = firebase.firestore(); // Make db globally accessible
-    console.log('🔥 Firebase initialized successfully!');
-} catch (e) {
-    console.error('❌ Firebase initialization failed. Please check your internet connection and refresh the page.', e);
-    window.db = null;
+// Show loading overlay while Firebase loads
+function showFirebaseLoading(msg) {
+    let overlay = document.getElementById('firebase-loading-overlay');
+    if (!overlay) {
+        overlay = document.createElement('div');
+        overlay.id = 'firebase-loading-overlay';
+        overlay.style.cssText = `
+            position:fixed; top:0; left:0; width:100%; height:100%;
+            background:rgba(0,0,0,0.85); z-index:99999;
+            display:flex; flex-direction:column;
+            align-items:center; justify-content:center;
+            font-family:Arial,sans-serif; color:white; text-align:center;
+        `;
+        document.body.appendChild(overlay);
+    }
+    overlay.innerHTML = `
+        <div style="font-size:48px;margin-bottom:20px">🔥</div>
+        <div style="font-size:18px;margin-bottom:10px;direction:rtl">${msg}</div>
+        <div style="width:50px;height:50px;border:4px solid #fff3;border-top:4px solid #4fc3f7;
+             border-radius:50%;animation:spin 1s linear infinite;margin-top:20px"></div>
+        <style>@keyframes spin{to{transform:rotate(360deg)}}</style>
+    `;
 }
+
+function hideFirebaseLoading() {
+    const overlay = document.getElementById('firebase-loading-overlay');
+    if (overlay) overlay.remove();
+}
+
+function showFirebaseError() {
+    let overlay = document.getElementById('firebase-loading-overlay');
+    if (!overlay) {
+        overlay = document.createElement('div');
+        overlay.id = 'firebase-loading-overlay';
+        overlay.style.cssText = `
+            position:fixed; top:0; left:0; width:100%; height:100%;
+            background:rgba(0,0,0,0.9); z-index:99999;
+            display:flex; flex-direction:column;
+            align-items:center; justify-content:center;
+            font-family:Arial,sans-serif; color:white; text-align:center; padding:20px;
+        `;
+        document.body.appendChild(overlay);
+    }
+    overlay.innerHTML = `
+        <div style="font-size:48px;margin-bottom:20px">❌</div>
+        <div style="font-size:20px;font-weight:bold;margin-bottom:10px;direction:rtl">فشل الاتصال بالخادم</div>
+        <div style="font-size:14px;color:#aaa;margin-bottom:25px;direction:rtl;max-width:300px;line-height:1.6">
+            تعذّر تحميل Firebase. تأكد من اتصالك بالإنترنت ثم أعد المحاولة.
+        </div>
+        <button onclick="location.reload()" style="
+            background:#4fc3f7; color:#000; border:none;
+            padding:14px 30px; border-radius:10px;
+            font-size:16px; font-weight:bold; cursor:pointer;
+            direction:rtl;
+        ">🔄 إعادة تحميل الصفحة</button>
+    `;
+}
+
+// Load a script dynamically and return a Promise
+function loadScript(src) {
+    return new Promise((resolve, reject) => {
+        const s = document.createElement('script');
+        s.src = src;
+        s.onload = resolve;
+        s.onerror = reject;
+        document.head.appendChild(s);
+    });
+}
+
+// Primary and fallback CDN URLs
+const FIREBASE_SOURCES = [
+    {
+        app:       'https://www.gstatic.com/firebasejs/11.0.1/firebase-app-compat.js',
+        firestore: 'https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore-compat.js',
+        auth:      'https://www.gstatic.com/firebasejs/11.0.1/firebase-auth-compat.js',
+        label:     'gstatic (primary)'
+    },
+    {
+        app:       'https://cdn.jsdelivr.net/npm/firebase@11.0.1/firebase-app-compat.min.js',
+        firestore: 'https://cdn.jsdelivr.net/npm/firebase@11.0.1/firebase-firestore-compat.min.js',
+        auth:      'https://cdn.jsdelivr.net/npm/firebase@11.0.1/firebase-auth-compat.min.js',
+        label:     'jsDelivr (fallback)'
+    }
+];
+
+async function tryLoadFirebase(sourceIndex) {
+    if (sourceIndex >= FIREBASE_SOURCES.length) {
+        showFirebaseError();
+        return;
+    }
+    const src = FIREBASE_SOURCES[sourceIndex];
+    showFirebaseLoading(`جارٍ تحميل الخادم... (${src.label})`);
+    try {
+        await loadScript(src.app);
+        await loadScript(src.firestore);
+        await loadScript(src.auth);
+        initFirebase();
+    } catch (e) {
+        console.warn(`⚠️ Failed to load Firebase from ${src.label}, trying next source...`);
+        tryLoadFirebase(sourceIndex + 1);
+    }
+}
+
+function initFirebase() {
+    try {
+        if (typeof firebase === 'undefined') throw new Error("firebase variable not found");
+        firebase.initializeApp(firebaseConfig);
+        window.db = firebase.firestore();
+        window.auth = firebase.auth();
+        console.log('🔥 Firebase initialized successfully!');
+
+        // ✅ Offline persistence for mobile reliability
+        window.db.enablePersistence({ synchronizeTabs: true })
+            .then(() => console.log('✅ Offline persistence enabled'))
+            .catch((err) => {
+                if (err.code === 'failed-precondition') {
+                    console.warn('⚠️ Persistence disabled: multiple tabs open');
+                } else if (err.code === 'unimplemented') {
+                    console.warn('⚠️ Persistence not supported in this browser');
+                }
+            });
+
+        window._firebaseReady = true;
+        hideFirebaseLoading();
+
+        // Trigger app start if it's waiting
+        if (typeof window._onFirebaseReady === 'function') {
+            window._onFirebaseReady();
+        }
+    } catch (e) {
+        console.error('❌ Firebase initialization failed:', e);
+        window.db = null;
+        showFirebaseError();
+    }
+}
+
+// Start loading Firebase immediately
+document.addEventListener('DOMContentLoaded', function() {
+    tryLoadFirebase(0);
+});
+</script>
+
+<script>
+// Auth settings - runs after Firebase is ready
+window._onFirebaseReady = function() {
+    try {
+        if (window.auth) {
+            window.auth.settings && (window.auth.settings.appVerificationDisabledForTesting = false);
+            console.log('Auth settings configured');
+        }
+    } catch(e) {
+        console.warn('Auth settings config:', e);
+    }
+};
+
+// ✅ متغير لتتبع حالة الاتصال ومنع تعدد الـ listeners
+window._firestoreUnsubscribers = [];
+window._retryTimeouts = [];
 
 // Configure auth for better mobile compatibility
 try {
@@ -1557,15 +1704,65 @@ form.reset();
         }, 100);
     }
 
+    // ✅ إظهار/إخفاء مؤشر الاتصال
+    function showConnectionStatus(connected) {
+        let indicator = document.getElementById('connection-indicator');
+        if (!indicator) {
+            indicator = document.createElement('div');
+            indicator.id = 'connection-indicator';
+            indicator.style.cssText = `
+                position: fixed; bottom: 1rem; left: 1rem; z-index: 99999;
+                padding: 0.5rem 1rem; border-radius: 20px; font-size: 0.8rem;
+                font-family: 'Tajawal', sans-serif; font-weight: 600;
+                transition: all 0.3s ease; pointer-events: none;
+            `;
+            document.body.appendChild(indicator);
+        }
+        if (connected) {
+            indicator.style.background = '#2ecc71';
+            indicator.style.color = 'white';
+            indicator.textContent = '🟢 متصل';
+            setTimeout(() => { if (indicator) indicator.style.opacity = '0'; }, 3000);
+        } else {
+            indicator.style.opacity = '1';
+            indicator.style.background = '#e74c3c';
+            indicator.style.color = 'white';
+            indicator.textContent = '🔴 انقطع الاتصال... إعادة المحاولة';
+        }
+    }
+
     function setupRealtimeListeners() {
         if (!db) {
             console.warn('⚠️ Firebase not available - realtime sync disabled');
             return;
         }
+
+        // ✅ إلغاء أي listeners سابقة قبل إنشاء جديدة (يمنع التكرار)
+        if (window._firestoreUnsubscribers && window._firestoreUnsubscribers.length > 0) {
+            window._firestoreUnsubscribers.forEach(unsub => { try { unsub(); } catch(e) {} });
+            window._firestoreUnsubscribers = [];
+        }
+        if (window._retryTimeouts && window._retryTimeouts.length > 0) {
+            window._retryTimeouts.forEach(t => clearTimeout(t));
+            window._retryTimeouts = [];
+        }
+
         console.log('📡 Activating Live Cloud Sync...');
+
+        // ✅ دالة مساعدة لإعادة المحاولة عند انقطاع الاتصال
+        function handleListenerError(listenerName, error) {
+            console.warn(`⚠️ Listener "${listenerName}" disconnected (${error.code || error.message}). Retrying in 5s...`);
+            showConnectionStatus(false);
+            const t = setTimeout(() => {
+                console.log(`🔄 Reconnecting "${listenerName}"...`);
+                setupRealtimeListeners(); // إعادة تشغيل كل الـ listeners
+            }, 5000);
+            window._retryTimeouts.push(t);
+        }
         
         // 1. Listen to Main Data (Stocks, Chat, Settings, Logs)
-        db.collection('appData').doc('main').onSnapshot((doc) => {
+        const unsub1 = db.collection('appData').doc('main').onSnapshot((doc) => {
+            showConnectionStatus(true);
             if (doc.exists) {
                 const data = doc.data();
                 const oldMessagesLength = appData.messages.length;
@@ -1637,10 +1834,11 @@ form.reset();
                     debouncedRender();
                 }
             }
-        });
+        }, (error) => handleListenerError('appData/main', error));
+        window._firestoreUnsubscribers.push(unsub1);
 
         // 2. Listen to All Users (For Leaderboard & Admin View)
-        db.collection('users').onSnapshot((snapshot) => {
+        const unsub2 = db.collection('users').onSnapshot((snapshot) => {
             appData.users = [];
             snapshot.forEach(doc => {
                 const userData = doc.data();
@@ -1667,20 +1865,34 @@ form.reset();
                 }
             }
             debouncedRender();
-        });
+        }, (error) => handleListenerError('users', error));
+        window._firestoreUnsubscribers.push(unsub2);
 
         // 3. Listen to Portfolios (To see other people's trades live)
-        db.collection('portfolios').onSnapshot((snapshot) => {
+        const unsub3 = db.collection('portfolios').onSnapshot((snapshot) => {
             appData.portfolios = [];
             snapshot.forEach(doc => appData.portfolios.push(doc.data()));
             debouncedRender();
-        });
+        }, (error) => handleListenerError('portfolios', error));
+        window._firestoreUnsubscribers.push(unsub3);
         
         // 4. Listen to Transactions
-        db.collection('transactions').onSnapshot((snapshot) => {
+        const unsub4 = db.collection('transactions').onSnapshot((snapshot) => {
             appData.transactions = [];
             snapshot.forEach(doc => appData.transactions.push(doc.data()));
             debouncedRender();
+        }, (error) => handleListenerError('transactions', error));
+        window._firestoreUnsubscribers.push(unsub4);
+
+        // ✅ مراقبة حالة الشبكة على الجوال
+        window.addEventListener('online', () => {
+            console.log('🌐 Network restored - reconnecting...');
+            showConnectionStatus(false);
+            setTimeout(() => setupRealtimeListeners(), 1000);
+        });
+        window.addEventListener('offline', () => {
+            console.warn('📵 Network lost');
+            showConnectionStatus(false);
         });
 
         console.log('✅ Connected to Live Global Market');
@@ -6970,10 +7182,27 @@ console.log('🚀 Starting Cloud App…');
         }
     }
 
-    // Initialize app
-    (async () => {
+    // Initialize app - waits for Firebase to be ready first
+    async function startAppWhenReady() {
         console.log('Starting app initialization...');
         try {
+            // ⏳ Wait for Firebase to finish loading (max 15 seconds)
+            const waitForFirebase = () => new Promise((resolve, reject) => {
+                if (window._firebaseReady) return resolve();
+                let waited = 0;
+                const interval = setInterval(() => {
+                    waited += 200;
+                    if (window._firebaseReady) {
+                        clearInterval(interval);
+                        resolve();
+                    } else if (waited >= 15000) {
+                        clearInterval(interval);
+                        reject(new Error('انتهت مهلة تحميل Firebase'));
+                    }
+                }, 200);
+            });
+
+            await waitForFirebase();
             await init();
             console.log('App initialized successfully');
         } catch (error) {
@@ -6982,14 +7211,30 @@ console.log('🚀 Starting Cloud App…');
                 <div style="padding: 2rem; text-align: center; color: #e74c3c;">
                     <h2>فشل تحميل التطبيق</h2>
                     <p>${error.message}</p>
-                    <button onclick="localStorage.clear(); location.reload();" 
+                    <button onclick="location.reload();" 
                             style="padding: 1rem 2rem; background: #2ecc71; color: white; border: none; border-radius: 8px; cursor: pointer; margin-top: 1rem;">
-                        مسح البيانات وإعادة المحاولة
+                        🔄 إعادة المحاولة
                     </button>
                 </div>
             `;
         }
-    })();
+    }
+
+    // Update _onFirebaseReady to trigger app start
+    const _prevOnFirebaseReady = window._onFirebaseReady;
+    window._onFirebaseReady = function() {
+        if (_prevOnFirebaseReady) _prevOnFirebaseReady();
+        if (!window._appStarted) {
+            window._appStarted = true;
+            startAppWhenReady();
+        }
+    };
+
+    // If Firebase already loaded before this script ran, start immediately
+    if (window._firebaseReady && !window._appStarted) {
+        window._appStarted = true;
+        startAppWhenReady();
+    }
  
 
 </script>
