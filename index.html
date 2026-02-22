@@ -7025,7 +7025,26 @@ console.log('🚀 Starting Cloud App…');
             });
 
             await waitForFirebase();
-            await init();
+            // 1. Load data from Firebase
+            db = window.db;
+            if (!db) throw new Error('Firebase غير متصل. أعد تحميل الصفحة.');
+            await loadData();
+            // 2. Restore session if available
+            const savedUser = localStorage.getItem('currentUser');
+            if (savedUser) {
+                const parsedUser = JSON.parse(savedUser);
+                const cloudUser = appData.users.find(u => u.username === parsedUser.username);
+                if (cloudUser && !cloudUser.suspended) {
+                    appState.currentUser = cloudUser;
+                    appState.currentScreen = 'dashboard';
+                } else {
+                    localStorage.removeItem('currentUser');
+                }
+            }
+            // 3. Set up real-time listeners
+            setupRealtimeListeners();
+            // 4. Render the UI
+            render();
             console.log('App initialized successfully');
         } catch (error) {
             console.error('Failed to initialize app:', error);
@@ -7041,6 +7060,8 @@ console.log('🚀 Starting Cloud App…');
             `;
         }
     }
+    // Expose globally so window._onFirebaseReady can access it from any scope
+    window.startAppWhenReady = startAppWhenReady;
 
     // Update _onFirebaseReady to trigger app start
     const _prevOnFirebaseReady = window._onFirebaseReady;
@@ -7048,14 +7069,14 @@ console.log('🚀 Starting Cloud App…');
         if (_prevOnFirebaseReady) _prevOnFirebaseReady();
         if (!window._appStarted) {
             window._appStarted = true;
-            startAppWhenReady();
+            window.startAppWhenReady();
         }
     };
 
     // If Firebase already loaded before this script ran, start immediately
     if (window._firebaseReady && !window._appStarted) {
         window._appStarted = true;
-        startAppWhenReady();
+        window.startAppWhenReady();
     }
  
 
