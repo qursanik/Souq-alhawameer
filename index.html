@@ -1697,132 +1697,87 @@ form.reset();
         }
     }
 
-    function setupRealtimeListeners() {
-        if (!db) {
-            console.warn('⚠️ Firebase not available - realtime sync disabled');
-            return;
-        }
+    // ============================================================
+    // مزامنة البيانات عبر Polling (بدل onSnapshot/WebSocket)
+    // متوافق مع iOS Safari وجميع المتصفحات
+    // ============================================================
+    let _pollingInterval = null;
+    let _lastPollData = {}; // لتتبع التغييرات
 
-        // ✅ إلغاء أي listeners سابقة قبل إنشاء جديدة (يمنع التكرار)
-        if (window._firestoreUnsubscribers && window._firestoreUnsubscribers.length > 0) {
-            window._firestoreUnsubscribers.forEach(unsub => { try { unsub(); } catch(e) {} });
-            window._firestoreUnsubscribers = [];
-        }
-        if (window._retryTimeouts && window._retryTimeouts.length > 0) {
-            window._retryTimeouts.forEach(t => clearTimeout(t));
-            window._retryTimeouts = [];
-        }
-
-        console.log('📡 Activating Live Cloud Sync...');
-
-        // ✅ دالة مساعدة لإعادة المحاولة عند انقطاع الاتصال
-        function handleListenerError(listenerName, error) {
-            console.warn(`⚠️ Listener "${listenerName}" disconnected (${error.code || error.message}). Retrying in 5s...`);
-            showConnectionStatus(false);
-            const t = setTimeout(() => {
-                console.log(`🔄 Reconnecting "${listenerName}"...`);
-                setupRealtimeListeners(); // إعادة تشغيل كل الـ listeners
-            }, 5000);
-            window._retryTimeouts.push(t);
-        }
-        
-        // 1. Listen to Main Data (Stocks, Chat, Settings, Logs)
-        const unsub1 = db.collection('appData').doc('main').onSnapshot((doc) => {
-            showConnectionStatus(true);
-            if (doc.exists) {
-                const data = doc.data();
+    async function pollFirestore() {
+        if (!db) return;
+        try {
+            // 1. تحميل البيانات الرئيسية
+            const appDoc = await db.collection('appData').doc('main').get();
+            if (appDoc.exists) {
+                const data = appDoc.data();
                 const oldMessagesLength = appData.messages.length;
                 const oldLastMessageId = appData.messages.length > 0 ? appData.messages[appData.messages.length - 1].id : null;
-                const oldGuestMessagesLength = appData.guestMessages.length;
-                const oldStocksLength = appData.stocks.length;
-                const oldStockPrices = appData.stocks.map(s => s.price).join(','); // Track price changes
-                const oldActivityLogLength = appData.activityLog.length;
-                
-                appData.stocks = data.stocks || [];
-                appData.messages = data.messages || [];
-                appData.guestMessages = data.guestMessages || [];
+                const oldStockPrices = appData.stocks.map(s => s.price).join(',');
+
+                appData.stocks = data.stocks || appData.stocks;
+                appData.messages = data.messages || appData.messages;
+                appData.guestMessages = data.guestMessages || appData.guestMessages;
                 appData.settings = data.settings || appData.settings;
-                appData.activityLog = data.activityLog || [];
-                appData.notifications = data.notifications || [];
-                
-                // Check if data actually changed
+                appData.activityLog = data.activityLog || appData.activityLog;
+                appData.notifications = data.notifications || appData.notifications;
+
                 const newStockPrices = appData.stocks.map(s => s.price).join(',');
-                const stocksChanged = appData.stocks.length !== oldStocksLength || newStockPrices !== oldStockPrices;
-                const messagesChanged = appData.messages.length !== oldMessagesLength || 
-                                      (appData.messages.length > 0 && appData.messages[appData.messages.length - 1].id !== oldLastMessageId);
-                const guestMessagesChanged = appData.guestMessages.length !== oldGuestMessagesLength;
-                const activityLogChanged = appData.activityLog.length !== oldActivityLogLength;
-                
-                // Check if we're in chat tab and messages changed
-                const inChatTab = (appState.activeTab === 'chat' || appState.activeAdminTab === 'chat');
-                
-                // If in chat and messages changed, update chat container directly
-                if (inChatTab && messagesChanged) {
-                    const chatContainer = document.querySelector('.chat-container');
-                    if (chatContainer) {
-                        const isAdmin = appState.currentUser.role === 'admin';
-                        // Check if user is at the bottom before updating
-                        const isAtBottom = chatContainer.scrollHeight - chatContainer.scrollTop <= chatContainer.clientHeight + 50;
-                        
-                        chatContainer.innerHTML = appData.messages.length === 0 
-                            ? '<p style="text-align: center; color: var(--text-secondary); padding: 2rem;">لا توجد رسائل</p>'
-                            : appData.messages.map(msg => {
-                                const username = getMessageUsername(msg);
-                                const isAdminMsg = isMessageFromAdmin(msg);
-                                const isOwn = username === appState.currentUser.username;
-                                return `
-                                <div class="chat-message ${isOwn ? 'own' : 'other'}">
-                                    <div class="chat-sender" style="font-weight: bold; margin-bottom: 0.35rem; display: flex; align-items: center; gap: 0.5rem; justify-content: space-between;">
-                                        <div style="display: flex; align-items: center; gap: 0.5rem;">
-                                            ${username} ${isAdminMsg ? '<span style="background: var(--secondary); color: var(--bg-primary); padding: 0.15rem 0.5rem; border-radius: 12px; font-size: 0.7rem;">👨‍💼 مشرف</span>' : ''}
+                const stocksChanged = newStockPrices !== oldStockPrices;
+                const newLastId = appData.messages.length > 0 ? appData.messages[appData.messages.length - 1].id : null;
+                const messagesChanged = appData.messages.length !== oldMessagesLength || newLastId !== oldLastMessageId;
+
+                if (stocksChanged || messagesChanged) {
+                    // تحديث الشات مباشرة إذا كان مفتوحاً
+                    const inChatTab = (appState.activeTab === 'chat' || appState.activeAdminTab === 'chat');
+                    if (inChatTab && messagesChanged) {
+                        const chatContainer = document.querySelector('.chat-container');
+                        if (chatContainer) {
+                            const isAtBottom = chatContainer.scrollHeight - chatContainer.scrollTop <= chatContainer.clientHeight + 50;
+                            const isAdmin = appState.currentUser && appState.currentUser.role === 'admin';
+                            chatContainer.innerHTML = appData.messages.length === 0
+                                ? '<p style="text-align:center;color:var(--text-secondary);padding:2rem;">لا توجد رسائل</p>'
+                                : appData.messages.map(msg => {
+                                    const username = getMessageUsername(msg);
+                                    const isAdminMsg = isMessageFromAdmin(msg);
+                                    const isOwn = username === (appState.currentUser && appState.currentUser.username);
+                                    return `<div class="chat-message ${isOwn ? 'own' : 'other'}">
+                                        <div class="chat-sender" style="font-weight:bold;margin-bottom:0.35rem;display:flex;align-items:center;gap:0.5rem;justify-content:space-between;">
+                                            <div style="display:flex;align-items:center;gap:0.5rem;">
+                                                ${username} ${isAdminMsg ? '<span style="background:var(--secondary);color:var(--bg-primary);padding:0.15rem 0.5rem;border-radius:12px;font-size:0.7rem;">👨‍💼 مشرف</span>' : ''}
+                                            </div>
+                                            ${isAdmin ? `<button onclick="deleteMessageSync(${msg.id})" style="background:#e74c3c;color:white;border:none;border-radius:6px;padding:0.25rem 0.5rem;font-size:0.7rem;cursor:pointer;font-weight:bold;">حذف</button>` : ''}
                                         </div>
-                                        ${isAdmin ? `
-                                            <button onclick="deleteMessageSync(${msg.id})" 
-                                                    style="background: #e74c3c; color: white; border: none; border-radius: 6px; padding: 0.25rem 0.5rem; font-size: 0.7rem; cursor: pointer; font-weight: bold;">
-                                                حذف
-                                            </button>
-                                        ` : ''}
-                                    </div>
-                                    <div style="word-wrap: break-word;">${msg.text}</div>
-                                    <div class="chat-time" style="font-size: 0.75rem; opacity: 0.7; margin-top: 0.35rem;">
-                                        ${new Date(msg.timestamp).toLocaleString('ar-SA', {hour: '2-digit', minute: '2-digit'})}
-                                    </div>
-                                </div>
-                            `}).join('');
-                        
-                        // Only auto-scroll if user was already at the bottom
-                        if (isAtBottom) {
-                            chatContainer.scrollTop = chatContainer.scrollHeight;
+                                        <div style="word-wrap:break-word;">${msg.text}</div>
+                                        <div class="chat-time" style="font-size:0.75rem;opacity:0.7;margin-top:0.35rem;">${new Date(msg.timestamp).toLocaleString('ar-SA', {hour:'2-digit',minute:'2-digit'})}</div>
+                                    </div>`;
+                                }).join('');
+                            if (isAtBottom) chatContainer.scrollTop = chatContainer.scrollHeight;
                         }
+                    } else {
+                        debouncedRender();
                     }
-                } else if (stocksChanged || messagesChanged || guestMessagesChanged || activityLogChanged) {
-                    // Only re-render if data actually changed
-                    debouncedRender();
                 }
             }
-        }, (error) => handleListenerError('appData/main', error));
-        window._firestoreUnsubscribers.push(unsub1);
 
-        // 2. Listen to All Users (For Leaderboard & Admin View)
-        const unsub2 = db.collection('users').onSnapshot((snapshot) => {
-            appData.users = [];
-            snapshot.forEach(doc => {
-                const userData = doc.data();
-                // Migrate: ensure all users have notifications array
-                if (!userData.notifications) {
-                    userData.notifications = [];
-                }
-                appData.users.push(userData);
+            // 2. تحميل المستخدمين
+            const usersSnap = await db.collection('users').get();
+            const newUsers = [];
+            usersSnap.forEach(doc => {
+                const u = doc.data();
+                if (!u.notifications) u.notifications = [];
+                newUsers.push(u);
             });
-            
-            // If I am logged in, update my own local user object too
-            if(appState.currentUser) {
+            const usersChanged = JSON.stringify(newUsers.map(u=>u.username+u.balance+u.suspended)) !==
+                                 JSON.stringify(appData.users.map(u=>u.username+u.balance+u.suspended));
+            appData.users = newUsers;
+
+            // تحديث المستخدم الحالي إذا تغيرت بياناته
+            if (appState.currentUser) {
                 const me = appData.users.find(u => u.username === appState.currentUser.username);
-                if(me) {
-                    // Check if I got suspended live
-                    if(me.suspended && !appState.currentUser.suspended) {
-                        alert("⛔ تم تعليق حسابك من قبل الإدارة");
-                        // Don't reload - just update the state and re-render
+                if (me) {
+                    if (me.suspended && !appState.currentUser.suspended) {
+                        alert('⛔ تم تعليق حسابك من قبل الإدارة');
                         appState.currentUser = me;
                         render();
                         return;
@@ -1830,31 +1785,57 @@ form.reset();
                     appState.currentUser = me;
                 }
             }
-            debouncedRender();
-        }, (error) => handleListenerError('users', error));
-        window._firestoreUnsubscribers.push(unsub2);
 
-        // 3. Listen to Portfolios (To see other people's trades live)
-        const unsub3 = db.collection('portfolios').onSnapshot((snapshot) => {
-            appData.portfolios = [];
-            snapshot.forEach(doc => appData.portfolios.push(doc.data()));
-            debouncedRender();
-        }, (error) => handleListenerError('portfolios', error));
-        window._firestoreUnsubscribers.push(unsub3);
-        
-        // 4. Listen to Transactions
-        const unsub4 = db.collection('transactions').onSnapshot((snapshot) => {
-            appData.transactions = [];
-            snapshot.forEach(doc => appData.transactions.push(doc.data()));
-            debouncedRender();
-        }, (error) => handleListenerError('transactions', error));
-        window._firestoreUnsubscribers.push(unsub4);
+            // 3. تحميل المحافظ
+            const portfoliosSnap = await db.collection('portfolios').get();
+            const newPortfolios = [];
+            portfoliosSnap.forEach(doc => newPortfolios.push(doc.data()));
+            const portfoliosChanged = JSON.stringify(newPortfolios) !== JSON.stringify(appData.portfolios);
+            appData.portfolios = newPortfolios;
 
-        // ✅ مراقبة حالة الشبكة على الجوال
-        window.addEventListener('online', () => {
-            console.log('🌐 Network restored - reconnecting...');
+            // 4. تحميل المعاملات
+            const txSnap = await db.collection('transactions').get();
+            const newTx = [];
+            txSnap.forEach(doc => newTx.push(doc.data()));
+            const txChanged = newTx.length !== appData.transactions.length;
+            appData.transactions = newTx;
+
+            if (usersChanged || portfoliosChanged || txChanged) {
+                debouncedRender();
+            }
+
+            showConnectionStatus(true);
+        } catch (err) {
+            console.warn('⚠️ Poll error:', err.message);
             showConnectionStatus(false);
-            setTimeout(() => setupRealtimeListeners(), 1000);
+        }
+    }
+
+    function setupRealtimeListeners() {
+        if (!db) {
+            console.warn('⚠️ Firebase not available - sync disabled');
+            return;
+        }
+
+        // إيقاف أي polling سابق
+        if (_pollingInterval) {
+            clearInterval(_pollingInterval);
+            _pollingInterval = null;
+        }
+
+        console.log('📡 Starting polling sync (iOS-compatible)...');
+
+        // تشغيل أول poll فوراً
+        pollFirestore();
+
+        // ثم كل 5 ثواني
+        _pollingInterval = setInterval(pollFirestore, 5000);
+
+        // إعادة التشغيل عند عودة الاتصال
+        window.addEventListener('online', () => {
+            console.log('🌐 Network restored - resuming sync...');
+            showConnectionStatus(false);
+            pollFirestore();
         });
         window.addEventListener('offline', () => {
             console.warn('📵 Network lost');
