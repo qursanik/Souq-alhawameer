@@ -1133,9 +1133,17 @@ document.addEventListener('DOMContentLoaded', function() {
 window._onFirebaseReady = function() {
     try {
         if (window.auth) {
+            window.auth.useDeviceLanguage();
             window.auth.settings && (window.auth.settings.appVerificationDisabledForTesting = false);
             console.log('Auth settings configured');
         }
+        console.log('✅ Firebase Authentication is initialized');
+        console.log('📱 Phone Authentication Info:');
+        console.log('   If you see "فشل إرسال رمز التحقق" errors:');
+        console.log('   1. Enable Phone Authentication in Firebase Console');
+        console.log('   2. Go to: https://console.firebase.google.com/');
+        console.log('   3. Select project → Authentication → Sign-in method');
+        console.log('   4. Enable "Phone" provider');
     } catch(e) {
         console.warn('Auth settings config:', e);
     }
@@ -1145,43 +1153,13 @@ window._onFirebaseReady = function() {
 window._firestoreUnsubscribers = [];
 window._retryTimeouts = [];
 
-// Configure auth for better mobile compatibility
-try {
-    firebase.auth().useDeviceLanguage();
-    if (firebase.auth().settings) {
-        firebase.auth().settings.appVerificationDisabledForTesting = false;
-    }
-} catch(e) { console.warn('Auth settings config:', e); }
-
-// Check if Phone Authentication is available
-async function checkPhoneAuthAvailability() {
-    try {
-        // Try to get the current auth state to verify Firebase Auth is working
-        const auth = firebase.auth();
-        console.log('✅ Firebase Authentication is initialized');
-        
-        // Log a note about Phone Authentication setup
-        console.log('📱 Phone Authentication Info:');
-        console.log('   If you see "فشل إرسال رمز التحقق" errors:');
-        console.log('   1. Enable Phone Authentication in Firebase Console');
-        console.log('   2. Go to: https://console.firebase.google.com/');
-        console.log('   3. Select project → Authentication → Sign-in method');
-        console.log('   4. Enable "Phone" provider');
-        console.log('   See SMS_VERIFICATION_SETUP.md for complete setup guide');
-    } catch (error) {
-        console.error('❌ Firebase Authentication initialization error:', error);
-    }
-}
-
-// Run the check
-checkPhoneAuthAvailability();
-
 </script>
 
 </head>
 <body data-theme="dark">
     <div id="app"></div>
     <div id="modals"></div>
+    <div id="recaptcha-container" role="complementary" aria-label="reCAPTCHA verification"></div>
 
 <script>
     // db will be assigned in init() after Firebase loads
@@ -2662,69 +2640,37 @@ form.reset();
 
 
     // ============================================================
-    // إرسال SMS عبر Firebase REST API - بدون reCAPTCHA تماماً
+    // إرسال SMS عبر Firebase Auth SDK مع reCAPTCHA غير مرئي
     // ============================================================
     async function sendSmsCode(phoneNumber) {
-        const apiKey = "AIzaSyC_Tb2a3FklDJhd_zWg_sE5kAaz7XG8mHM";
-        const url = `https://identitytoolkit.googleapis.com/v1/accounts:sendVerificationCode?key=${apiKey}`;
-        
-        const response = await fetch(url, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ phoneNumber: phoneNumber })
-        });
-        
-        const data = await response.json();
-        
-        if (!response.ok) {
-            const code = data?.error?.message || 'UNKNOWN_ERROR';
-            const messages = {
-                'INVALID_PHONE_NUMBER': 'رقم الجوال غير صحيح',
-                'TOO_MANY_ATTEMPTS_TRY_LATER': 'محاولات كثيرة، انتظر قليلاً ثم أعد المحاولة',
-                'QUOTA_EXCEEDED': 'تم تجاوز الحد اليومي لإرسال الرسائل',
-                'OPERATION_NOT_ALLOWED': 'خدمة SMS غير مفعّلة في Firebase',
-            };
-            const msg = messages[code] || `فشل إرسال الرمز: ${code}`;
-            const err = new Error(msg);
-            err.code = code;
+        // Ensure any previous verifier is cleared so the container can be reused
+        if (window._recaptchaVerifier) {
+            try { window._recaptchaVerifier.clear(); } catch(e) {}
+            window._recaptchaVerifier = null;
+        }
+
+        const auth = window.auth;
+        if (!auth) throw new Error('Firebase Auth not initialized');
+
+        let appVerifier;
+        try {
+            appVerifier = new firebase.auth.RecaptchaVerifier('recaptcha-container', {
+                size: 'invisible'
+            });
+            window._recaptchaVerifier = appVerifier;
+        } catch(e) {
+            const err = new Error('فشل تهيئة التحقق من العميل. حاول تحديث الصفحة وإعادة المحاولة');
+            err.code = 'RECAPTCHA_INIT_FAILED';
             throw err;
         }
-        
-        const sessionInfo = data.sessionInfo;
+
+        const confirmationResult = await auth.signInWithPhoneNumber(phoneNumber, appVerifier);
         return {
-            sessionInfo,
             confirm: async function(otp) {
-                return await verifyOtpCode(sessionInfo, otp);
+                const result = await confirmationResult.confirm(otp);
+                return { phoneNumber: result.user.phoneNumber };
             }
         };
-    }
-    
-    async function verifyOtpCode(sessionInfo, otp) {
-        const apiKey = "AIzaSyC_Tb2a3FklDJhd_zWg_sE5kAaz7XG8mHM";
-        const url = `https://identitytoolkit.googleapis.com/v1/accounts:signInWithPhoneNumber?key=${apiKey}`;
-        
-        const response = await fetch(url, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ sessionInfo, code: otp })
-        });
-        
-        const data = await response.json();
-        
-        if (!response.ok) {
-            const code = data?.error?.message || 'UNKNOWN_ERROR';
-            const messages = {
-                'INVALID_CODE': 'رمز التحقق غير صحيح ❌',
-                'CODE_EXPIRED': 'انتهت صلاحية الرمز، أعد إرسال الرمز',
-                'SESSION_EXPIRED': 'انتهت الجلسة، أعد إرسال الرمز',
-                'INVALID_SESSION_INFO': 'بيانات الجلسة غير صالحة، أعد المحاولة',
-            };
-            const err = new Error(messages[code] || `خطأ في التحقق: ${code}`);
-            err.code = code;
-            throw err;
-        }
-        
-        return data;
     }
 
         function formatPhoneNumber(phone) {
