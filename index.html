@@ -1543,13 +1543,14 @@ if (newUsername !== currentUser.username) {
     }
 }
 
-const userIndex = appData.users.findIndex(u => u.username === currentUser.username);
+const oldUsername = currentUser.username;
+const userIndex = appData.users.findIndex(u => u.username === oldUsername);
 if (userIndex !== -1) {
     appData.users[userIndex].username = newUsername;
     currentUser.username = newUsername; // Update session
     
-    appData.portfolios.forEach(p => { if(p.username === currentUser.username) p.username = newUsername; });
-    appData.transactions.forEach(t => { if(t.username === currentUser.username) t.username = newUsername; });
+    appData.portfolios.forEach(p => { if(p.username === oldUsername) p.username = newUsername; });
+    appData.transactions.forEach(t => { if(t.username === oldUsername) t.username = newUsername; });
     
     if (newPassword.trim() !== "") {
         appData.users[userIndex].password = newPassword;
@@ -5812,7 +5813,7 @@ let confirmModal = { show: false, message: '', onConfirm: null };
                         
                         ${Object.entries(studentStats).map(([username, data]) => {
                             const stockEntries = Object.entries(data.stocks);
-                            const hasActivity = stockEntries.some(([_, stock]) => stock.bought > 0 || stock.sold > 0 || stock.owned > 0);
+                            const hasActivity = stockEntries.some(([_, stock]) => stock.bought > 0 || stock.sold > 0);
                             
                             if (!hasActivity) return '';
                             
@@ -5843,7 +5844,7 @@ let confirmModal = { show: false, message: '', onConfirm: null };
                                             </thead>
                                             <tbody>
                                                 ${stockEntries
-                                                    .filter(([_, stock]) => stock.bought > 0 || stock.sold > 0 || stock.owned > 0)
+                                                    .filter(([_, stock]) => stock.bought > 0 || stock.sold > 0)
                                                     .map(([symbol, stock]) => `
                                                         <tr style="border-bottom: 1px solid var(--border);">
                                                             <td style="padding: 0.875rem; font-weight: 600;">${stock.name}</td>
