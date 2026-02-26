@@ -2713,6 +2713,14 @@ form.reset();
 
     // SMS/Phone helper functions
 
+    // Action code settings using Firebase Hosting-based URL.
+    // dynamicLinkDomain is intentionally omitted — Dynamic Links are deprecated.
+    // Used with email-based auth methods (e.g. sendSignInLinkToEmail,
+    // sendPasswordResetEmail) to redirect back to the hosted site.
+    const actionCodeSettings = {
+        url: 'https://qursanik.github.io',
+        handleCodeInApp: true
+    };
 
     // ============================================================
     // إرسال SMS عبر Firebase Auth SDK مع reCAPTCHA غير مرئي
@@ -2729,9 +2737,12 @@ form.reset();
 
         let appVerifier;
         try {
+            // size: 'invisible' avoids interrupting the user flow on mobile devices.
+            // Passing firebase.app() explicitly binds the verifier to the correct
+            // Firebase app and authDomain, preventing Dynamic Links from being used.
             appVerifier = new firebase.auth.RecaptchaVerifier('recaptcha-container', {
                 size: 'invisible'
-            });
+            }, firebase.app());
             window._recaptchaVerifier = appVerifier;
         } catch(e) {
             const err = new Error('فشل تهيئة التحقق من العميل. حاول تحديث الصفحة وإعادة المحاولة');
