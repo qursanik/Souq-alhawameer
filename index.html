@@ -1159,7 +1159,7 @@ window._retryTimeouts = [];
 <body data-theme="dark">
     <div id="app"></div>
     <div id="modals"></div>
-    <div id="recaptcha-container" role="complementary" aria-label="reCAPTCHA verification"></div>
+
 
 <script>
     // db will be assigned in init() after Firebase loads
@@ -1244,7 +1244,7 @@ return `
                            style="text-align: center; font-size: 1.1rem;">
                 </div>
                 
-                <button type="submit" class="btn btn-primary" style="width: 100%; padding: 1rem;">
+                <button id="phone-auth-btn" type="submit" class="btn btn-primary" style="width: 100%; padding: 1rem;">
                     إرسال رمز التحقق 📱
                 </button>
             </form>
@@ -2740,7 +2740,7 @@ form.reset();
             // size: 'invisible' avoids interrupting the user flow on mobile devices.
             // Passing firebase.app() explicitly binds the verifier to the correct
             // Firebase app and authDomain, preventing Dynamic Links from being used.
-            appVerifier = new firebase.auth.RecaptchaVerifier('recaptcha-container', {
+            appVerifier = new firebase.auth.RecaptchaVerifier('phone-auth-btn', {
                 size: 'invisible'
             }, firebase.app());
             window._recaptchaVerifier = appVerifier;
@@ -3616,7 +3616,7 @@ return `
                     <label>تأكيد كلمة المرور</label>
                     <input type="password" name="regConfirmPassword" required placeholder="أعد إدخال كلمة المرور" minlength="6">
                 </div>
-                <button type="submit" class="btn btn-primary" style="width: 100%; margin-bottom: 0.5rem;">
+                <button id="phone-auth-btn" type="submit" class="btn btn-primary" style="width: 100%; margin-bottom: 0.5rem;">
                     إرسال رمز التحقق 📱
                 </button>
                 <button type="button" class="btn btn-secondary" style="width: 100%;" onclick="appState.currentScreen='login'; render();">
@@ -3955,7 +3955,7 @@ return `
                     <label>تأكيد كلمة المرور</label>
                     <input type="password" name="guestConfirmPassword" required placeholder="أعد إدخال كلمة المرور" minlength="6">
                 </div>
-                <button type="submit" class="btn btn-primary" style="width: 100%; margin-bottom: 0.5rem;">
+                <button id="phone-auth-btn" type="submit" class="btn btn-primary" style="width: 100%; margin-bottom: 0.5rem;">
                     إرسال رمز التحقق 📱
                 </button>
                 <button type="button" class="btn btn-secondary" style="width: 100%;" onclick="appState.currentScreen='login'; render();">
