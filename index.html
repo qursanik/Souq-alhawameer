@@ -1631,9 +1631,41 @@ form.reset();
     // Logout function
     function logout() {
         currentUser = null;
+        appState.currentUser = null;
+        clearAutoLogoutTimer();
         appState.currentScreen = 'login';
         render();
         showAlert('تم تسجيل الخروج بنجاح', 'success');
+    }
+    
+    // ⏱️ تسجيل الخروج التلقائي عند عدم الاستخدام
+    let _autoLogoutTimer = null;
+    const AUTO_LOGOUT_MINUTES = 15; // تسجيل خروج بعد 15 دقيقة من الخمول
+    
+    function resetAutoLogoutTimer() {
+        if (!appState.currentUser || appState.currentUser.role === 'admin') return; // لا تطبق على الأدمن
+        clearAutoLogoutTimer();
+        _autoLogoutTimer = setTimeout(() => {
+            if (appState.currentUser) {
+                showAlert('⏱️ تم تسجيل خروجك تلقائياً بسبب عدم النشاط', 'info');
+                setTimeout(() => logout(), 1500);
+            }
+        }, AUTO_LOGOUT_MINUTES * 60 * 1000);
+    }
+    
+    function clearAutoLogoutTimer() {
+        if (_autoLogoutTimer) {
+            clearTimeout(_autoLogoutTimer);
+            _autoLogoutTimer = null;
+        }
+    }
+    
+    function setupAutoLogout() {
+        // إعادة تشغيل المؤقت عند أي تفاعل
+        ['click', 'touchstart', 'keydown', 'mousemove', 'scroll'].forEach(event => {
+            document.addEventListener(event, resetAutoLogoutTimer, { passive: true });
+        });
+        resetAutoLogoutTimer();
     }
     
     // 🟢 NEW: REAL-TIME CLOUD SYNC ENGINE
@@ -1682,9 +1714,11 @@ form.reset();
     // ============================================================
     let _pollingInterval = null;
     let _lastPollData = {}; // لتتبع التغييرات
+    let _isSaving = false; // 🔒 منع polling من استبدال البيانات أثناء الحفظ
 
     async function pollFirestore() {
         if (!db) return;
+        if (_isSaving) { console.log("⏸ Poll skipped - save in progress"); return; } // 🔒 لا تُحدِّث البيانات أثناء الحفظ
         try {
             // 1. تحميل البيانات الرئيسية
             const appDoc = await db.collection('appData').doc('main').get();
@@ -2050,12 +2084,50 @@ form.reset();
     // Save data to localStorage
     // Debounced save to prevent excessive writes
     let saveTimeout = null;
+    
+    // حفظ فوري للمعاملات والمحافظ (بدون debounce) - يُستخدم عند التداول
+    async function saveTradeImmediately() {
+        _isSaving = true;
+        try {
+            console.log('⚡ Saving trade immediately...');
+            
+            // Save portfolio for current user
+            const user = appState.currentUser;
+            const portfolio = appData.portfolios.find(p => p.username === user.username);
+            if (portfolio) {
+                await db.collection('portfolios').doc(portfolio.username).set(portfolio);
+            }
+            
+            // Save user balance
+            const userData = appData.users.find(u => u.username === user.username);
+            if (userData) {
+                await db.collection('users').doc(userData.username).set(userData);
+            }
+            
+            // Save latest transaction (first in array since we unshift)
+            if (appData.transactions.length > 0) {
+                const tx = appData.transactions[0];
+                await db.collection('transactions').doc(tx.id.toString()).set(tx);
+            }
+            
+            console.log('✅ Trade saved immediately!');
+        } catch (e) {
+            console.error('❌ Immediate save failed:', e);
+        } finally {
+            _isSaving = false;
+        }
+        
+        // Also trigger full save for activity log and other data
+        saveData();
+    }
+    
     async function saveData() {
         // Clear existing timeout to debounce
         if (saveTimeout) clearTimeout(saveTimeout);
         
         // Wait 500ms before saving
         saveTimeout = setTimeout(async () => {
+            _isSaving = true; // 🔒 Lock polling
             console.log('💾 Saving ALL data to Firebase...');
             
             try {
@@ -2099,6 +2171,8 @@ form.reset();
             } catch (e) {
                 console.error('❌ Failed to save to Firebase:', e);
                 showAlert('خطأ في الحفظ السحابي', 'error');
+            } finally {
+                _isSaving = false; // 🔓 Unlock polling
             }
         }, 500);
     }
@@ -2809,6 +2883,7 @@ form.reset();
         appState.currentScreen = 'dashboard';
         console.log('✅ Login successful:', username, 'Role:', user.role);
         addActivityLog('تسجيل دخول', `${username} سجل دخول للنظام`);
+        setupAutoLogout(); // ⏱️ بدء مؤقت تسجيل الخروج التلقائي
         render();
     }
 
@@ -3073,7 +3148,8 @@ try {
         // Update currentUser reference to the fresh user data
         appState.currentUser = user;
         
-        saveData();
+        // ⚡ حفظ فوري بدون debounce لمنع فقدان البيانات
+        await saveTradeImmediately();
         appState.selectedStock = null;
         render();
     }
@@ -6845,6 +6921,7 @@ console.log('🚀 Starting Cloud App…');
             if (cloudUser && !cloudUser.suspended) {
                 appState.currentUser = cloudUser;
                 appState.currentScreen = 'dashboard';
+                setupAutoLogout(); // ⏱️ بدء مؤقت تسجيل الخروج التلقائي
             } else {
                 localStorage.removeItem('currentUser');
             }
