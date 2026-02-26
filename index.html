@@ -2829,24 +2829,18 @@ form.reset();
 
     // Helper function to check if an error is retryable
     function isRetryableError(error) {
-        // Check if error is a transient service error that can be retried
-        if (error.message && error.message.includes('503')) return true;
-        if (error.code && error.code.includes('-39')) return true; // Firebase error-code:-39
-        if (error.code === 'auth/error-code:-39') return true; // Exact match
-        if (error.message && error.message.includes('error-code:-39')) return true; // Backup check in message
-        if (error.code === 'auth/network-request-failed') return true;
-        if (error.code === 'auth/captcha-check-failed') return true; // Retry on captcha failures
-        if (error.code === 'auth/timeout') return true; // Retry on timeout
-        if (error.message && error.message.toLowerCase().includes('timeout')) return true;
-        return false;
-    }
-
-
-    function isRetryableError(error) {
         if (!error) return false;
         const code = error.code || '';
         if (code === 'TOO_MANY_ATTEMPTS_TRY_LATER') return false; // Don't retry this
+        // Check if error is a transient service error that can be retried
+        if (error.message && error.message.includes('503')) return true;
+        if (code.includes('-39')) return true; // Firebase error-code:-39
+        if (code === 'auth/error-code:-39') return true; // Exact match
+        if (error.message && error.message.includes('error-code:-39')) return true; // Backup check in message
         if (code === 'auth/network-request-failed') return true;
+        if (code === 'auth/captcha-check-failed') return true; // Retry on captcha failures
+        if (code === 'auth/timeout') return true; // Retry on timeout
+        if (error.message && error.message.toLowerCase().includes('timeout')) return true;
         return false;
     }
 
