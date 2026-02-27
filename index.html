@@ -2721,12 +2721,16 @@ form.reset();
     };
 
     // ============================================================
-    // إرسال SMS عبر Firebase Auth SDK مع reCAPTCHA غير مرئي
+    // إرسال SMS عبر Firebase Auth SDK مع reCAPTCHA Enterprise
     // ============================================================
     async function sendSmsCode(phoneNumber) {
-        // Ensure any previous verifier is cleared so the container can be reused
+        // Clear any previous verifier
         if (window._recaptchaVerifier) {
-            try { window._recaptchaVerifier.clear(); } catch(e) {}
+            try { 
+                window._recaptchaVerifier.clear(); 
+            } catch(e) {
+                console.log('No previous verifier to clear');
+            }
             window._recaptchaVerifier = null;
         }
 
@@ -2735,26 +2739,45 @@ form.reset();
 
         let appVerifier;
         try {
-            // size: 'invisible' avoids interrupting the user flow on mobile devices.
-            // Passing firebase.app() explicitly binds the verifier to the correct
-            // Firebase app and authDomain, preventing Dynamic Links from being used.
+            // استخدام RecaptchaVerifier - Firebase سيستخدم Enterprise تلقائياً
             appVerifier = new firebase.auth.RecaptchaVerifier('phone-auth-btn', {
-                size: 'invisible'
-            }, firebase.app());
+                'size': 'invisible',
+                'callback': function(response) {
+                    console.log('✅ reCAPTCHA Enterprise verified successfully');
+                },
+                'expired-callback': function() {
+                    console.warn('⚠️ reCAPTCHA expired, please try again');
+                }
+            });
+            
+            // تهيئة الـ verifier قبل الاستخدام
+            await appVerifier.render();
             window._recaptchaVerifier = appVerifier;
+            
+            console.log('✅ reCAPTCHA Enterprise initialized');
+            
         } catch(e) {
+            console.error('❌ reCAPTCHA initialization error:', e);
             const err = new Error('فشل تهيئة التحقق من العميل. حاول تحديث الصفحة وإعادة المحاولة');
             err.code = 'RECAPTCHA_INIT_FAILED';
             throw err;
         }
 
-        const confirmationResult = await auth.signInWithPhoneNumber(phoneNumber, appVerifier);
-        return {
-            confirm: async function(otp) {
-                const result = await confirmationResult.confirm(otp);
-                return { phoneNumber: result.user.phoneNumber };
-            }
-        };
+        try {
+            console.log('📱 Sending SMS to:', phoneNumber);
+            const confirmationResult = await auth.signInWithPhoneNumber(phoneNumber, appVerifier);
+            console.log('✅ SMS sent successfully!');
+            
+            return {
+                confirm: async function(otp) {
+                    const result = await confirmationResult.confirm(otp);
+                    return { phoneNumber: result.user.phoneNumber };
+                }
+            };
+        } catch(error) {
+            console.error('❌ SMS sending error:', error);
+            throw error;
+        }
     }
 
         function formatPhoneNumber(phone) {
