@@ -2732,63 +2732,52 @@ form.reset();
     // ============================================================
     // إرسال SMS عبر Firebase Auth SDK مع reCAPTCHA Enterprise
     // ============================================================
-    async function sendSmsCode(phoneNumber) {
-        // Clear any previous verifier
-        if (window._recaptchaVerifier) {
-            try { 
-                window._recaptchaVerifier.clear(); 
-            } catch(e) {
-                console.log('No previous verifier to clear');
-            }
-            window._recaptchaVerifier = null;
-        }
+    // متغير عام لتخزين أداة التحقق حتى لا يعاد إنشاؤها
+let globalVerifier = null;
 
-        const auth = window.auth;
-        if (!auth) throw new Error('Firebase Auth not initialized');
+async function sendSmsCode(phoneNumber) {
+    const auth = window.auth;
+    if (!auth) throw new Error('Firebase Auth not initialized');
 
-        let appVerifier;
+    // 1. تهيئة reCAPTCHA مرة واحدة فقط (حل مشكلة الجوال)
+    if (!globalVerifier) {
         try {
-            // استخدام div ثابت كحاوية لـ reCAPTCHA بدلاً من الزر لتجنب تعارض أحداث النموذج
-            const containerId = 'recaptcha-container';
-            appVerifier = new firebase.auth.RecaptchaVerifier(containerId, {
+            // نربطها بالحاوية المخفية الموجودة في أعلى الملف
+            globalVerifier = new firebase.auth.RecaptchaVerifier('recaptcha-container', {
                 'size': 'invisible',
-                'callback': function(response) {
-                    console.log('✅ reCAPTCHA Enterprise verified successfully');
-                },
-                'expired-callback': function() {
-                    console.warn('⚠️ reCAPTCHA expired, please try again');
+                'callback': (response) => {
+                    console.log("✅ reCAPTCHA solved");
                 }
             });
-            
-            // تهيئة الـ verifier قبل الاستخدام
-            await appVerifier.render();
-            window._recaptchaVerifier = appVerifier;
-            
-            console.log('✅ reCAPTCHA Enterprise initialized');
-            
-        } catch(e) {
-            console.error('❌ reCAPTCHA initialization error:', e);
-            const err = new Error('فشل تهيئة التحقق من العميل. حاول تحديث الصفحة وإعادة المحاولة');
-            err.code = 'RECAPTCHA_INIT_FAILED';
-            throw err;
-        }
-
-        try {
-            console.log('📱 Sending SMS to:', phoneNumber);
-            const confirmationResult = await auth.signInWithPhoneNumber(phoneNumber, appVerifier);
-            console.log('✅ SMS sent successfully!');
-            
-            return {
-                confirm: async function(otp) {
-                    const result = await confirmationResult.confirm(otp);
-                    return { phoneNumber: result.user.phoneNumber };
-                }
-            };
-        } catch(error) {
-            console.error('❌ SMS sending error:', error);
-            throw error;
+        } catch (e) {
+            console.warn("⚠️ RecaptchaVerifier already initialized", e);
         }
     }
+
+    try {
+        console.log('📱 Sending SMS to:', phoneNumber);
+        
+        // 2. إرسال الرسالة باستخدام Verifier الثابت
+        const confirmationResult = await auth.signInWithPhoneNumber(phoneNumber, globalVerifier);
+        
+        console.log('✅ SMS sent successfully!');
+        return confirmationResult;
+
+    } catch(error) {
+        console.error('❌ SMS sending error:', error);
+        
+        // إعادة تعيين التحقق للسماح بالمحاولة مرة أخرى
+        if (globalVerifier) {
+            try {
+                // نستخدم grecaptcha العام لإعادة التعيين
+                globalVerifier.render().then(widgetId => {
+                    if (window.grecaptcha) window.grecaptcha.reset(widgetId);
+                });
+            } catch(e) { console.log('Reset error ignored'); }
+        }
+        throw error;
+    }
+}
 
         function formatPhoneNumber(phone) {
         // Ensure consistent phone number formatting for Saudi Arabia
