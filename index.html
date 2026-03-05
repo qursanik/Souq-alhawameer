@@ -1159,6 +1159,8 @@ window._retryTimeouts = [];
 <body data-theme="dark">
     <div id="app"></div>
     <div id="modals"></div>
+    <!-- Persistent reCAPTCHA container — must never be removed from the DOM -->
+    <div id="recaptcha-container" style="display:none;"></div>
 
 <script>
     // db will be assigned in init() after Firebase loads
@@ -1337,6 +1339,7 @@ return `
                     <label>رمز التحقق (6 أرقام)</label>
                     <input type="text" name="code" pattern="[0-9]{6}" maxlength="6"
                            placeholder="أدخل الرمز المكون من 6 أرقام" required
+                           inputmode="numeric" autocomplete="one-time-code"
                            style="text-align: center; font-size: 1.5rem; letter-spacing: 0.5rem;">
                 </div>
                 
@@ -1390,8 +1393,9 @@ try {
     
     console.log('✅ Reset code verified:', result.phoneNumber);
 
-    // Additional security check: Verify the phone number matches
-    if (result.phoneNumber !== appState.forgotPasswordPhone) {
+    // Additional security check: Verify the phone number matches (normalize by stripping spaces)
+    const normalizePhone = p => (p || '').replace(/\s+/g, '');
+    if (result.phoneNumber && normalizePhone(result.phoneNumber) !== normalizePhone(appState.forgotPasswordPhone)) {
         console.error('❌ Phone number mismatch:', result.phoneNumber, 'vs', appState.forgotPasswordPhone);
         showAlert('خطأ في التحقق من رقم الجوال ❌', 'error');
         appState.currentScreen = 'forgot';
@@ -2112,6 +2116,7 @@ form.reset();
             console.log('✅ Trade saved immediately!');
         } catch (e) {
             console.error('❌ Immediate save failed:', e);
+            showAlert('⚠️ تعذّر حفظ العملية. تحقق من الاتصال بالإنترنت وأعد المحاولة', 'error');
         } finally {
             _isSaving = false;
         }
@@ -2141,29 +2146,33 @@ form.reset();
                     weeklyStats: appData.weeklyStats
                 });
                 
-                // Save users (batch)
-                const usersBatch = db.batch();
-                appData.users.forEach(user => {
-                    const userRef = db.collection('users').doc(user.username);
-                    usersBatch.set(userRef, user);
-                });
-                await usersBatch.commit();
+                // Save users in batches (max 499 per batch to stay under Firestore 500-op limit)
+                const BATCH_LIMIT = 499;
+                for (let i = 0; i < appData.users.length; i += BATCH_LIMIT) {
+                    const usersBatch = db.batch();
+                    appData.users.slice(i, i + BATCH_LIMIT).forEach(user => {
+                        usersBatch.set(db.collection('users').doc(user.username), user);
+                    });
+                    await usersBatch.commit();
+                }
                 
-                // Save portfolios (batch)
-                const portfoliosBatch = db.batch();
-                appData.portfolios.forEach(portfolio => {
-                    const portfolioRef = db.collection('portfolios').doc(portfolio.username);
-                    portfoliosBatch.set(portfolioRef, portfolio);
-                });
-                await portfoliosBatch.commit();
+                // Save portfolios in batches
+                for (let i = 0; i < appData.portfolios.length; i += BATCH_LIMIT) {
+                    const portfoliosBatch = db.batch();
+                    appData.portfolios.slice(i, i + BATCH_LIMIT).forEach(portfolio => {
+                        portfoliosBatch.set(db.collection('portfolios').doc(portfolio.username), portfolio);
+                    });
+                    await portfoliosBatch.commit();
+                }
                 
-                // Save transactions (batch)
-                const txBatch = db.batch();
-                appData.transactions.forEach(tx => {
-                    const txRef = db.collection('transactions').doc(tx.id.toString());
-                    txBatch.set(txRef, tx);
-                });
-                await txBatch.commit();
+                // Save transactions in batches (this is the most likely to exceed 500)
+                for (let i = 0; i < appData.transactions.length; i += BATCH_LIMIT) {
+                    const txBatch = db.batch();
+                    appData.transactions.slice(i, i + BATCH_LIMIT).forEach(tx => {
+                        txBatch.set(db.collection('transactions').doc(tx.id.toString()), tx);
+                    });
+                    await txBatch.commit();
+                }
                 
                 console.log('✅ ALL data saved to Firebase (Cloud Storage)');
                 
@@ -2739,8 +2748,9 @@ form.reset();
 
         let appVerifier;
         try {
-            // استخدام RecaptchaVerifier - Firebase سيستخدم Enterprise تلقائياً
-            appVerifier = new firebase.auth.RecaptchaVerifier('phone-auth-btn', {
+            // استخدام div ثابت كحاوية لـ reCAPTCHA بدلاً من الزر لتجنب تعارض أحداث النموذج
+            const containerId = 'recaptcha-container';
+            appVerifier = new firebase.auth.RecaptchaVerifier(containerId, {
                 'size': 'invisible',
                 'callback': function(response) {
                     console.log('✅ reCAPTCHA Enterprise verified successfully');
@@ -3844,8 +3854,9 @@ try {
     
     console.log('✅ Guest phone verified:', result.phoneNumber);
 
-    // Additional security check: Verify the phone number matches
-    if (result.phoneNumber !== window.pendingGuestRegistration.phone) {
+    // Additional security check: Verify the phone number matches (normalize by stripping spaces)
+    const normalizePhone = p => (p || '').replace(/\s+/g, '');
+    if (result.phoneNumber && normalizePhone(result.phoneNumber) !== normalizePhone(window.pendingGuestRegistration.phone)) {
         console.error('❌ Phone number mismatch:', result.phoneNumber, 'vs', window.pendingGuestRegistration.phone);
         showAlert('خطأ في التحقق من رقم الجوال ❌', 'error');
         appState.currentScreen = 'guestRegister';
@@ -3925,7 +3936,7 @@ return `
                 <div class="form-group">
                     <label>رمز التحقق (6 أرقام)</label>
                     <input type="text" name="verifyCode" required placeholder="أدخل الرمز المكون من 6 أرقام" 
-                           maxlength="6" pattern="[0-9]{6}" 
+                           maxlength="6" pattern="[0-9]{6}" inputmode="numeric" autocomplete="one-time-code"
                            style="font-size: 1.5rem; text-align: center; letter-spacing: 0.5rem;">
                 </div>
                 <button type="submit" class="btn btn-primary" style="width: 100%; margin-bottom: 0.5rem;">
@@ -4004,7 +4015,7 @@ return `
                 <div class="form-group">
                     <label>رمز التحقق (6 أرقام)</label>
                     <input type="text" name="guestVerifyCode" required placeholder="أدخل الرمز المكون من 6 أرقام" 
-                           maxlength="6" pattern="[0-9]{6}" 
+                           maxlength="6" pattern="[0-9]{6}" inputmode="numeric" autocomplete="one-time-code"
                            style="font-size: 1.5rem; text-align: center; letter-spacing: 0.5rem;">
                 </div>
                 <button type="submit" class="btn btn-primary" style="width: 100%; margin-bottom: 0.5rem;">
@@ -5756,12 +5767,11 @@ let confirmModal = { show: false, message: '', onConfirm: null };
                 name: stock.name,
                 symbol: stock.symbol,
                 buyerStudents: new Set(),
-                sellerStudents: new Set(),
-                studentNetActions: {} // username -> net quantity (bought - sold)
+                sellerStudents: new Set()
             };
         });
         
-        // Calculate from transactions - track net position per student (EXCLUDE guests)
+        // Calculate from transactions — count every student who bought OR sold (EXCLUDE guests)
         appData.transactions.forEach(tx => {
             // Skip guest transactions
             const user = appData.users.find(u => u.username === tx.username);
@@ -5772,33 +5782,16 @@ let confirmModal = { show: false, message: '', onConfirm: null };
                     name: tx.name,
                     symbol: tx.symbol,
                     buyerStudents: new Set(),
-                    sellerStudents: new Set(),
-                    studentNetActions: {}
+                    sellerStudents: new Set()
                 };
             }
             
             const stat = stockStats[tx.symbol];
-            if (!stat.studentNetActions[tx.username]) {
-                stat.studentNetActions[tx.username] = 0;
-            }
-            
             if (tx.type === 'buy') {
-                stat.studentNetActions[tx.username] += tx.quantity;
+                stat.buyerStudents.add(tx.username);
             } else if (tx.type === 'sell') {
-                stat.studentNetActions[tx.username] -= tx.quantity;
+                stat.sellerStudents.add(tx.username);
             }
-        });
-        
-        // After calculating net positions, determine if student is net buyer or seller
-        Object.values(stockStats).forEach(stat => {
-            Object.entries(stat.studentNetActions).forEach(([username, netQty]) => {
-                if (netQty > 0) {
-                    stat.buyerStudents.add(username);
-                } else if (netQty < 0) {
-                    stat.sellerStudents.add(username);
-                }
-                // If netQty == 0, they bought and sold the same amount, so they cancel out
-            });
         });
         
         // Calculate student statistics
@@ -6067,13 +6060,15 @@ let confirmModal = { show: false, message: '', onConfirm: null };
             // Delete all transactions permanently (but keep balances and portfolios)
             appData.transactions = [];
             
-            // Delete from Firebase
-            const txBatch = db.batch();
+            // Delete from Firebase in batches (Firestore allows max 500 ops per batch)
+            const BATCH_LIMIT = 499;
             const txSnapshot = await db.collection('transactions').get();
-            txSnapshot.forEach(doc => {
-                txBatch.delete(doc.ref);
-            });
-            await txBatch.commit();
+            const docs = txSnapshot.docs;
+            for (let i = 0; i < docs.length; i += BATCH_LIMIT) {
+                const deleteBatch = db.batch();
+                docs.slice(i, i + BATCH_LIMIT).forEach(doc => deleteBatch.delete(doc.ref));
+                await deleteBatch.commit();
+            }
             
             addActivityLog('إعادة تعيين التقرير', 'تم إعادة تعيين التقرير الأسبوعي وحذف سجل المعاملات (تم الاحتفاظ بالأرصدة والأسهم)');
             showAlert('✅ تم إعادة تعيين التقرير الأسبوعي وحذف سجل المعاملات (تم الاحتفاظ بالأرصدة والأسهم)', 'success');
