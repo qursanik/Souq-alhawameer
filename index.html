@@ -3611,7 +3611,24 @@ try {
             </div>
         `;
     }
-
+function renderVerify() {
+    const phone = window.pendingRegistration ? window.pendingRegistration.phone : 'الجوال';
+    return `
+        <div class="container">
+            <div class="card animate-slide-up" style="max-width: 500px; margin: 4rem auto;">
+                <h2 style="color: var(--secondary);">التحقق من الرمز</h2>
+                <p>تم إرسال الرمز إلى ${phone}</p>
+                <form onsubmit="handleVerify(event)">
+                    <input type="text" id="verifyCodeInput" placeholder="------" 
+                           style="text-align: center; letter-spacing: 5px; font-size: 20px; margin: 20px 0;" 
+                           maxlength="6" required>
+                    <button type="submit" class="btn btn-primary" style="width:100%">تأكيد</button>
+                </form>
+                <button onclick="appState.currentScreen='register'; render()" class="btn" style="margin-top:10px">تغيير الرقم</button>
+            </div>
+        </div>
+    `;
+}
     function renderRegister() {
     return `
         <div class="container">
