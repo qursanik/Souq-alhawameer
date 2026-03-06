@@ -3613,42 +3613,78 @@ try {
     }
 
     function renderRegister() {
-return `
-    <div class="container">
-        <div class="card animate-slide-up" style="max-width: 500px; margin: 4rem auto;">
-            <h2 style="color: var(--secondary); margin-bottom: 2rem;">إنشاء حساب جديد</h2>
-            
-            <!-- reCAPTCHA Container for Firebase Phone Auth -->            
-            <form id="registerForm" onsubmit="handleRegister(event)">
-                <div class="form-group">
-                    <label>اسم المستخدم</label>
-                    <input type="text" name="regUsername" required placeholder="اختر اسم مستخدم">
-                </div>
-                <div class="form-group">
-                    <label>رقم الجوال</label>
-                    <input type="tel" name="regPhone" required placeholder="05xxxxxxxx" pattern="05[0-9]{8}">
-                </div>
-                <div class="form-group">
-                    <label>كلمة المرور</label>
-                    <input type="password" name="regPassword" required placeholder="اختر كلمة مرور قوية" minlength="6">
-                </div>
-                <div class="form-group">
-                    <label>تأكيد كلمة المرور</label>
-                    <input type="password" name="regConfirmPassword" required placeholder="أعد إدخال كلمة المرور" minlength="6">
-                </div>
-                <button type="button" id="phone-auth-btn" class="btn btn-primary" style="width: 100%; margin-bottom: 0.5rem;" onclick="sendOTP()">
-                    إرسال رمز التحقق 📱
-                </button>
-                <button type="button" class="btn btn-secondary" style="width: 100%;" onclick="appState.currentScreen='login'; render();">
-                    لديك حساب؟ تسجيل الدخول
-                </button>
-            </form>
+    return `
+        <div class="container">
+            <div class="card animate-slide-up" style="max-width: 500px; margin: 4rem auto;">
+                <h2 style="color: var(--secondary); margin-bottom: 2rem;">إنشاء حساب جديد</h2>
+                
+                <form id="registerForm" onsubmit="handleRegister(event)">
+                    <div class="form-group">
+                        <label>اسم المستخدم</label>
+                        <input type="text" name="regUsername" required placeholder="اختر اسم مستخدم">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>رقم الجوال</label>
+                        <input type="tel" name="regPhone" required placeholder="05xxxxxxxx" pattern="05[0-9]{8}">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>كلمة المرور</label>
+                        <input type="password" name="regPassword" required placeholder="اختر كلمة مرور قوية" minlength="6">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>تأكيد كلمة المرور</label>
+                        <input type="password" name="regConfirmPassword" required placeholder="أعد إدخال كلمة المرور" minlength="6">
+                    </div>
+                    
+                    <button type="submit" id="phone-auth-btn" class="btn btn-primary" style="width: 100%; margin-bottom: 0.5rem;">
+                        إرسال رمز التحقق 📱
+                    </button>
+                    
+                    <button type="button" class="btn btn-secondary" style="width: 100%;" onclick="appState.currentScreen='login'; render();">
+                        لديك حساب؟ تسجيل الدخول
+                    </button>
+                </form>
+            </div>
         </div>
-    </div>
-`;
-
+    `;
 }
+    
+function renderVerify() {
+    // جلب الرقم المسجل مؤقتاً لعرضه
+    const phone = window.pendingRegistration ? window.pendingRegistration.phone : '';
+    
+    return `
+        <div class="container">
+            <div class="card animate-slide-up" style="max-width: 500px; margin: 4rem auto;">
+                <h2 style="color: var(--secondary); margin-bottom: 1rem;">التحقق من رقم الجوال ✅</h2>
+                <p style="color: var(--text-secondary); margin-bottom: 2rem;">
+                    تم إرسال رمز التحقق إلى: <strong>${phone}</strong>
+                </p>
 
+                <form onsubmit="handleVerify(event)">
+                    <div class="form-group">
+                        <label>رمز التحقق (6 أرقام)</label>
+                        <input type="text" name="verifyCode" pattern="[0-9]{6}" maxlength="6"
+                               placeholder="------" required
+                               style="text-align: center; font-size: 1.5rem; letter-spacing: 0.5rem;">
+                    </div>
+
+                    <button type="submit" class="btn btn-primary" style="width: 100%; padding: 1rem;">
+                        تأكيد وإنشاء الحساب 🚀
+                    </button>
+                </form>
+
+                <p style="text-align: center; margin-top: 1.5rem;">
+                    <a href="#" onclick="appState.currentScreen='register'; render();">تغيير الرقم</a>
+                </p>
+            </div>
+        </div>
+    `;
+}
+    
 async function handleVerify(e) {
 e.preventDefault();
 const enteredCode = e.target.verifyCode.value.trim();
