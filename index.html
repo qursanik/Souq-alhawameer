@@ -1160,7 +1160,7 @@ window._retryTimeouts = [];
     <div id="app"></div>
     <div id="modals"></div>
     <!-- Persistent reCAPTCHA container — must never be removed from the DOM -->
-    <div id="recaptcha-container" style="display:none;"></div>
+    <div id="recaptcha-container"></div>
 
 <script>
     // db will be assigned in init() after Firebase loads
@@ -3636,7 +3636,7 @@ return `
                     <label>تأكيد كلمة المرور</label>
                     <input type="password" name="regConfirmPassword" required placeholder="أعد إدخال كلمة المرور" minlength="6">
                 </div>
-                <button type="submit" id="phone-auth-btn" class="btn btn-primary" style="width: 100%; margin-bottom: 0.5rem;">
+                <button type="button" id="phone-auth-btn" class="btn btn-primary" style="width: 100%; margin-bottom: 0.5rem;" onclick="sendOTP()">
                     إرسال رمز التحقق 📱
                 </button>
                 <button type="button" class="btn btn-secondary" style="width: 100%;" onclick="appState.currentScreen='login'; render();">
@@ -7124,6 +7124,146 @@ console.log('🚀 Starting Cloud App…');
     function deleteMessageSync(id) { deleteMessage(id); }
     function forceSaveStocksSync() { forceSaveStocks(); }
     function forceFullSaveSync() { forceFullSave(); }
+
+    // Phone Authentication Functions
+
+    function setupRecaptcha() {
+        if (!window.recaptchaVerifier) {
+            window.recaptchaVerifier = new firebase.auth.RecaptchaVerifier('recaptcha-container', {
+                'size': 'invisible',
+                'callback': function(response) {
+                    console.log('✅ reCAPTCHA solved');
+                },
+                'expired-callback': function() {
+                    console.warn('⚠️ reCAPTCHA expired, resetting');
+                    window.recaptchaVerifier = null;
+                }
+            });
+        }
+    }
+
+    async function sendOTP() {
+        const form = document.getElementById('registerForm');
+        if (!form) return;
+
+        const username = form.regUsername.value.trim();
+        const phone = form.regPhone.value.trim();
+        const password = form.regPassword.value;
+        const confirmPassword = form.regConfirmPassword ? form.regConfirmPassword.value : password;
+
+        if (!username || !phone || !password) {
+            showAlert('يرجى ملء جميع الحقول ❌', 'error');
+            return;
+        }
+        if (password !== confirmPassword) {
+            showAlert('كلمة المرور غير متطابقة ❌', 'error');
+            return;
+        }
+        if (appData.users.find(u => u.username === username)) {
+            showAlert('اسم المستخدم موجود مسبقاً ❌', 'error');
+            return;
+        }
+
+        // Add Saudi country code (+966) if no country code present
+        let formattedPhone = phone;
+        if (!formattedPhone.startsWith('+')) {
+            if (formattedPhone.startsWith('00')) {
+                formattedPhone = '+' + formattedPhone.substring(2);
+            } else if (formattedPhone.startsWith('0')) {
+                formattedPhone = '+966' + formattedPhone.substring(1);
+            } else {
+                formattedPhone = '+966' + formattedPhone;
+            }
+        }
+
+        const existingUserWithPhone = appData.users.find(u => u.phone === phone || u.phone === formattedPhone);
+        if (existingUserWithPhone) {
+            const userType = existingUserWithPhone.role === 'guest' ? 'ضيف' : 'طالب';
+            showAlert(`رقم الجوال مسجل مسبقاً كـ ${userType} ❌`, 'error');
+            return;
+        }
+
+        try {
+            showAlert('جاري إرسال رمز التحقق...', 'info');
+            setupRecaptcha();
+            const confirmationResult = await firebase.auth().signInWithPhoneNumber(formattedPhone, window.recaptchaVerifier);
+            window.confirmationResult = confirmationResult;
+            window.pendingRegistration = {
+                username,
+                phone: formattedPhone,
+                password,
+                role: 'student',
+                balance: 0,
+                color: '#' + Math.floor(Math.random() * 16777215).toString(16),
+                achievements: [],
+                suspended: false,
+                notifications: [],
+                phoneVerified: false,
+                phoneVerifiedAt: undefined
+            };
+            appState.currentScreen = 'verify';
+            render();
+            showAlert(`تم إرسال رمز التحقق إلى ${formattedPhone}`, 'success');
+        } catch (error) {
+            console.error('❌ sendOTP error:', error);
+            if (window.recaptchaVerifier) {
+                window.recaptchaVerifier.render().then(widgetId => {
+                    if (window.grecaptcha) window.grecaptcha.reset(widgetId);
+                }).catch(e => { console.log('reCAPTCHA reset error ignored:', e); });
+                window.recaptchaVerifier = null;
+            }
+            showAlert(getAuthErrorMessage(error) + ' ❌', 'error');
+        }
+    }
+
+    async function verifyOTP() {
+        const form = document.getElementById('verifyForm');
+        const code = form ? form.verifyCode.value.trim() : '';
+
+        if (!code || code.length !== 6) {
+            showAlert('يرجى إدخال رمز التحقق المكون من 6 أرقام ❌', 'error');
+            return;
+        }
+        if (!window.confirmationResult || !window.pendingRegistration) {
+            showAlert('حدث خطأ. يرجى المحاولة مرة أخرى ❌', 'error');
+            appState.currentScreen = 'register';
+            render();
+            return;
+        }
+
+        try {
+            showAlert('جاري التحقق من الرمز...', 'info');
+            const result = await window.confirmationResult.confirm(code);
+            console.log('✅ Phone verified successfully');
+
+            const newStudent = { ...window.pendingRegistration };
+            const passwordToHash = newStudent.password;
+            delete newStudent.password;
+            newStudent.passwordHash = await hashPassword(passwordToHash);
+            newStudent.phoneVerified = true;
+            newStudent.phoneVerifiedAt = new Date().toISOString();
+
+            appData.users.push(newStudent);
+            appData.portfolios.push({ username: newStudent.username, holdings: [] });
+            saveData();
+            addActivityLog('تسجيل جديد', `انضم الطالب ${newStudent.username} إلى السوق`);
+
+            window.confirmationResult = null;
+            window.pendingRegistration = null;
+            try { await firebase.auth().signOut(); } catch(e) { /* ignore */ }
+
+            showAlert(`✅ تم إنشاء الحساب بنجاح!\n\nمرحباً ${newStudent.username}\n\nيمكنك الآن تسجيل الدخول`, 'success');
+            appState.currentScreen = 'login';
+            render();
+        } catch (error) {
+            console.error('❌ verifyOTP error:', error);
+            let errorMsg = 'رمز التحقق غير صحيح';
+            if (error.code === 'auth/code-expired') {
+                errorMsg = 'انتهت صلاحية الرمز. حاول التسجيل مرة أخرى';
+            }
+            showAlert(errorMsg + ' ❌', 'error');
+        }
+    }
 </script>
 
 </body>
