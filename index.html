@@ -2765,7 +2765,22 @@ async function sendSmsCode(phoneNumber) {
 
     } catch(error) {
         console.error('❌ SMS sending error:', error);
-        
+
+        // If the ReCAPTCHA failed or expired, we must clear it so it can regenerate
+    if (window.recaptchaVerifier) {
+        window.recaptchaVerifier.clear();
+        window.recaptchaVerifier = null; 
+    }
+    // Remove the hidden captcha container to force a fresh render next time
+    const captchaContainer = document.getElementById('recaptcha-container');
+    if (captchaContainer) {
+        captchaContainer.innerHTML = ''; 
+    }
+    // ----------------------
+
+    document.getElementById('otp-error').innerText = "حدث خطأ: " + error.message;
+    // ... rest of your error handling
+});
         // إعادة تعيين التحقق للسماح بالمحاولة مرة أخرى
         if (globalVerifier) {
             try {
