@@ -2767,9 +2767,19 @@ async function sendSmsCode(phoneNumber) {
         console.error('❌ SMS sending error:', error);
 
         // If the ReCAPTCHA failed or expired, we must clear it so it can regenerate
-    if (window.recaptchaVerifier) {
-        window.recaptchaVerifier.clear();
-        window.recaptchaVerifier = null; 
+    if (globalVerifier) {
+        try {
+            globalVerifier.clear();
+        } catch (e) {
+            console.log("Error clearing recaptcha", e);
+        }
+        globalVerifier = null;
+    }
+    
+    // Also clear the HTML container manually to be safe
+    const captchaContainer = document.getElementById('recaptcha-container');
+    if (captchaContainer) {
+        captchaContainer.innerHTML = ''; 
     }
     // Remove the hidden captcha container to force a fresh render next time
     const captchaContainer = document.getElementById('recaptcha-container');
